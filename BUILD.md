@@ -14,8 +14,15 @@ because this fork's source at that tag is the exact commit upstream built from (
 direction). Its assets hash to the values in that release's notes and to upstream's own published
 `SHA256SUMS.txt`.
 
-So: if `git rev-list --count upstream/automation-4.1.6..HEAD` is `0`, there is nothing to build that is not
-already released. Rebuild only when the fork has commits upstream does not.
+So: if the fork is level with `upstream/automation-4.1.6`, or the only commits ahead of it touch
+documentation, there is nothing to build that is not already released:
+
+```
+git log --oneline upstream/automation-4.1.6..HEAD          # empty, or docs-only
+git log --oneline upstream/automation-4.1.6..HEAD -- ':!*.md' ':!docs'   # code changes only
+```
+
+Rebuild when that second command lists something.
 
 ## Requirements
 
