@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.31",
+  "contractVersion": "0.32",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -5111,9 +5111,11 @@
         }
       ],
       "profile": "merged-patch",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native merge behavior and game gates with explicit inputs/target, dry run, per-record outcomes and reproducible merge fixtures.",
+      "status": "partial",
+      "routes": [
+        "patches.merge"
+      ],
+      "notes": "TES4/FO3/FNV only; explicit bounded record selection uses all loaded overrides, declared-master baselines, duplicate-aware native deltas and FLST set/ordered rules. Empty last-loaded target, default dry run, per-record outcomes and counts. Modern native-warning games reject; runtime testing pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10983,6 +10985,18 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "patches.merge",
+      "kind": "command",
+      "handler": "xeAutomationMergedPatchCommand",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsPatches.pas",
+        "line": 313
+      },
+      "prerequisites": "Loaded saved numeric baseline, bounded external comparison with earlier loaded dependencies, new output name; apply requires consent/edit mode.",
+      "effect": "default dry-run native list plan; apply adds/cleans masters and copies winning records with merged list deltas in memory -> save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "records.apply_filter",
       "kind": "command",
       "handler": "xeAutomationRecordsApplyFilter",
@@ -11312,7 +11326,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 955
+        "line": 973
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11324,7 +11338,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 954
+        "line": 972
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11336,7 +11350,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 953
+        "line": 971
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11348,7 +11362,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 952
+        "line": 970
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
