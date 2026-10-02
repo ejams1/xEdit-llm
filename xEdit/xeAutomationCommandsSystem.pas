@@ -22,6 +22,7 @@ uses
   xeAutomationCommandsElements,
   xeAutomationCommandsFileHygiene,
   xeAutomationCommandsFiles,
+  xeAutomationCommandsFormIds,
   xeAutomationCommandsJobs,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
@@ -120,6 +121,8 @@ begin
     xeAutomationRegisterElementsCommands;
   if not xeAutomationHasCommand('batch.read') then
     xeAutomationRegisterBatchCommands;
+  if not xeAutomationHasCommand('formids.remap') then
+    xeAutomationRegisterFormIdCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -276,6 +279,44 @@ begin
       Result.S['persistence'] := 'read-only';
       Result.S['constraintNotes'] := 'Children need explicit limit <=50; response <=1 MiB';
     end;
+  end else if SameText(lCommand, 'formids.remap') or
+              SameText(lCommand, 'formids.change') or
+              SameText(lCommand, 'formids.renumber') or
+              SameText(lCommand, 'formids.inject') or
+              SameText(lCommand, 'references.replace') then begin
+    if SameText(lCommand, 'formids.remap') then
+      xeAutomationSchemaField(Result, 'mappings', 'array<object:file,oldFormId,newFormId>', True)
+    else if SameText(lCommand, 'references.replace') then
+      xeAutomationSchemaField(Result, 'mappings', 'array<object:oldFormId,newFormId>', True);
+    if SameText(lCommand, 'formids.change') then begin
+      xeAutomationSchemaLocator(Result);
+      xeAutomationSchemaField(Result, 'newFormId', 'string:8-hex-digits', True);
+    end;
+    if SameText(lCommand, 'formids.renumber') or SameText(lCommand, 'formids.inject') then begin
+      xeAutomationSchemaField(Result, 'file', 'string', True);
+      xeAutomationSchemaField(Result, 'formIds', 'array<string:formId>:default-all-new-records', False);
+      xeAutomationSchemaField(Result, 'startFormId', 'string:8-hex-digits',
+        SameText(lCommand, 'formids.renumber'));
+    end;
+    if SameText(lCommand, 'formids.inject') then begin
+      xeAutomationSchemaField(Result, 'masterFile', 'string:earlier-loaded-master', True);
+      xeAutomationSchemaField(Result, 'preserveObjectIds', 'boolean:default-true', False);
+    end;
+    if SameText(lCommand, 'formids.renumber') then
+      xeAutomationSchemaField(Result, 'endFormId', 'string:8-hex-digits', False);
+    if SameText(lCommand, 'references.replace') then
+      xeAutomationSchemaField(Result, 'scopeFiles', 'array<string:loaded-file>', True);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(Result, 'addRequiredMasters', 'boolean:default-false', False);
+    if Copy(lCommand, 1, 8) = 'formids.' then
+      xeAutomationSchemaField(Result, 'updateRefs', 'boolean:default-true', False);
+    Result.S['prerequisites'] :=
+      'Loaded records and complete reference index; collisions, master order, writable overrides/referrers preflight before apply';
+    Result.S['persistence'] := 'dry-run-read-or-in-memory-until-session.save-and-terminal-session.flush';
+    Result.S['constraintNotes'] := 'At most 32 mappings, 1024 total referrers and 1024 overrides; overlapping ranges/swaps reject; reference chains reject; native partial failures are reported';
+    Result.A['errors'].Add('formid_collision');
+    Result.A['errors'].Add('reference_capacity');
+    Result.A['errors'].Add('mutation_not_allowed');
   end else begin
     Result.B['schemaAvailable'] := False;
     Result.S['reason'] := 'Detailed schema is not yet authored for this registered command';
@@ -305,6 +346,26 @@ begin
         S['file'] := 'MyPatch.esp'; S['formId'] := '01000800'; S['path'] := 'EDID';
         S['expectedValue'] := 'OldEditorId'; S['value'] := 'NewEditorId';
       end;
+    end else if SameText(lCommand, 'formids.change') then begin
+      lExample.O['args'].S['newFormId'] := '01000900';
+      lExample.O['args'].B['dryRun'] := True;
+    end else if SameText(lCommand, 'formids.renumber') then begin
+      lExample.O['args'].S['startFormId'] := '01000900';
+      lExample.O['args'].B['dryRun'] := True;
+    end else if SameText(lCommand, 'formids.inject') then begin
+      lExample.O['args'].S['masterFile'] := 'MyMaster.esm';
+      lExample.O['args'].B['preserveObjectIds'] := True;
+      lExample.O['args'].B['dryRun'] := True;
+    end else if SameText(lCommand, 'formids.remap') or
+                SameText(lCommand, 'references.replace') then begin
+      lExampleItem := lExample.O['args'].A['mappings'].AddObject;
+      if SameText(lCommand, 'formids.remap') then
+        lExampleItem.S['file'] := 'MyPatch.esp'
+      else
+        lExample.O['args'].A['scopeFiles'].Add('MyPatch.esp');
+      lExampleItem.S['oldFormId'] := '01000800';
+      lExampleItem.S['newFormId'] := '01000900';
+      lExample.O['args'].B['dryRun'] := True;
     end;
   end;
 end;
@@ -330,8 +391,8 @@ var
   lReverseNavigation: TJsonObject;
 begin
   Result := TJsonObject.Create;
-  // Contract 0.27 adds native circular-list validation to the job surface.
-  Result.S['contractVersion'] := '0.27';
+  // Contract 0.28 adds explicit FormID and scoped reference mappings.
+  Result.S['contractVersion'] := '0.28';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin

@@ -21,6 +21,7 @@ implementation
 
 uses
   xeAutomationCommandsBatch,
+  xeAutomationCommandsFormIds,
   xeAutomationCommandsCleaning,
   xeAutomationCommandsFileHygiene,
   xeAutomationCommandsJobs,
@@ -119,6 +120,7 @@ begin
     xeAutomationRegisterRecordsCommands;
     xeAutomationRegisterElementsCommands;
     xeAutomationRegisterBatchCommands;
+    xeAutomationRegisterFormIdCommands;
     // Scripts run against loaded data and locator resolution, so expose them only
     // after the session/files/records/elements command surface has been wired.
     xeAutomationRegisterScriptsCommands;

@@ -258,6 +258,40 @@ within a single file is still atomic. Large single-file validation scans,
 compaction, and cleaning need finer steppers before latency can be guaranteed.
 Compilation and game-backed execution remain pending.
 
+## Issues #21/#22: FormID plans and scoped reference replacement
+
+`formids.change`, `formids.remap`, `formids.renumber` and `formids.inject`
+default to `dryRun:true`. Remap accepts 1..32 `{file,oldFormId,newFormId}`
+mappings; renumber takes `file`, `startFormId`, optional `endFormId` and
+`formIds` (omitting selection chooses all new records, still capped at 32).
+Injection takes `masterFile` and preserves object indices by default;
+`preserveObjectIds:false` requires `startFormId` in the master slot.
+`updateRefs` defaults true. False intentionally leaves old references in place.
+Targets must be base records, never headers or later overrides. Existing loaded
+target IDs are collisions, including overlapping renumber ranges and swaps.
+Use an unused range. All overrides and selected referrers receive dependency
+and writable preflight. Optional `addRequiredMasters:true` permits missing
+dependencies only when native load-order/module rules allow them.
+
+`references.replace` accepts 1..32 `{oldFormId,newFormId}` mappings and explicit
+`scopeFiles`. Both targets must be loaded. Only in-scope referrers change;
+excluded counts are reported. Chains/swaps are rejected to prevent cascading
+rewrites. Each request allows at most 1024 referrers (and FormID remap also
+1024 overrides). TES3 and translation mode are rejected. Reference-index
+construction is a synchronous native prerequisite; these are bounded commands,
+not incremental jobs. Apply results list completed record changes, dirty files,
+mutation audit and the first partial failure. They remain in memory until save.
+
+Generate `formid_fixture.py generate --overlay <MO2-mod>`, then load both
+synthetic files in FO4. Run `exercise --overlay <MO2-mod> --exe <exe> --pid
+<pid> --artifacts <folder>`; relaunch and run `verify` with a fresh PID.
+Assertions cover dry-run isolation, scoped replacement and reversal, collision
+refusal, single change with dependent updates, arbitrary-range renumber,
+preserved-index injection and save/reload. Additional native cases must cover
+missing-master additions, overrides in later files, locked/protected targets,
+light/medium ranges, mapping batches, native partial failures and game gates.
+Needs testing before merging: Delphi compilation and game-backed runs are pending.
+
 ## Issue #20: circular leveled-list validation
 
 `validation.circular_leveled_lists` is a read-only job over explicit target
