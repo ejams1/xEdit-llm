@@ -431,3 +431,32 @@ a stale later item, two-record apply, revision rejection, batched full reads,
 and fresh-process persistence. Test mixed files, different nested child pages,
 oversized values and a native failure injected on the second edit separately.
 Compilation and game-backed execution remain pending.
+
+## Issue #26: delta patches
+
+`patches.delta` takes `sourceFile` (saved loaded baseline), `comparePath` (external
+newer plugin), and `outputFile` (new simple `.esu` filename in the runtime Data
+view). `dryRun` defaults true and inspects only headers and dependencies; it
+cannot predict record outcomes without loading the comparison. Apply requires
+consent and edit mode, immediately copies the newer plugin to disk, and loads
+that copy through native delta mode. `markRemovedDeleted` and `removeIdentical`
+default true. The baseline stays unchanged. Delta edits require `session.save`
+and terminal `session.flush`; before saving, the disk copy is the full comparison.
+A failed apply reports its phase and retained disk/session state without rollback.
+
+Inputs are bounded to 1000 records per file and 64 MiB for the comparison.
+TES3, localized plugins and comparison `.cpoverride` sidecars reject. Comparison
+masters must already be loaded before the baseline. Cleanup compares exactly
+the selected baseline, including all header flags, and retains ancestors with
+children. Different master tables conservatively retain uncertain records.
+
+Generate `delta_fixture.py generate --overlay <MO2-mod-folder>`. Load Fallout4.esm,
+AutomationDeltaMaster.esm and AutomationDeltaBaseline.esp; keep the generated
+comparison outside the active load list. Run `exercise` with the same overlay,
+exe, PID and artifacts arguments. It asserts dry-run isolation, immediate disk
+copy, flag/payload changes, a reversion to an older master, deletion markers,
+new records, duplicate-output refusal and unchanged baseline; then saves/flushes.
+Relaunch with AutomationDeltaOutput.esu appended and run `verify`. Also verify
+changed master-order references, child-group ancestor retention, both options
+false, unsupported modes, capacity gates and partial native-load failures before
+acceptance. Delphi compilation and game-backed execution remain pending.

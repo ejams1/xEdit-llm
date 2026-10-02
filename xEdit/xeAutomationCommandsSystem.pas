@@ -23,6 +23,7 @@ uses
   xeAutomationCommandsFileHygiene,
   xeAutomationCommandsFiles,
   xeAutomationCommandsFormIds,
+  xeAutomationCommandsPatches,
   xeAutomationCommandsJobs,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
@@ -124,6 +125,8 @@ begin
     xeAutomationRegisterBatchCommands;
   if not xeAutomationHasCommand('formids.remap') then
     xeAutomationRegisterFormIdCommands;
+  if not xeAutomationHasCommand('patches.delta') then
+    xeAutomationRegisterPatchCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -279,6 +282,26 @@ begin
         'Read allowlist: records.get, elements.get, elements.get_value, elements.children';
       Result.S['persistence'] := 'read-only';
       Result.S['constraintNotes'] := 'Children need explicit limit <=50; response <=1 MiB';
+    end;
+  end else if SameText(lCommand, 'patches.delta') then begin
+    xeAutomationSchemaField(Result, 'sourceFile', 'string:loaded-saved-baseline', True);
+    xeAutomationSchemaField(Result, 'comparePath', 'string:existing-external-plugin-path', True);
+    xeAutomationSchemaField(Result, 'outputFile', 'string:new-simple-esu-filename', True);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(Result, 'markRemovedDeleted', 'boolean:default-true', False);
+    xeAutomationSchemaField(Result, 'removeIdentical', 'boolean:default-true', False);
+    Result.S['prerequisites'] := 'Numeric non-localized plugins; loaded comparison masters before saved baseline; new Data output name; apply requires consent/edit mode';
+    Result.S['persistence'] := 'apply immediately creates an external .esu copy; native delta edits require session.save and terminal session.flush';
+    Result.S['constraintNotes'] := '1000 records per input, comparison <=64 MiB; dry run is header/dependency-only; changed master mappings retain uncertain records; encoding sidecars reject';
+    Result.S['resultNotes'] := 'Reports external-copy and loaded state, deletion/identical counts, retained records and phase/partial failure; no automatic rollback';
+    Result.A['errors'].Add('patch_capacity');
+    Result.A['errors'].Add('state_conflict');
+    with Result.O['example'] do begin
+      S['command'] := lCommand;
+      O['args'].S['sourceFile'] := 'Baseline.esp';
+      O['args'].S['comparePath'] := 'C:\\Fixtures\\NewVersion.esp';
+      O['args'].S['outputFile'] := 'VersionDelta.esu';
+      O['args'].B['dryRun'] := True;
     end;
   end else if SameText(lCommand, 'records.copy_into') then begin
     xeAutomationSchemaField(Result, 'source', 'object:file,formId', True);
@@ -442,7 +465,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.30';
+  Result.S['contractVersion'] := '0.31';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin

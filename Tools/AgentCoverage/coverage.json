@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.30",
+  "contractVersion": "0.31",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -3007,10 +3007,12 @@
         }
       ],
       "profile": "delta-patch",
-      "status": "missing",
-      "routes": [],
-      "notes": "Accept explicit compared/source/target files and native delta options; report changed records, required masters and errors without modal file selection.",
-      "effect": "copies a compared module to an .esu on disk immediately and starts a loader; needs dedicated lifecycle/persistence contract",
+      "status": "partial",
+      "routes": [
+        "patches.delta"
+      ],
+      "notes": "Explicit saved baseline, external comparison and new .esu name; bounded header-only dry run, native compare load, deletion markers, selected-baseline cleanup and per-record outcomes. Localized/encoding-sidecar inputs reject; differing master tables conservatively retain records. Native runtime testing pending.",
+      "effect": "apply immediately copies comparison to Data .esu; loaded delta edits require session.save and terminal session.flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -10969,6 +10971,18 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "patches.delta",
+      "kind": "command",
+      "handler": "xeAutomationDeltaPatch",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsPatches.pas",
+        "line": 312
+      },
+      "prerequisites": "Loaded saved numeric baseline, bounded external comparison with earlier loaded dependencies, new output name; apply requires consent/edit mode.",
+      "effect": "dry run reads headers only; apply immediately creates .esu disk copy, then edits loaded delta -> save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "records.apply_filter",
       "kind": "command",
       "handler": "xeAutomationRecordsApplyFilter",
@@ -11298,7 +11312,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 932
+        "line": 955
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11310,7 +11324,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 931
+        "line": 954
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11322,7 +11336,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 930
+        "line": 953
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11334,7 +11348,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 929
+        "line": 952
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
