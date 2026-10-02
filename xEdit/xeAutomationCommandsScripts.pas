@@ -26,6 +26,7 @@ uses
   xeAutomationErrors,
   xeMainForm,
   xeHeadlessJvIScriptHost,
+  xeAutomationMutationAudit,
   xeAutomationMutationPolicy,
   xeAutomationObjectModel,
   xeAutomationRegistry,
@@ -609,33 +610,24 @@ begin
 end;
 
 procedure xeAutomationScriptsAttachFailureMutationDetails(const ADetails: TJsonObject;
-  const ADirtyFilesBefore: TArray<string>; const ARunResult: TxeHeadlessScriptRunResult);
+  const ADirtyFilesBefore: TArray<string>; const ABefore: TxeAutomationMutationSnapshot; const ARunResult: TxeHeadlessScriptRunResult);
 var
-  lDirtyFilesAfter: TArray<string>;
   lMutationsApplied: Boolean;
   i: Integer;
 begin
-  lDirtyFilesAfter := xeAutomationScriptsDirtyFilesFromState(ARunResult.DirtyState);
-
-  // Dirty is a per-file Boolean, not a mutation generation counter. A file that
-  // was dirty both before and after the run may or may not have been touched by
-  // this script; expose that pre-existing set so clients can treat false as
-  // "no newly dirty file observed" rather than proof that no mutation occurred.
+  // Preserve pre-existing session dirtiness separately from the generation audit.
   ADetails.A['preExistingDirtyFiles'];
   for i := Low(ADirtyFilesBefore) to High(ADirtyFilesBefore) do
     ADetails.A['preExistingDirtyFiles'].Add(ADirtyFilesBefore[i]);
 
-  lMutationsApplied := not xeAutomationScriptsStringSetsEqual(ADirtyFilesBefore, lDirtyFilesAfter);
+  xeAutomationWriteMutationAudit(ADetails.O['mutationState'], ABefore);
+  lMutationsApplied := ADetails.O['mutationState'].B['mutationsObserved'];
   ADetails.B['mutationsAppliedBeforeFailure'] := lMutationsApplied;
   if not lMutationsApplied then
     Exit;
 
-  // Report only files newly dirtied by this run, excluding pre-existing session
-  // dirtiness that the failed script did not introduce.
-  ADetails.A['modifiedFilesBeforeFailure'];
-  for i := Low(lDirtyFilesAfter) to High(lDirtyFilesAfter) do
-    if not xeAutomationScriptsStringArrayContains(ADirtyFilesBefore, lDirtyFilesAfter[i]) then
-      ADetails.A['modifiedFilesBeforeFailure'].Add(lDirtyFilesAfter[i]);
+  // Native generations observe edits even when the file was already dirty.
+  ADetails.A['modifiedFilesBeforeFailure'].Assign(ADetails.O['mutationState'].A['affectedFiles']);
 end;
 
 procedure xeAutomationScriptsRaiseRunError(const ACode, AMessage: string; const ADetails: TJsonObject);
@@ -675,7 +667,7 @@ end;
 
 procedure xeAutomationScriptsTriageFailedRun(const ARunResult: TxeHeadlessScriptRunResult;
   const AOptions: TxeHeadlessScriptRunOptions; const ATimeoutMS, AMaxStatements: Cardinal;
-  const ADirtyFilesBefore: TArray<string>;
+  const ADirtyFilesBefore: TArray<string>; const ABefore: TxeAutomationMutationSnapshot;
   out ATerminatedEarly: Boolean; out ATerminationCode: Int64);
 var
   lDetails: TJsonObject;
@@ -753,7 +745,7 @@ begin
       lDetails.L['elapsedMs'] := ATimeoutMS;
       xeAutomationScriptsAttachLifecycleDetails(lDetails, ARunResult);
       xeAutomationScriptsAttachFailureMessages(lDetails, ARunResult);
-      xeAutomationScriptsAttachFailureMutationDetails(lDetails, ADirtyFilesBefore, ARunResult);
+      xeAutomationScriptsAttachFailureMutationDetails(lDetails, ADirtyFilesBefore, ABefore, ARunResult);
       xeAutomationScriptsRaiseRunError(xeHeadlessScriptErrorTimeout, ARunResult.ErrorMessage, lDetails);
     finally
       lDetails.Free;
@@ -768,7 +760,7 @@ begin
       // consumed statement count; emitting 0 would mislead callers.
       xeAutomationScriptsAttachLifecycleDetails(lDetails, ARunResult);
       xeAutomationScriptsAttachFailureMessages(lDetails, ARunResult);
-      xeAutomationScriptsAttachFailureMutationDetails(lDetails, ADirtyFilesBefore, ARunResult);
+      xeAutomationScriptsAttachFailureMutationDetails(lDetails, ADirtyFilesBefore, ABefore, ARunResult);
       xeAutomationScriptsRaiseRunError(xeHeadlessScriptErrorStatementBudgetExceeded, ARunResult.ErrorMessage, lDetails);
     finally
       lDetails.Free;
@@ -794,7 +786,7 @@ begin
       lDetails.I['targetIndex'] := ARunResult.ProcessedTargetCount;
     xeAutomationScriptsAttachLifecycleDetails(lDetails, ARunResult);
     xeAutomationScriptsAttachFailureMessages(lDetails, ARunResult);
-    xeAutomationScriptsAttachFailureMutationDetails(lDetails, ADirtyFilesBefore, ARunResult);
+    xeAutomationScriptsAttachFailureMutationDetails(lDetails, ADirtyFilesBefore, ABefore, ARunResult);
     xeAutomationScriptsRaiseRunError(xeAutomationScriptsErrorRuntime, ARunResult.ErrorMessage, lDetails);
   finally
     lDetails.Free;
@@ -885,6 +877,7 @@ var
   lTerminationCode: Int64;
   lDeniedReason: string;
   lDirtyFilesBefore: TArray<string>;
+  lSnapshot: TxeAutomationMutationSnapshot;
 begin
   if not xeAutomationMutationPolicyConsentSatisfied(lDeniedReason) then begin
     Result := xeAutomationErrorsBuildConsentRequired('scripts.run', 'scripts-mutation', lDeniedReason);
@@ -932,6 +925,7 @@ begin
   // Snapshot the session before lifecycle dispatch so failure reporting can
   // distinguish this run's partial mutations from dirtiness that already existed.
   lDirtyFilesBefore := xeAutomationScriptsCurrentDirtyFiles;
+  lSnapshot := xeAutomationCaptureMutationSnapshot;
   lPrevPnlClientEnabled := False;
   lStarted := GetTickCount64;
   if Assigned(frmMain) then
@@ -950,10 +944,12 @@ begin
     lTerminationCode := 0;
     if not lResult.Success then
       xeAutomationScriptsTriageFailedRun(lResult, lOptions, lOptions.TimeoutMS, lOptions.StatementBudget,
-        lDirtyFilesBefore, lTerminatedEarly, lTerminationCode);
+        lDirtyFilesBefore, lSnapshot, lTerminatedEarly, lTerminationCode);
 
     Result := xeAutomationScriptsSuccessResult(lNormalizedId, lLintHits, lLintBypassed, lResult,
       lTerminatedEarly, lTerminationCode);
+    xeAutomationWriteMutationAudit(Result.O['mutationState'], lSnapshot);
+    Result.B['changed'] := Result.O['mutationState'].B['mutationsObserved'];
   finally
     if Assigned(lResult.DirtyState) then
       lResult.DirtyState.Free;

@@ -58,6 +58,7 @@ uses
   xeAutomationGuiSnapshot in 'xEdit\xeAutomationGuiSnapshot.pas',
   xeAutomationHostCli in 'xEdit\xeAutomationHostCli.pas',
   xeAutomationJobs in 'xEdit\xeAutomationJobs.pas',
+  xeAutomationMutationAudit in 'xEdit\xeAutomationMutationAudit.pas',
   xeAutomationMutationPolicy in 'xEdit\xeAutomationMutationPolicy.pas',
   xeAutomationObjectModel in 'xEdit\xeAutomationObjectModel.pas',
   xeAutomationRecordComparison in 'xEdit\xeAutomationRecordComparison.pas',

@@ -26,6 +26,7 @@ uses
   SysUtils,
   wbImplementation,
   xeAutomationErrors,
+  xeAutomationMutationAudit,
   xeAutomationMutationPolicy,
   xeAutomationRegistry;
 
@@ -415,6 +416,7 @@ end;
 function xeAutomationResolveCreateParentTarget(
   const AParentSpec: TxeAutomationCreateParentSpec;
   const ACreateSignature: TwbSignature;
+  const ATargetFile: IwbFile;
   out ATargetGroup: IwbGroupRecord;
   out AExistingRecord: IwbMainRecord;
   out ACreateName: string): Boolean;
@@ -435,6 +437,10 @@ begin
   lLocator.FormID := IntToHex(AParentSpec.FormId, 8);
   lLocator.Path := '';
   lParent := xeAutomationRequireMainRecord(lLocator);
+  if not Assigned(lParent._File) or not lParent._File.Equals(ATargetFile) then
+    raise xeAutomationInvalidTarget('Create parent must be owned by targetFile; copy the parent override first');
+  xeAutomationRequireWritableRootRecordTarget(lParent);
+
 
   // The parent object is the write-side substitute for synthetic ChildGroup paths:
   // validate the small owner set before native Add sees a malformed target GRUP.
@@ -847,6 +853,11 @@ var
   lCreateName: string;
   lEditorID: string;
   lAlreadyExists: Boolean;
+  lChanged: Boolean;
+  lBeforeEditorID: string;
+  lRecordDef: PwbMainRecordDef;
+  lSnapshot: TxeAutomationMutationSnapshot;
+  lSteps: TArray<string>;
   lDeniedReason: string;
 begin
   if not xeAutomationMutationPolicyConsentSatisfied(lDeniedReason) then begin
@@ -860,10 +871,20 @@ begin
   lEditorID := xeAutomationReadStringArg(AArgs, 'editorId');
   xeAutomationReadCreateParentSpec(AArgs, lParentSpec);
   xeAutomationRequireWritableTargetFile(lFile);
+  // Definition support is knowable without Add, including empty parent groups.
+  if not wbFindRecordDef(lCreateSignature, lRecordDef) then
+    raise xeAutomationInvalidTarget('Record signature has no native definition');
+  if (lEditorID <> '') and not lRecordDef^.ContainsKnownSubRecord[ksrEditorID] then
+    raise xeAutomationMutationNotAllowed('Record signature cannot have an EditorID');
+  lSnapshot := xeAutomationCaptureMutationSnapshot;
+  lSteps := nil;
+  lRecord := nil;
+  lBeforeEditorID := '';
+
 
   try
     lAlreadyExists := False;
-    if xeAutomationResolveCreateParentTarget(lParentSpec, lCreateSignature, lParentTargetGroup, lExistingParentRecord, lCreateName) then begin
+    if xeAutomationResolveCreateParentTarget(lParentSpec, lCreateSignature, lFile, lParentTargetGroup, lExistingParentRecord, lCreateName) then begin
       if not Assigned(lParentTargetGroup) then
         raise xeAutomationInvalidTarget(Format('Automation parent target group could not be resolved for signature %s', [lSignature]));
       if not SameText(lParentTargetGroup._File.FileName, lFile.FileName) then
@@ -896,21 +917,37 @@ begin
     if not Supports(lNewElement, IwbMainRecord, lRecord) then
       raise xeAutomationInvalidTarget(Format('Automation record could not be created for signature %s', [lSignature]));
 
+    lSteps := ['record-resolved'];
+    if lRecord.CanHaveEditorID then
+      lBeforeEditorID := lRecord.EditorID;
     if lEditorID <> '' then begin
       if not lRecord.CanHaveEditorID then
         raise xeAutomationMutationNotAllowed(Format('Automation record signature %s cannot have an EditorID', [lSignature]));
-      lRecord.EditorID := lEditorID;
+      if lRecord.EditorID <> lEditorID then
+        lRecord.EditorID := lEditorID;
+      lSteps := ['record-resolved', 'editor-id-set'];
     end;
   except
-    on E: ExeAutomationError do
-      raise;
-    on E: Exception do
-      raise xeAutomationInvalidTarget(Format('Automation record could not be created: %s', [E.Message]));
+    on E: Exception do begin
+      // Removing a fresh record is feasible; rewinding consumed IDs or all group
+      // creation is not. Never remove an existing parent record during rollback.
+      if Assigned(lRecord) and not lAlreadyExists and lRecord.IsRemovable then begin
+        try
+          lRecord.Remove;
+          lSteps := ['record-resolved', 'rollback-record-removed'];
+        except
+          lSteps := ['record-resolved', 'rollback-record-failed'];
+        end;
+      end;
+      raise xeAutomationMutationFailure(E, xeAutomationErrorInvalidTarget, 'records.create', lSnapshot, lSteps);
+    end;
   end;
 
   Result := TJsonObject.Create;
   try
-    Result.B['changed'] := not lAlreadyExists;
+    lChanged := not lAlreadyExists or (lRecord.CanHaveEditorID and (lBeforeEditorID <> lRecord.EditorID));
+    Result.B['changed'] := lChanged;
+    xeAutomationWriteMutationAudit(Result.O['mutationState'], lSnapshot);
     Result.B['created'] := lRecord.IsMaster and not lAlreadyExists;
     Result.B['override'] := not lRecord.IsMaster;
     if lAlreadyExists then
@@ -1092,6 +1129,8 @@ var
   lEditorIDPrefix: string;
   lEditorIDSuffix: string;
   lDeniedReason: string;
+  lSnapshot: TxeAutomationMutationSnapshot;
+  lSteps: TArray<string>;
 begin
   if not xeAutomationMutationPolicyConsentSatisfied(lDeniedReason) then begin
     Result := xeAutomationErrorsBuildConsentRequired('records.copy_into', 'records-mutation', lDeniedReason);
@@ -1155,46 +1194,37 @@ begin
     // overrides when deep copy is forced, but the response still echoes caller intent.
     lNativeDeepCopy := True;
 
-  // Use the same native-deep-copy decision for master preflight and the copy source;
-  // otherwise child-group-only dependencies could bypass addRequiredMasters=false.
+  lCopySource := lSourceRecord;
+  if lNativeDeepCopy and Assigned(lSourceRecord.ChildGroup) then
+    lCopySource := lSourceRecord.ChildGroup;
+  if wbIsStarfield and lCopySource.ContainsReflection and
+     (wbStarfieldReverseEngineeringIncomplete or lCopySource.ContainsUnsafeReflection) then
+    raise xeAutomationMutationNotAllowed('Source contains Reflection and cannot be copied');
+  if not lAddRequiredMasters and lCopySource.ContainsUnmappedFormID and
+     ((lTargetFile.MasterCount[True] = 0) or
+      (lTargetFile.Masters[0, True].FileStates * [fsIsGameMaster] = [])) then
+    raise xeAutomationMutationNotAllowed('Unmapped FormIDs require the game master as the first target master');
+
   lRequiredMasters := xeAutomationCollectCopyRequiredMasters(lSourceRecord, lAsNew, lNativeDeepCopy);
+  lSnapshot := xeAutomationCaptureMutationSnapshot;
+  lSteps := nil;
   try
-    lMasterReport := xeAutomationApplyCopyRequiredMasters(lTargetFile, lRequiredMasters, lAddRequiredMasters);
-  finally
-    lRequiredMasters.Free;
-  end;
-
-  try
-    // Master addition is the intentional pre-copy mutation boundary: native copy needs
-    // dependencies present first, so later copy failures may leave audited master-list
-    // changes, while addRequiredMasters=false still fails before hidden master edits.
-    lCopySource := lSourceRecord;
-    if lNativeDeepCopy and Assigned(lSourceRecord.ChildGroup) then
-      lCopySource := lSourceRecord.ChildGroup;
-
     try
-      lCopiedElement := wbCopyElementToFile(
-        lCopySource,
-        lTargetFile,
-        lAsNew,
-        lNativeDeepCopy,
-        '',
-        '',
-        lEditorIDPrefix,
-        lEditorIDSuffix,
-        lOverwrite
-      );
+      lMasterReport := xeAutomationApplyCopyRequiredMasters(lTargetFile, lRequiredMasters, lAddRequiredMasters);
+      lSteps := ['masters-ready'];
+      lCopiedElement := wbCopyElementToFile(lCopySource, lTargetFile, lAsNew, lNativeDeepCopy,
+        '', '', lEditorIDPrefix, lEditorIDSuffix, lOverwrite);
       lCopiedRecord := xeAutomationIdentifyCopiedMainRecord(lCopiedElement, lCopySource, lSourceRecord, lTargetFile, lAsNew);
+      lSteps := ['masters-ready', 'record-copied'];
     except
-      on E: ExeAutomationError do
-        raise;
       on E: Exception do
-        raise xeAutomationInvalidTarget(Format('Automation record could not be copied: %s', [E.Message]));
+        raise xeAutomationMutationFailure(E, xeAutomationErrorInvalidTarget, 'records.copy_into', lSnapshot, lSteps);
     end;
 
     Result := TJsonObject.Create;
     try
-      Result.B['changed'] := True;
+      xeAutomationWriteMutationAudit(Result.O['mutationState'], lSnapshot);
+      Result.B['changed'] := Result.O['mutationState'].B['mutationsObserved'];
       Result.B['dirty'] := lTargetFile.Modified;
       Result.S['mode'] := lMode;
       Result.B['deepCopy'] := lDeepCopy;
@@ -1215,9 +1245,9 @@ begin
       Result.Free;
       raise;
     end;
-  except
+  finally
+    lRequiredMasters.Free;
     lMasterReport.Free;
-    raise;
   end;
 end;
 

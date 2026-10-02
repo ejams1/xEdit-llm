@@ -69,3 +69,28 @@ localized IDs. Autodetected UTF-8 is preserved from the original bytes. When no
 UTF-8 evidence remains (e.g. an ASCII-only field), unrepresentable writes are
 rejected before resizing. A fixed-size write that would cut encoded bytes is also
 rejected. Runtime execution and Delphi compilation remain pending.
+
+## Issues #4/#10: mutation outcomes
+
+`mutation_fixture.py --exe <new-xEdit.exe> --pid <MO2-daemon-pid> --artifacts
+<run-folder>` uses the loaded string fixture. It verifies that an unsupported
+LAND EditorID fails without mutation and that a script editing an already-dirty
+file before a division-by-zero failure reports the actual affected file. It
+inspects the complete resulting text before saving and terminally flushing.
+Relaunch and independently read DESC to prove persistence.
+
+Create/copy failures expose completed steps, mutation generations, affected files
+and remaining-state guidance. Fresh-record rollback is attempted where feasible;
+group creation and consumed IDs are not claimed to be fully rolled back. Save
+errors include completed, failed and not-attempted file steps, current dirty and
+pending-flush state. A failing native disk save can have an unknown partial
+outcome. Generic job errors likewise use `partial:null, partialKnown:false` when
+no native plugin modification is observed and external writes cannot be ruled
+out. Script mutation reporting uses native generations rather than dirty-set
+changes. Generations indicate native modification notifications, not byte deltas.
+
+Pending failure injection: native copy refusal after dependencies change; create
+failure after Add with rollback success/failure; two-file save with the second
+output locked/unwritable; existing WRLD CELL EditorID changes; queued job failure
+after an earlier target is processed. Preserve affected master lists, IDs,
+groups, dirty/pending state, output files and fresh-process readbacks.
