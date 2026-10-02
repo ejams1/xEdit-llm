@@ -258,6 +258,36 @@ within a single file is still atomic. Large single-file validation scans,
 compaction, and cleaning need finer steppers before latency can be guaranteed.
 Compilation and game-backed execution remain pending.
 
+## Issue #25: injected-reference cleanup
+
+Start `cleaning.cleanup_injected_references` with explicit `target.files` and
+`options.records` root locators (1..128 records across at most 32 source files).
+Omitted dryRun is true. Every source must have problematic references to exactly
+one common injection provider. Optional `options.injectionFile` asserts that
+provider. Reference construction, ownership, writable source/provider and full
+dependency preflight run over the entire selection before any apply work.
+`addRequiredMasters` defaults true; existing provider overrides require explicit
+`overwrite:true`. TES3 and translation mode reject; other native schemas retain
+their native removal rules.
+
+Apply first preserves the original record as a full same-ID override in the
+provider, verifies ownership, then calls native `RemoveInjected(False)` on the
+source. False protects the root from deletion, not from edits. Results retain
+preserved locators and cleanup outcomes; findings distinguish unresolved
+references needing manual review. Jobs yield/cancel between source files.
+Both files may need saving, including when a native failure interrupts cleanup
+after preservation. Script/result-script/package special cases use native rules.
+
+Run `injected_fixture.py generate --overlay <MO2-mod>`, load both files, then
+`exercise --overlay <MO2-mod> --exe <exe> --pid <pid> --artifacts <folder>`.
+Relaunch for `verify`. It checks dry-run isolation, preservation of the original
+reference list in the provider, removal of only the problematic source entry,
+unrelated-reference preservation, both-file dirty state and fresh-process
+readback. Add native tests for required/unremovable fields, SCPT/result-script/
+PLDT rules, protected/ambiguous/existing targets, missing/later dependencies,
+mixed invalid selections and partial failures. Needs testing before merging:
+Delphi compilation and MO2-backed acceptance remain pending.
+
 ## Issues #23/#24: leveled transformations and idle copies
 
 `records.copy_into` adds `mode:"wrapper"` and `mode:"spawn_rate"`, defaulting

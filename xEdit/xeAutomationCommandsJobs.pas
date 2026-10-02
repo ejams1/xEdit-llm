@@ -31,7 +31,8 @@ begin
     Exit;
 
   if SameText(AKind, 'cleaning.quick_clean') or SameText(AKind, 'cleaning.quick_auto_clean') or
-     SameText(AKind, 'cleaning.sort_and_clean_masters') then
+     SameText(AKind, 'cleaning.sort_and_clean_masters') or
+     SameText(AKind, 'cleaning.cleanup_injected_references') then
     Exit('cleaning-mutation');
 
   if SameText(AKind, 'files.hygiene.batch') then

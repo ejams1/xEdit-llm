@@ -38,7 +38,7 @@ uses
   xeAutomationRegistry;
 
 const
-  xeAutomationFinalJobKinds: array[0..10] of string = (
+  xeAutomationFinalJobKinds: array[0..11] of string = (
     'files.hygiene.batch',
     'plugin.esl.analyze',
     'plugin.esl.apply',
@@ -49,7 +49,8 @@ const
     'validation.circular_leveled_lists',
     'cleaning.quick_clean',
     'cleaning.quick_auto_clean',
-    'cleaning.sort_and_clean_masters'
+    'cleaning.sort_and_clean_masters',
+    'cleaning.cleanup_injected_references'
   );
 
 procedure xeAutomationEnsureCapabilityCommandSurface;
@@ -441,7 +442,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.29';
+  Result.S['contractVersion'] := '0.30';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin

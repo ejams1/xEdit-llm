@@ -15,7 +15,7 @@ def leveled_record(signature, name, form_id, target_id=None):
     body += subrecord(b"LLCT", bytes((1 if target_id else 0,)))
     if target_id:
         # FO4 wbLeveledListEntry: level, unused, FormID, count, chance, unused.
-        body += subrecord(b"LVLO", struct.pack("<HHIHB2xB", 1, 0, target_id, 1, 0, 0))
+        body += subrecord(b"LVLO", struct.pack("<HHIHBB", 1, 0, target_id, 1, 0, 0))
     return record(signature, body, form_id=form_id)
 
 

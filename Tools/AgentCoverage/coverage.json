@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.29",
+  "contractVersion": "0.30",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -4934,9 +4934,11 @@
         }
       ],
       "profile": "injected-cleanup",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose cleanup as a bounded dry-run/apply job with affected-record findings, native injection rules and dependency checks.",
+      "status": "partial",
+      "routes": [
+        "cleaning.cleanup_injected_references"
+      ],
+      "notes": "Bounded explicit record selection, complete injection-owner/dependency/writable preflight, copy into provider before native RemoveInjected(False), remaining-reference findings and partial record results. Numeric games, shared single provider; native semantic acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10912,7 +10914,7 @@
       "handler": "xeAutomationJobsCancel",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 137
+        "line": 138
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10924,7 +10926,7 @@
       "handler": "xeAutomationJobsDiscard",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 138
+        "line": 139
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10936,7 +10938,7 @@
       "handler": "xeAutomationJobsFindings",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 136
+        "line": 137
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10948,7 +10950,7 @@
       "handler": "xeAutomationJobsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 135
+        "line": 136
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10960,7 +10962,7 @@
       "handler": "xeAutomationJobsStart",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 134
+        "line": 135
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10972,7 +10974,7 @@
       "handler": "xeAutomationRecordsApplyFilter",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1613
+        "line": 1869
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10984,7 +10986,7 @@
       "handler": "xeAutomationRecordsBaseRecord",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1614
+        "line": 1870
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10996,7 +10998,7 @@
       "handler": "xeAutomationRecordsConflictStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1620
+        "line": 1876
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11008,7 +11010,7 @@
       "handler": "xeAutomationRecordsCopyIdleTree",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1617
+        "line": 1873
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "default dry-run plan; apply creates idle copies, changes models/internal references in memory -> save + flush",
@@ -11020,7 +11022,7 @@
       "handler": "xeAutomationRecordsCopyInto",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1616
+        "line": 1872
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11032,7 +11034,7 @@
       "handler": "xeAutomationRecordsCreate",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1615
+        "line": 1871
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11044,7 +11046,7 @@
       "handler": "xeAutomationRecordsDelete",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1618
+        "line": 1874
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11056,7 +11058,7 @@
       "handler": "xeAutomationRecordsFindByEditorID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1624
+        "line": 1880
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11068,7 +11070,7 @@
       "handler": "xeAutomationRecordsFindByFormID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1623
+        "line": 1879
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11080,7 +11082,7 @@
       "handler": "xeAutomationRecordsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1625
+        "line": 1881
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11092,7 +11094,7 @@
       "handler": "xeAutomationRecordsList",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1612
+        "line": 1868
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11104,7 +11106,7 @@
       "handler": "xeAutomationRecordsMarkDeleted",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1619
+        "line": 1875
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11116,7 +11118,7 @@
       "handler": "xeAutomationRecordsMasterOrSelf",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1626
+        "line": 1882
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11128,7 +11130,7 @@
       "handler": "xeAutomationRecordsReferencedBy",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1622
+        "line": 1878
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11140,7 +11142,7 @@
       "handler": "xeAutomationRecordsReferences",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1621
+        "line": 1877
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11152,7 +11154,7 @@
       "handler": "xeAutomationRecordsWinningOverride",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1627
+        "line": 1883
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11296,7 +11298,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 931
+        "line": 932
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11308,7 +11310,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 930
+        "line": 931
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11320,7 +11322,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 929
+        "line": 930
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11332,10 +11334,22 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 928
+        "line": 929
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "cleaning.cleanup_injected_references",
+      "kind": "job",
+      "handler": "xeAutomationInjectedCleanupJob",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsRecords.pas",
+        "line": 1866
+      },
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "effect": "default dry-run plan; apply preserves overrides in injection provider then removes source references in memory -> save both + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
