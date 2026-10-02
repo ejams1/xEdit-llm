@@ -16,6 +16,7 @@ implementation
 
 uses
   SysUtils,
+  TypInfo,
   Classes,
   Variants,
   JsonDataObjects,
@@ -540,6 +541,7 @@ begin
   if not ASortInvalidated then
     Exit;
   AResult.B['sortInvalidated'] := True;
+  AResult.B['pathInvalidated'] := True;
   AResult.S['notice'] :=
     'container is sorted; index-based locators may have moved after this write';
 end;
@@ -602,6 +604,15 @@ begin
     xeAutomationElementLocatorPath(lElement)
   );
   Result.O['file'] := xeAutomationNewFileSummary(lRecord._File);
+  Result.O['readback'].B['available'] := True;
+  Result.O['readback'].I['length'] := Length(lAfterValue);
+  if Length(lAfterValue) <= 65536 then begin
+    Result.O['readback'].S['editValue'] := lAfterValue;
+    Result.O['readback'].B['truncated'] := False;
+  end else begin
+    Result.O['readback'].B['truncated'] := True;
+    Result.O['readback'].S['command'] := 'elements.get_value';
+  end;
   xeAutomationElementsAppendSortableContainerNotice(
     Result, lChanged and lSortableContainer);
 end;
@@ -622,6 +633,7 @@ begin
 
   lLocator := xeAutomationParseLocator(AArgs, True, True);
   lElement := xeAutomationRequireOwnedElement(lLocator, lRecord);
+  xeAutomationAssertElementExpectations(AArgs, lElement);
   xeAutomationRequireSetToDefaultTarget(lElement);
 
   lBefore := xeAutomationElementsBuildBeforeAfterSnapshot(lRecord, lElement);
@@ -639,6 +651,7 @@ begin
     Result.O['file'] := xeAutomationNewFileSummary(lRecord._File);
     Result.O['before'].Assign(lBefore);
     Result.O['after'] := xeAutomationElementsBuildBeforeAfterSnapshot(lRecord, lElement);
+    Result.B['pathInvalidated'] := True;
   finally
     lBefore.Free;
   end;
@@ -662,6 +675,7 @@ begin
 
   lLocator := xeAutomationParseLocator(AArgs, True, True);
   lElement := xeAutomationRequireOwnedElement(lLocator, lRecord);
+  xeAutomationAssertElementExpectations(AArgs, lElement);
   xeAutomationRequireClearableElementTarget(lElement);
 
   lBeforeCount := 0;
@@ -684,6 +698,7 @@ begin
     Result.O['before'].Assign(lBefore);
     Result.O['after'] := xeAutomationElementsBuildBeforeAfterSnapshot(lRecord, lElement);
     Result.I['removedCount'] := lBeforeCount;
+    Result.B['pathInvalidated'] := lBeforeCount > 0;
   finally
     lBefore.Free;
   end;
@@ -918,7 +933,11 @@ var
   lHasSource: Boolean;
   lCanAssign: Boolean;
   lTemplates: TwbTemplateElements;
+  lEditInfo: TwbStringArray;
+  lLink: IwbElement;
+  lLinkRecord: IwbMainRecord;
   lWritableTargetFile: Boolean;
+  i: Integer;
 begin
   // This is a read-only discovery command: it reports native predicates plus the
   // narrower automation write policy without requiring mutation consent.
@@ -941,6 +960,40 @@ begin
     Result.O['locator'].S['path']   := xeAutomationElementLocatorPath(lElement);
     xeAutomationWriteElementSummary(
       Result.O['object'], lElement, xeAutomationElementLocatorPath(lElement));
+    Result.S['expectedValueSource'] := 'elements.get_value';
+    Result.O['valueConstraint'].S['editType'] :=
+      GetEnumName(TypeInfo(TwbEditType), Ord(lElement.EditType));
+    if Assigned(lElement.ResolvedValueDef) then
+      Result.O['valueConstraint'].S['definitionType'] :=
+        GetEnumName(TypeInfo(TwbDefType), Ord(lElement.ResolvedValueDef.DefType));
+    try
+      lEditInfo := lElement.EditInfo;
+      Result.O['valueConstraint'].B['choicesAvailable'] := True;
+      Result.O['valueConstraint'].I['choiceCount'] := Length(lEditInfo);
+      Result.O['valueConstraint'].B['choicesTruncated'] := Length(lEditInfo) > 100;
+      for i := Low(lEditInfo) to High(lEditInfo) do begin
+        if i >= 100 then
+          Break;
+        Result.O['valueConstraint'].A['choices'].Add(xeAutomationBoundedText(lEditInfo[i]));
+      end;
+    except
+      Result.O['valueConstraint'].B['choicesAvailable'] := False;
+    end;
+    try
+      lLink := lElement.LinksTo;
+      lLinkRecord := nil;
+      if Assigned(lLink) then
+        lLinkRecord := lLink.ContainingMainRecord;
+      Result.O['reference'].B['resolved'] := Assigned(lLinkRecord);
+      if Assigned(lLinkRecord) then begin
+        Result.O['reference'].O['locator'].S['file'] := lLinkRecord._File.FileName;
+        Result.O['reference'].O['locator'].S['formId'] := lLinkRecord.LoadOrderFormID.ToString(False);
+        Result.O['reference'].O['locator'].S['path'] := '';
+      end;
+    except
+      Result.O['reference'].B['resolved'] := False;
+      Result.O['reference'].S['reason'] := 'native-resolution-failed';
+    end;
 
     Result.O['predicates'].B['isEditable']      := lElement.IsEditable;
     Result.O['predicates'].B['isRemovable']     := lElement.IsRemovable;
@@ -983,6 +1036,7 @@ begin
     Result.O['assign'].I['templateCount']             := Length(lTemplates);
     Result.O['assign'].B['requiresTemplateSelection'] := Length(lTemplates) > 1;
     xeAutomationElementsWriteTemplateList(Result.O['assign'].A['templates'], lTemplates);
+    Result.S['mutationRevision'] := UIntToStr(wbGlobalModifedGeneration);
   except
     Result.Free;
     raise;
@@ -1118,6 +1172,7 @@ begin
 
   lLocator := xeAutomationParseLocator(AArgs, True, True);
   lElement := xeAutomationRequireOwnedElement(lLocator, lRecord);
+  xeAutomationAssertElementExpectations(AArgs, lElement);
 
   if xeAutomationArgPresent(AArgs, 'targetIndex') then begin
     if AArgs.Types['targetIndex'] <> jdtInt then
@@ -1145,6 +1200,7 @@ begin
     xeAutomationElementLocatorPath(lNewElement)
   );
   Result.O['file'] := xeAutomationNewFileSummary(lRecord._File);
+  Result.B['pathInvalidated'] := True;
 
   Result.O['target'].O['locator'].S['file']   := lRecord._File.FileName;
   Result.O['target'].O['locator'].S['formId'] := lRecord.LoadOrderFormID.ToString(False);
@@ -1182,6 +1238,7 @@ begin
     raise xeAutomationInvalidTarget('Automation mutation target must address an existing child element');
 
   lElement := xeAutomationRequireOwnedElement(lLocator, lRecord);
+  xeAutomationAssertElementExpectations(AArgs, lElement);
   xeAutomationRequireRemovableElementTarget(lElement);
   lRemovedPath := xeAutomationElementLocatorPath(lElement);
 
@@ -1197,6 +1254,7 @@ begin
     lRemovedPath
   );
   Result.O['file'] := xeAutomationNewFileSummary(lRecord._File);
+  Result.B['pathInvalidated'] := True;
 end;
 
 function xeAutomationCopyChildAddMastersIfRequested(
@@ -1340,6 +1398,7 @@ begin
 
   lSourceElement := xeAutomationRequireElement(lSourceLocator, lSourceRecord);
   lTargetElement := xeAutomationRequireOwnedElement(lTargetLocator, lTargetRecord);
+  xeAutomationAssertElementExpectations(AArgs, lTargetElement);
   xeAutomationRequireCopyTargetAt(lTargetElement, lSourceElement, lTargetIndex);
 
   // Build the masters report before Assign so addRequiredMasters:false fails
@@ -1362,6 +1421,7 @@ begin
       xeAutomationElementLocatorPath(lNewElement)
     );
     Result.O['file'] := xeAutomationNewFileSummary(lTargetRecord._File);
+    Result.B['pathInvalidated'] := True;
 
     // Echo both locators so callers can re-resolve target/source post-mutation
     // without re-parsing their original request.
@@ -1411,6 +1471,7 @@ begin
 
   lLocator := xeAutomationParseLocator(AArgs, True, True);
   lElement := xeAutomationRequireOwnedElement(lLocator, lRecord);
+  xeAutomationAssertElementExpectations(AArgs, lElement);
 
   case AOp of
     emoMoveUp:     xeAutomationRequireMoveUpElementTarget(lElement);
@@ -1444,6 +1505,7 @@ begin
     // The original path can drift after native move/member operations, so the
     // post-mutation top-level locator is the caller's authoritative continuation point.
     Result.B['pathChanged'] := lBeforePath <> lAfterPath;
+    Result.B['pathInvalidated'] := True;
     Result.O['before'].Assign(lBefore);
     Result.O['after']       := xeAutomationElementsBuildBeforeAfterSnapshot(lRecord, lAfterElement);
   finally

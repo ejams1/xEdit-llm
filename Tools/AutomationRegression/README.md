@@ -258,6 +258,35 @@ within a single file is still atomic. Large single-file validation scans,
 compaction, and cleaning need finer steppers before latency can be guaranteed.
 Compilation and game-backed execution remain pending.
 
+## Issue #18: command discovery and stale edit expectations
+
+`system.command_schema {"command":"elements.set_value"}` returns an on-demand
+argument shape, required fields, an example, prerequisites, persistence and
+expected errors. Detailed schemas currently cover element value/native writes,
+element capability/value/children reads, records.get, session dirty state,
+elements.add_child, files.set_header_flags and both batch commands. Registered
+commands without authored detail report `schemaAvailable:false`; this is
+explicitly advertised in `system.capabilities`.
+
+`elements.edit_capabilities` now reports the native edit type, resolved value
+definition, up to 100 bounded choice labels, resolved reference locator if
+available, assign templates, and the current mutation revision. Use
+`elements.get_value.values.editValue` for an exact expected value. Any command
+can optionally assert `expectedRevision`; element mutation verbs additionally
+accept `expectedValue`. A mismatch fails before mutation. Mutation responses
+include the resulting revision. `elements.set_value` echoes the actual native
+edit-value readback up to 65,536 characters; larger values report a length and
+point to `elements.get_value`. Structural edits and sorted-value writes mark
+indexed paths invalidated so clients re-resolve locators before further edits.
+
+Run `schema_fixture.py exercise --exe <exe> --pid <pid> --artifacts <folder>`
+against a fresh `AutomationStringValues.esp` fixture, then relaunch for
+`schema_fixture.py verify`. This covers schema discovery, constraints, stale
+revision/value rejection, exact readback and persistence. Add native cases for
+enum/flag choices, linked references, template selection, sorted arrays and
+every unsupported game predicate before accepting the wider editing contract.
+Delphi compilation and game-backed execution remain pending.
+
 ## Issue #17: bounded read and edit batches
 
 `batch.read` accepts 1..32 `items`, each with `command` and `args`. The read
