@@ -65,6 +65,7 @@ uses
   xeAutomationServeLoop in 'xEdit\xeAutomationServeLoop.pas',
   xeAutomationSession in 'xEdit\xeAutomationSession.pas',
   xeAutomationTransportPipe in 'xEdit\xeAutomationTransportPipe.pas',
+  xeAutomationValues in 'xEdit\xeAutomationValues.pas',
   xeAutomationTypes in 'xEdit\xeAutomationTypes.pas',
   xeInit in 'xEdit\xeInit.pas',
   wbBetterStringList in 'Core\wbBetterStringList.pas',

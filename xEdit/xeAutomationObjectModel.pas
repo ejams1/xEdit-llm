@@ -50,6 +50,7 @@ implementation
 uses
   TypInfo,
   SysUtils,
+  xeAutomationValues,
   xeAutomationErrors;
 
 function xeAutomationReadStringValue(const AArgs: TJsonObject; const AName, AFieldKind: string): string;
@@ -304,14 +305,17 @@ begin
   ATarget.S['path'] := ALocatorPath;
 
   lValue := xeAutomationBoundedText(AElement.Value);
+  xeAutomationWritePreviewMetadata(ATarget.O['previewMetadata'].O['value'], AElement.Value, lValue);
   if lValue <> '' then
     ATarget.S['value'] := lValue;
 
   lSummary := xeAutomationBoundedText(AElement.Summary);
+  xeAutomationWritePreviewMetadata(ATarget.O['previewMetadata'].O['summary'], AElement.Summary, lSummary);
   if (lSummary <> '') and not SameText(lSummary, lValue) then
     ATarget.S['summary'] := lSummary;
 
   lEditValue := xeAutomationBoundedText(AElement.EditValue);
+  xeAutomationWritePreviewMetadata(ATarget.O['previewMetadata'].O['editValue'], AElement.EditValue, lEditValue);
   if (lEditValue <> '') and not SameText(lEditValue, lValue) then
     ATarget.S['editValue'] := lEditValue;
 end;

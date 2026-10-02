@@ -41,3 +41,31 @@ is populated, injected records, NAVM benign conflicts, differing master tables
 and compressed records. The byte fallback deliberately retains uncertain dirty
 records and complex module slots rather than removing them. These live cases and
 the checked-in runner have not been run locally: no Delphi/MO2 setup is installed.
+
+## Issues #2/#3: full values and encoding
+
+`elements.get_value` accepts the same file/formId/path locator as `elements.get`.
+It returns `values.editValue` without trimming (including empty text), UTF-16
+length, UTF-8 byte length, JSON encoding and `truncated:false`. `nativeValue`
+identifies the Variant type and returns integers as decimal strings to preserve
+64-bit precision, typed scalars, or bounded one-dimensional arrays. Unsupported
+Variants are explicitly unavailable. Limits are 1,048,576 UTF-16 characters per
+string and 50,000 array items; exceeding a limit returns an error, never a preview.
+`storageEncoding` identifies the effective inline encoding; localized table
+strings are explicitly distinguished from inline text. Enumeration summaries
+remain bounded and now include per-field `previewMetadata` with original length,
+truncation, whitespace removal and losslessness. Read full values before editing.
+
+`string_fixture.py` uses the same generate/exercise/verify arguments and MO2
+launch arrangement as the ITM runner. Include AutomationStringValues.esp after
+Fallout4.esm. It exercises long, empty, whitespace and multilingual DESC values,
+checks preview metadata and full native reads, rejects a lossy CP-1252 edit,
+edits/saves/flushes, then verifies text under a fresh process.
+
+Before merge, also test signed/unsigned 64-bit native values, float/bool/byte
+arrays, full-read limits, fixed-size multibyte fields, explicit per-file CP-1252
+and UTF-8 `.cpoverride`/SNAM precedence, per-definition overrides, BOMs and
+localized IDs. Autodetected UTF-8 is preserved from the original bytes. When no
+UTF-8 evidence remains (e.g. an ASCII-only field), unrepresentable writes are
+rejected before resizing. A fixed-size write that would cut encoded bytes is also
+rejected. Runtime execution and Delphi compilation remain pending.

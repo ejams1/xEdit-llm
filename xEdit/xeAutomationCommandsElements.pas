@@ -25,6 +25,7 @@ uses
   xeAutomationErrors,
   xeAutomationMutationPolicy,
   xeAutomationObjectModel,
+  xeAutomationValues,
   xeAutomationRegistry;
 
 function xeAutomationCompareFileLoadOrder(AList: TStringList; AIndex1, AIndex2: Integer): Integer;
@@ -357,6 +358,23 @@ begin
   Result := xeAutomationNewElementResponse(lRecord, lElement);
   if lIncludeParents then
     xeAutomationAppendParentsForElementResponse(Result, lRecord, lElement);
+end;
+
+function xeAutomationElementsGetValue(const AArgs: TJsonObject): TJsonObject;
+var
+  lLocator: TxeAutomationLocator;
+  lRecord: IwbMainRecord;
+  lElement: IwbElement;
+begin
+  lLocator := xeAutomationParseLocator(AArgs, True, True);
+  lElement := xeAutomationRequireElement(lLocator, lRecord);
+  Result := xeAutomationNewObjectResponse(lLocator.FileName, lLocator.FormID, lLocator.Path);
+  try
+    xeAutomationWriteFullValues(Result.O['values'], lElement);
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 function xeAutomationElementsChildren(const AArgs: TJsonObject): TJsonObject;
@@ -1437,6 +1455,7 @@ end;
 procedure xeAutomationRegisterElementsCommands;
 begin
   xeAutomationRegisterCommand('elements.get', xeAutomationElementsGet);
+  xeAutomationRegisterCommand('elements.get_value', xeAutomationElementsGetValue);
   xeAutomationRegisterCommand('elements.children', xeAutomationElementsChildren);
   xeAutomationRegisterCommand('elements.conflict_status', xeAutomationElementsConflictStatus);
   xeAutomationRegisterCommand('elements.required_masters', xeAutomationElementsRequiredMasters);
