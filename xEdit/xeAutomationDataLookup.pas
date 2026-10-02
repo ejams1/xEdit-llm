@@ -33,6 +33,8 @@ type
     Truncated: Boolean;
     RegexTimeouts: Integer;
     RegexSlotsExhausted: Integer;
+    Incomplete: Boolean;
+    IncompleteReason: string;
   end;
 
   TxeAutomationRecordFilter = record
@@ -63,6 +65,10 @@ type
     HasBaseDisplayNameRegex: Boolean;
     RegexTimeouts: Integer;
     RegexSlotsExhausted: Integer;
+    RegexDeadline: UInt64;
+    RegexMatchAttempts: Integer;
+    Incomplete: Boolean;
+    IncompleteReason: string;
     BaseFormID: TwbFormID;
     HasBaseFormID: Boolean;
     HasIsMaster: Boolean;
@@ -99,6 +105,8 @@ function xeAutomationGlobMatchesCI(const AValue, APattern: string): Boolean;
 function xeAutomationFindMainRecordsByLoadOrderFormID(const AFormID: string; const AFileName: string = ''): TxeAutomationMainRecordSearch;
 function xeAutomationFindMainRecordsByEditorID(const AEditorID: string; const ASignature: string = ''): TxeAutomationBoundedMainRecordSearch;
 function xeAutomationFilterMainRecords(const AArgs: TJsonObject): TxeAutomationBoundedMainRecordSearch;
+function xeAutomationReadRecordFilter(const AArgs: TJsonObject): TxeAutomationRecordFilter;
+function xeAutomationRecordMatchesFilter(const ARecord: IwbMainRecord; var AFilter: TxeAutomationRecordFilter): Boolean;
 function xeAutomationReadSearchLimit(const AArgs: TJsonObject; const AName: string = 'limit'; const ADefault: Integer = 100): Integer;
 function xeAutomationReadChildrenLimitArg(const AArgs: TJsonObject; const AName: string = 'limit'; const ADefault: Integer = 200): Integer;
 function xeAutomationReadOffsetArg(const AArgs: TJsonObject; const AName: string = 'offset'; const ADefault: Integer = 0): Integer;
@@ -123,6 +131,7 @@ function xeAutomationRequireOwnedElement(const ALocator: TxeAutomationLocator; o
 implementation
 
 uses
+  Windows,
   System.Generics.Collections,
   System.Threading,
   SysUtils,
@@ -130,6 +139,7 @@ uses
   Types,
   JclStrings,
   wbHelpers,
+  xeAutomationConflictSnapshot,
   xeAutomationErrors;
 
 const
@@ -396,13 +406,31 @@ function xeAutomationRegexFieldMatches(const ARegex: TRegEx; const AValue: strin
 var
   lTimedOut: Boolean;
   lSlotExhausted: Boolean;
+  lRemaining, lNow: UInt64;
 begin
-  Result := xeAutomationRegexMatchTimeBounded(ARegex, AValue, xeAutomationRegexTimeoutMs, lTimedOut, lSlotExhausted);
+  Result := False;
+  if AFilter.Incomplete then
+    Exit;
+  lNow := GetTickCount64;
+  if (lNow >= AFilter.RegexDeadline) or (AFilter.RegexMatchAttempts >= 1000) then begin
+    AFilter.Incomplete := True;
+    AFilter.IncompleteReason := 'regex_request_budget';
+    Exit;
+  end;
+  Inc(AFilter.RegexMatchAttempts);
+  lRemaining := AFilter.RegexDeadline - lNow;
+  if lRemaining > xeAutomationRegexTimeoutMs then
+    lRemaining := xeAutomationRegexTimeoutMs;
+  Result := xeAutomationRegexMatchTimeBounded(ARegex, AValue, Cardinal(lRemaining), lTimedOut, lSlotExhausted);
   if lTimedOut then begin
     Inc(AFilter.RegexTimeouts);
+    AFilter.Incomplete := True;
+    AFilter.IncompleteReason := 'regex_timeout';
     Result := False;
   end else if lSlotExhausted then begin
     Inc(AFilter.RegexSlotsExhausted);
+    AFilter.Incomplete := True;
+    AFilter.IncompleteReason := 'regex_worker_capacity';
     Result := False;
   end;
 end;
@@ -510,17 +538,20 @@ begin
     Exit;
 
   SetLength(Result, Length(APatterns));
-  for i := Low(APatterns) to High(APatterns) do
-  try
-    Result[i] := TRegEx.Create(APatterns[i], [roIgnoreCase, roCompiled]);
-  except
-    on E: Exception do
-      // Regex syntax errors are request-boundary failures. Preserve the offending
-      // field name in details so clients can highlight the exact input that failed.
+  for i := Low(APatterns) to High(APatterns) do begin
+    if (Length(APatterns[i]) = 0) or (Length(APatterns[i]) > 256) then
       raise xeAutomationInvalidFieldRequest(
-        Format('Automation arg "%s" is not a valid regular expression: %s', [AName, E.Message]),
-        AName
-      );
+        Format('Automation arg "%s" regex length must be 1 to 256 characters', [AName]), AName);
+    try
+      Result[i] := TRegEx.Create(APatterns[i], [roIgnoreCase, roCompiled]);
+    except
+      on E: Exception do
+        // Regex syntax errors are request-boundary failures. Preserve the field.
+        raise xeAutomationInvalidFieldRequest(
+          Format('Automation arg "%s" is not a valid regular expression: %s', [AName, E.Message]),
+          AName
+        );
+    end;
   end;
 end;
 
@@ -1012,6 +1043,10 @@ begin
   Result.BaseDisplayNameRegexes := xeAutomationCompileRegexFilterArgs(lBaseDisplayNameRegexPatterns, 'baseDisplayNameRegex', Result.HasBaseDisplayNameRegex);
   Result.RegexTimeouts := 0;
   Result.RegexSlotsExhausted := 0;
+  Result.RegexDeadline := GetTickCount64 + 250;
+  Result.RegexMatchAttempts := 0;
+  Result.Incomplete := False;
+  Result.IncompleteReason := '';
 
   Result.HasParentFormID := xeAutomationArgPresent(AArgs, 'parentFormId');
   if Result.HasParentFormID then
@@ -1039,6 +1074,7 @@ end;
 function xeAutomationRecordMatchesFilter(const ARecord: IwbMainRecord; var AFilter: TxeAutomationRecordFilter): Boolean;
 var
   lBaseRecord: IwbMainRecord;
+  lConflict: TxeAutomationConflictSnapshot;
 begin
   Result := False;
   if not Assigned(ARecord) then
@@ -1062,9 +1098,13 @@ begin
     Exit;
   if AFilter.HasIsInjected and (ARecord.IsInjected <> AFilter.IsInjected) then
     Exit;
-  if AFilter.UseConflictAll and not (ARecord.ConflictAll in AFilter.ConflictAll) then
+  // Native conflict getters return cached enums. Initialize canonical state so
+  // filter results do not depend on whether a user previously inspected the GUI.
+  if AFilter.UseConflictAll or AFilter.UseConflictThis then
+    lConflict := xeAutomationSnapshotRecordConflict(ARecord, 100);
+  if AFilter.UseConflictAll and not (lConflict.ConflictAll in AFilter.ConflictAll) then
     Exit;
-  if AFilter.UseConflictThis and not (ARecord.ConflictThis in AFilter.ConflictThis) then
+  if AFilter.UseConflictThis and not (lConflict.ConflictThis in AFilter.ConflictThis) then
     Exit;
   if AFilter.HasEditorIDRegex and ((not ARecord.CanHaveEditorID) or not xeAutomationRegexFieldMatchesAny(AFilter.EditorIDRegexes, ARecord.EditorID, AFilter)) then
     Exit;
@@ -1232,8 +1272,16 @@ begin
     for j := 0 to Pred(lFile.RecordCount) do begin
       if not Supports(lFile.Records[j], IwbMainRecord, lRecord) then
         Continue;
-      if not xeAutomationRecordMatchesFilter(lRecord, lFilter) then
+      if not xeAutomationRecordMatchesFilter(lRecord, lFilter) then begin
+        if lFilter.Incomplete then begin
+          Result.Incomplete := True;
+          Result.IncompleteReason := lFilter.IncompleteReason;
+          Result.RegexTimeouts := lFilter.RegexTimeouts;
+          Result.RegexSlotsExhausted := lFilter.RegexSlotsExhausted;
+          Exit;
+        end;
         Continue;
+      end;
 
       Inc(lMatchedSoFar);
       if lMatchedSoFar <= lFilter.Offset then

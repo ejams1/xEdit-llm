@@ -194,3 +194,46 @@ results, and time large filtered traversals. Retain requests, outcomes, source
 commit, build transcript, executable hash, fixture load order, MO2 profile/output
 routing and fresh-process readbacks per test. CI runs Python fixture checks and
 the operation inventory only; it has neither proprietary Delphi nor game assets.
+
+## Issues #12/#13/#15/#16: complete query paging and compact projection
+
+`records.list`, `records.apply_filter`, `records.references` and
+`records.referenced_by` accept `limit` and an opaque `cursor`. Drain until
+`complete:true`; a scan-budget page may contain zero records and a nonempty
+`nextCursor`. The cursor retains raw file/record or relationship traversal
+position, returns `scanned`, `scannedTotal`, `emittedTotal`, revision and
+completeness, and never repeats already-scanned filter predicates. A token is
+consumed per page. If a response is lost, retry the exact request with the
+same idempotency key; old tokens otherwise return `cursor_invalidated`.
+Changing query arguments, projection or page size invalidates continuation.
+Native plugin mutation, GUI language/ModGroup/reachable/ref-index changes,
+expired tokens and terminal flush also invalidate cursors. The cache retains
+at most 32 queries, 64 MiB of accounted state, with a five-minute idle expiry.
+Reverse relations require the loaded-file reference index; missing index is an
+explicit prerequisite error, not an empty complete answer. Recursive outgoing
+references use native child-override selection, never a transitive graph walk.
+The native selection helper eagerly sorts recursive child roots before paging;
+large recursive roots require further profiling in the game-backed test pass.
+
+`records.apply_filter` retains strict 1..100 page sizes and legacy `offset`.
+`nextOffset` is emitted only for a nonempty continuation page. New clients
+should use `nextCursor`: offset requests repeat earlier predicate work.
+Regex patterns are at most 256 characters. A match gets at most 100 ms and a
+filter page gets 250 ms or 1,000 match attempts. Timeout, worker-capacity and
+request-budget cases return `complete:false`, `incomplete:true` and a reason,
+ending that query without treating an unknown candidate as a nonmatch. Workers
+cannot be forcibly canceled in this RTL; inspect their lingering-capacity case.
+
+All command responses are compact JSON. Optional `fields` selects summary
+fields from a validated allowlist, and `includeRelations:false` suppresses
+relations only on locator+summary wrappers. Locators, result counts, revision,
+continuation and incomplete metadata remain. Default responses retain their
+existing full summary shape. `pagination_fixture.py generate --overlay <MO2-mod>`
+creates 1,200 synthetic Fallout 4 KYWD records. Its `exercise` and `verify`
+phases use the usual --overlay/--exe/--pid/--artifacts inputs: drain multiple
+list/filter pages, compare every locator/name/order and total scan count,
+measure full versus identity-only response bytes, invalidate after mutation,
+save/flush, then relaunch and read back all 1,201 records. Run empty/sparse,
+recursive child-overrides, duplicate forward/reverse links, missing/rebuilt
+reference index, regex pathological patterns and projection of nested element
+wrappers in the MO2 test pass. Compilation and these native cases are pending.

@@ -28,6 +28,7 @@ uses
   xeAutomationCommandsSystem,
   xeAutomationErrors,
   xeAutomationReplay,
+  xeAutomationProjection,
   xeAutomationWireLimits,
   xeAutomationRegistry,
   xeAutomationSession,
@@ -405,8 +406,10 @@ begin
 
     // Request execution is registry-driven so serve mode can deliberately expand
     // the command surface only after xEdit has loaded the in-memory session.
+    xeAutomationValidateProjection(lArgs);
     aDispatched := True;
     lResult := xeAutomationExecuteCommand(lCommand, lArgs);
+    xeAutomationProjectResponse(lResult, lArgs);
 
     lResponse := TJsonObject.Create;
     // Success responses always echo the command name so external wrappers can
