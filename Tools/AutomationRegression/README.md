@@ -258,6 +258,42 @@ within a single file is still atomic. Large single-file validation scans,
 compaction, and cleaning need finer steppers before latency can be guaranteed.
 Compilation and game-backed execution remain pending.
 
+## Issues #23/#24: leveled transformations and idle copies
+
+`records.copy_into` adds `mode:"wrapper"` and `mode:"spawn_rate"`, defaulting
+to `dryRun:true` for those modes. Wrapper requires a distinct `editorId` and
+returns both its original-ID forwarding list and fresh content locator. The
+forwarding list has one entry at level/count 1. Spawn-rate mode retains each
+original entry and adds nine full clones with counts 1,1,2,2,2,2,2,3,3;
+ownership data is preserved. Existing target overrides, deepCopy/overwrite,
+Morrowind/Fallout76 and incompatible schemas reject. Source selections require
+1..128 entries; expansion cannot exceed 255 when the schema has LLCT.
+New content cannot target an update plugin. Optional dryRun also works for
+ordinary new/override modes; their existing default remains apply.
+
+`records.copy_idle_tree` accepts 1..128 explicit `sources` locators,
+`targetFile`, `oldModelPrefix`, changed `newModelPrefix`, and an
+`editorIdPrefix` or `editorIdSuffix`. It resolves winners, rejects duplicates,
+requires one normalized model directory, and preflights the full dependency
+set before copying. All new identities are allocated before model and internal
+FormID rewrites. Selected links, including native condition fields, remap;
+external links remain original. TES4/FO3/FNV numeric IDLE schemas are supported;
+later games and Morrowind reject. This command selects an explicit directory
+group, matching the native workflow; it does not discover descendants from a
+root. Both operations mutate memory until explicit save/flush. Partial errors
+retain mutation state and created locators/mappings.
+
+Run `copy_modes_fixture.py fo4 generate --overlay <MO2-mod>`, load its files,
+then `fo4 exercise --overlay <MO2-mod> --exe <exe> --pid <pid> --artifacts
+<folder>`. Relaunch for `fo4 verify`. It checks forwarding links, original
+payload preservation, exact spawn distribution, ownership preservation, dry-run
+isolation and retry rejection. Use `fo3` in a Fallout 3 profile for idle winner
+selection, internal hierarchy links, external-link preservation and prefix
+readback. Native condition links, TES4/FNV schema differences, invalid game,
+protected/update targets, missing masters, LLCT expansion refusal and injected
+partial failures need separate native tests. Needs testing before merging:
+Delphi compilation and all game-backed acceptance are pending.
+
 ## Issues #21/#22: FormID plans and scoped reference replacement
 
 `formids.change`, `formids.remap`, `formids.renumber` and `formids.inject`
