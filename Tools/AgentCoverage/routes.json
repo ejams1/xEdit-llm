@@ -360,11 +360,15 @@
       "scriptSymbols": []
     },
     "form-id": {
-      "status": "script-candidate",
+      "status": "partial",
       "routes": [
-        "scripts.run"
+        "scripts.run",
+        "formids.remap",
+        "formids.change",
+        "formids.renumber",
+        "formids.inject"
       ],
-      "notes": "Provide explicit single-ID change, arbitrary start/range renumbering and injection workflows with collision checks, dependent-reference updates, preservation options and dry-run mappings. Primitive setters are not semantic parity.",
+      "notes": "Explicit default-dry-run change/remap/renumber/inject routes preflight collisions, ownership, dependencies and writable overrides/referrers. Up to 32 mappings, 1024 referrers/overrides; overlapping ranges reject. Native compilation and game-backed persistence acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetLoadOrderFormID",
@@ -372,11 +376,12 @@
       ]
     },
     "replace-references": {
-      "status": "script-candidate",
+      "status": "partial",
       "routes": [
-        "scripts.run"
+        "scripts.run",
+        "references.replace"
       ],
-      "notes": "Accept explicit old/new mappings, scope and dependency additions; return complete changed-record results and partial failures. Verify CompareExchangeFormID/UpdateRefs ordering and avoid a GUI CSV picker.",
+      "notes": "references.replace takes explicit mappings, scopeFiles, dryRun and optional master additions. Up to 32 mappings/1024 referrers; chains/swaps reject. Changed-record results precede UpdateRefs and retain partial failures. Native compilation/game-backed acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "CompareExchangeFormID",
@@ -802,6 +807,14 @@
     "mniViewHeaderCopyAsWrapper": "special-copy"
   },
   "commandFamilies": {
+    "formids": {
+      "prerequisites": "Loaded editable base records; explicit mappings, collision and master/referrer preflight; apply requires consent.",
+      "effect": "dry-run reads or in-memory FormID/override/referrer changes -> session.save + terminal session.flush"
+    },
+    "references": {
+      "prerequisites": "Loaded old/new target records and explicit scope files; complete reference index; writable scoped referrers; consent for apply.",
+      "effect": "dry-run reads or in-memory referrer/master changes -> session.save + terminal session.flush"
+    },
     "batch": {
       "prerequisites": "Loaded records/elements; read accepts bounded allowlisted commands; edit requires consent, matching revision/value and writable owned elements.",
       "effect": "bounded reads or in-memory element mutations -> session.save + terminal session.flush"
@@ -1113,6 +1126,21 @@
     "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
   },
   "operationOverrides": {
+    "formids.change": {
+      "effect": "single-ID dry-run or in-memory remap with override/referrer update -> save + flush"
+    },
+    "formids.renumber": {
+      "effect": "bounded range dry-run or in-memory ID remap -> save + flush"
+    },
+    "formids.inject": {
+      "effect": "dry-run or in-memory injection into an earlier master file slot -> save + flush"
+    },
+    "formids.remap": {
+      "effect": "dry-run mapping read; apply changes IDs, overrides and referrers in memory -> save + flush"
+    },
+    "references.replace": {
+      "effect": "dry-run scoped mapping read; apply rewrites referrers and optional masters in memory -> save + flush"
+    },
     "system.command_schema": {
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence"
     },

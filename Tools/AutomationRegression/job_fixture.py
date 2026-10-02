@@ -49,9 +49,9 @@ def main():
     two, _ = advance(client, restarted["jobId"])
     assert one["state"] == "running" and one["progress"]["completed"] == 1, one
     assert two["state"] == "succeeded" and two["progress"]["completed"] == 2, two
-    assert two["summary"]["targets"] == 2, two
+    assert two["summary"]["fileCount"] == 2, two
     assert len(two["result"]["files"]) == 2, two
-    assert two["findingCount"] == two["summary"]["findings"], two
+    assert two["findingCount"] == two["summary"]["findingCount"], two
     print(f"first file step: {elapsed:.3f}s; cancel and complete transitions passed")
     client.call("jobs.discard", jobId=started["jobId"])
     client.call("jobs.discard", jobId=restarted["jobId"])

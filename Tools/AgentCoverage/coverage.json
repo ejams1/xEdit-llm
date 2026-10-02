@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.27",
+  "contractVersion": "0.28",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -3493,11 +3493,15 @@
         }
       ],
       "profile": "form-id",
-      "status": "script-candidate",
+      "status": "partial",
       "routes": [
-        "scripts.run"
+        "scripts.run",
+        "formids.remap",
+        "formids.change",
+        "formids.renumber",
+        "formids.inject"
       ],
-      "notes": "Provide explicit single-ID change, arbitrary start/range renumbering and injection workflows with collision checks, dependent-reference updates, preservation options and dry-run mappings. Primitive setters are not semantic parity.",
+      "notes": "Explicit default-dry-run change/remap/renumber/inject routes preflight collisions, ownership, dependencies and writable overrides/referrers. Up to 32 mappings, 1024 referrers/overrides; overlapping ranges reject. Native compilation and game-backed persistence acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetLoadOrderFormID",
@@ -3534,11 +3538,12 @@
         }
       ],
       "profile": "replace-references",
-      "status": "script-candidate",
+      "status": "partial",
       "routes": [
-        "scripts.run"
+        "scripts.run",
+        "references.replace"
       ],
-      "notes": "Accept explicit old/new mappings, scope and dependency additions; return complete changed-record results and partial failures. Verify CompareExchangeFormID/UpdateRefs ordering and avoid a GUI CSV picker.",
+      "notes": "references.replace takes explicit mappings, scopeFiles, dryRun and optional master additions. Up to 32 mappings/1024 referrers; chains/swaps reject. Changed-record results precede UpdateRefs and retain partial failures. Native compilation/game-backed acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "CompareExchangeFormID",
@@ -3575,11 +3580,15 @@
         }
       ],
       "profile": "form-id",
-      "status": "script-candidate",
+      "status": "partial",
       "routes": [
-        "scripts.run"
+        "scripts.run",
+        "formids.remap",
+        "formids.change",
+        "formids.renumber",
+        "formids.inject"
       ],
-      "notes": "Provide explicit single-ID change, arbitrary start/range renumbering and injection workflows with collision checks, dependent-reference updates, preservation options and dry-run mappings. Primitive setters are not semantic parity.",
+      "notes": "Explicit default-dry-run change/remap/renumber/inject routes preflight collisions, ownership, dependencies and writable overrides/referrers. Up to 32 mappings, 1024 referrers/overrides; overlapping ranges reject. Native compilation and game-backed persistence acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetLoadOrderFormID",
@@ -3656,11 +3665,15 @@
         }
       ],
       "profile": "form-id",
-      "status": "script-candidate",
+      "status": "partial",
       "routes": [
-        "scripts.run"
+        "scripts.run",
+        "formids.remap",
+        "formids.change",
+        "formids.renumber",
+        "formids.inject"
       ],
-      "notes": "Provide explicit single-ID change, arbitrary start/range renumbering and injection workflows with collision checks, dependent-reference updates, preservation options and dry-run mappings. Primitive setters are not semantic parity.",
+      "notes": "Explicit default-dry-run change/remap/renumber/inject routes preflight collisions, ownership, dependencies and writable overrides/referrers. Up to 32 mappings, 1024 referrers/overrides; overlapping ranges reject. Native compilation and game-backed persistence acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetLoadOrderFormID",
@@ -5254,11 +5267,12 @@
         }
       ],
       "profile": "replace-references",
-      "status": "script-candidate",
+      "status": "partial",
       "routes": [
-        "scripts.run"
+        "scripts.run",
+        "references.replace"
       ],
-      "notes": "Accept explicit old/new mappings, scope and dependency additions; return complete changed-record results and partial failures. Verify CompareExchangeFormID/UpdateRefs ordering and avoid a GUI CSV picker.",
+      "notes": "references.replace takes explicit mappings, scopeFiles, dryRun and optional master additions. Up to 32 mappings/1024 referrers; chains/swaps reject. Changed-record results precede UpdateRefs and retain partial failures. Native compilation/game-backed acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "CompareExchangeFormID",
@@ -10837,6 +10851,54 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "formids.change",
+      "kind": "command",
+      "handler": "xeAutomationFormIdsChange",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsFormIds.pas",
+        "line": 673
+      },
+      "prerequisites": "Loaded editable base records; explicit mappings, collision and master/referrer preflight; apply requires consent.",
+      "effect": "single-ID dry-run or in-memory remap with override/referrer update -> save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "formids.inject",
+      "kind": "command",
+      "handler": "xeAutomationFormIdsInject",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsFormIds.pas",
+        "line": 675
+      },
+      "prerequisites": "Loaded editable base records; explicit mappings, collision and master/referrer preflight; apply requires consent.",
+      "effect": "dry-run or in-memory injection into an earlier master file slot -> save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "formids.remap",
+      "kind": "command",
+      "handler": "xeAutomationFormIdsRemap",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsFormIds.pas",
+        "line": 672
+      },
+      "prerequisites": "Loaded editable base records; explicit mappings, collision and master/referrer preflight; apply requires consent.",
+      "effect": "dry-run mapping read; apply changes IDs, overrides and referrers in memory -> save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "formids.renumber",
+      "kind": "command",
+      "handler": "xeAutomationFormIdsRenumber",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsFormIds.pas",
+        "line": 674
+      },
+      "prerequisites": "Loaded editable base records; explicit mappings, collision and master/referrer preflight; apply requires consent.",
+      "effect": "bounded range dry-run or in-memory ID remap -> save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "jobs.cancel",
       "kind": "command",
       "handler": "xeAutomationJobsCancel",
@@ -11077,6 +11139,18 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "references.replace",
+      "kind": "command",
+      "handler": "xeAutomationReferencesReplace",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsFormIds.pas",
+        "line": 676
+      },
+      "prerequisites": "Loaded old/new target records and explicit scope files; complete reference index; writable scoped referrers; consent for apply.",
+      "effect": "dry-run scoped mapping read; apply rewrites referrers and optional masters in memory -> save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "scripts.delete",
       "kind": "command",
       "handler": "xeAutomationScriptsDelete",
@@ -11202,7 +11276,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 821
+        "line": 882
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11214,7 +11288,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 820
+        "line": 881
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11226,7 +11300,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 819
+        "line": 880
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11238,7 +11312,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 818
+        "line": 879
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
