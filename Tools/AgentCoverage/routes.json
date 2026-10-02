@@ -802,6 +802,10 @@
     "mniViewHeaderCopyAsWrapper": "special-copy"
   },
   "commandFamilies": {
+    "batch": {
+      "prerequisites": "Loaded records/elements; read accepts bounded allowlisted commands; edit requires consent, matching revision/value and writable owned elements.",
+      "effect": "bounded reads or in-memory element mutations -> session.save + terminal session.flush"
+    },
     "system": {
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only"
@@ -827,7 +831,7 @@
       "effect": "list/read pure; script storage writes immediate; run may mutate plugins -> save + flush"
     },
     "jobs": {
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "validation/analysis/dry-run reads; cleaning/hygiene/ESL apply mutates plugins -> save + flush"
     }
   },
@@ -1109,6 +1113,12 @@
     "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
   },
   "operationOverrides": {
+    "batch.edit": {
+      "effect": "preflighted in-memory element writes; partial failures report completed steps -> session.save + terminal session.flush"
+    },
+    "batch.read": {
+      "effect": "bounded projected read-only results; no plugin persistence"
+    },
     "elements.add_child": {
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
     },

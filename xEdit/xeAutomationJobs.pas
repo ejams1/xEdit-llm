@@ -98,6 +98,7 @@ begin
      (ACommand = 'records.conflict_status') or
      (ACommand = 'elements.get') or (ACommand = 'elements.get_value') or
      (ACommand = 'elements.children') or
+     (ACommand = 'batch.read') or
      (ACommand = 'files.list') or (ACommand = 'files.get') then
     Exit;
   // A pending plan owns the loaded graph. Save/flush, scripts and other edits

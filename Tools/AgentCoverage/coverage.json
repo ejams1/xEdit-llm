@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.24",
+  "contractVersion": "0.25",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -10487,12 +10487,36 @@
   ],
   "registeredOperations": [
     {
+      "name": "batch.edit",
+      "kind": "command",
+      "handler": "xeAutomationBatchEdit",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsBatch.pas",
+        "line": 227
+      },
+      "prerequisites": "Loaded records/elements; read accepts bounded allowlisted commands; edit requires consent, matching revision/value and writable owned elements.",
+      "effect": "preflighted in-memory element writes; partial failures report completed steps -> session.save + terminal session.flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "batch.read",
+      "kind": "command",
+      "handler": "xeAutomationBatchRead",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsBatch.pas",
+        "line": 226
+      },
+      "prerequisites": "Loaded records/elements; read accepts bounded allowlisted commands; edit requires consent, matching revision/value and writable owned elements.",
+      "effect": "bounded projected read-only results; no plugin persistence",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "elements.add_child",
       "kind": "command",
       "handler": "xeAutomationElementsAddChild",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1468
+        "line": 1487
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10504,7 +10528,7 @@
       "handler": "xeAutomationElementsAssignTemplates",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1463
+        "line": 1482
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10516,7 +10540,7 @@
       "handler": "xeAutomationElementsChildren",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1459
+        "line": 1478
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10528,7 +10552,7 @@
       "handler": "xeAutomationElementsClear",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1466
+        "line": 1485
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10540,7 +10564,7 @@
       "handler": "xeAutomationElementsConflictStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1460
+        "line": 1479
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10552,7 +10576,7 @@
       "handler": "xeAutomationElementsCopyChildTo",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1470
+        "line": 1489
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10564,7 +10588,7 @@
       "handler": "xeAutomationElementsEditCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1462
+        "line": 1481
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10576,7 +10600,7 @@
       "handler": "xeAutomationElementsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1457
+        "line": 1476
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10588,7 +10612,7 @@
       "handler": "xeAutomationElementsGetValue",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1458
+        "line": 1477
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; full edit/native values; no plugin persistence",
@@ -10600,7 +10624,7 @@
       "handler": "xeAutomationElementsMoveDown",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1472
+        "line": 1491
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10612,7 +10636,7 @@
       "handler": "xeAutomationElementsMoveUp",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1471
+        "line": 1490
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10624,7 +10648,7 @@
       "handler": "xeAutomationElementsNextMember",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1473
+        "line": 1492
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10636,7 +10660,7 @@
       "handler": "xeAutomationElementsPreviousMember",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1474
+        "line": 1493
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10648,7 +10672,7 @@
       "handler": "xeAutomationElementsRemoveChild",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1469
+        "line": 1488
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10660,7 +10684,7 @@
       "handler": "xeAutomationElementsRequiredMasters",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1461
+        "line": 1480
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10672,7 +10696,7 @@
       "handler": "xeAutomationElementsSetNativeValue",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1467
+        "line": 1486
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10684,7 +10708,7 @@
       "handler": "xeAutomationElementsSetToDefault",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1465
+        "line": 1484
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10696,7 +10720,7 @@
       "handler": "xeAutomationElementsSetValue",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1464
+        "line": 1483
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10818,7 +10842,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 137
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -10830,7 +10854,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 138
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -10842,7 +10866,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 136
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -10854,7 +10878,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 135
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -10866,7 +10890,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 134
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11176,7 +11200,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 637
+        "line": 640
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11188,7 +11212,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 636
+        "line": 639
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11200,7 +11224,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 635
+        "line": 638
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11214,7 +11238,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 326
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11226,7 +11250,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 324
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11238,7 +11262,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 328
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11250,7 +11274,7 @@
         "file": "xEdit/xeAutomationCommandsFileHygiene.pas",
         "line": 604
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11262,7 +11286,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 980
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "read-only; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11274,7 +11298,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 984
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11286,7 +11310,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 982
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11298,7 +11322,7 @@
         "file": "xEdit/xeAutomationCommandsValidation.pas",
         "line": 352
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "read-only; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11310,7 +11334,7 @@
         "file": "xEdit/xeAutomationCommandsValidation.pas",
         "line": 348
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "read-only; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11322,7 +11346,7 @@
         "file": "xEdit/xeAutomationCommandsValidation.pas",
         "line": 350
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "read-only; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     }

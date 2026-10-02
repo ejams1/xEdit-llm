@@ -17,6 +17,7 @@ uses
   TypInfo,
   JsonDataObjects,
   wbInterface,
+  xeAutomationCommandsBatch,
   xeAutomationCommandsCleaning,
   xeAutomationCommandsElements,
   xeAutomationCommandsFileHygiene,
@@ -109,6 +110,8 @@ begin
     xeAutomationRegisterRecordsCommands;
   if not xeAutomationHasCommand('elements.get') then
     xeAutomationRegisterElementsCommands;
+  if not xeAutomationHasCommand('batch.read') then
+    xeAutomationRegisterBatchCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -155,7 +158,7 @@ begin
   // Contract 0.23 consolidates the additive lifecycle/readback surface for
   // pending saves, in-band flush, script policy preflight, partial-mutation
   // reporting, and the newly registered script helpers.
-  Result.S['contractVersion'] := '0.24';
+  Result.S['contractVersion'] := '0.25';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin
