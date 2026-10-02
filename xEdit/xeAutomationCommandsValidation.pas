@@ -18,6 +18,7 @@ uses
   Classes,
   SysUtils,
   JsonDataObjects,
+  xeAutomationRecordComparison,
   wbInterface,
   xeAutomationDataLookup,
   xeAutomationErrors,
@@ -131,76 +132,6 @@ begin
   Result := Assigned(AFile) and Assigned(ARecord) and Assigned(ARecord._File) and SameText(ARecord._File.FileName, AFile.FileName);
 end;
 
-function xeAutomationSerializedMainRecordsEqual(const ALeft, ARight: IwbMainRecord): Boolean;
-var
-  lLeftStream: TMemoryStream;
-  lRightStream: TMemoryStream;
-begin
-  Result := False;
-  if (not Assigned(ALeft)) or (not Assigned(ARight)) then
-    Exit;
-
-  lLeftStream := TMemoryStream.Create;
-  try
-    lRightStream := TMemoryStream.Create;
-    try
-      // ContentEquals deliberately refuses modified records. Validation still has
-      // to classify freshly created unsaved overrides, so compare the would-be
-      // serialized record bytes without resetting modified state.
-      ALeft.WriteToStream(lLeftStream, rmNo);
-      ARight.WriteToStream(lRightStream, rmNo);
-      Result := (lLeftStream.Size = lRightStream.Size) and
-        ((lLeftStream.Size = 0) or CompareMem(lLeftStream.Memory, lRightStream.Memory, lLeftStream.Size));
-    finally
-      lRightStream.Free;
-    end;
-  finally
-    lLeftStream.Free;
-  end;
-end;
-
-function xeAutomationElementContentEquals(const ALeft, ARight: IwbElement): Boolean;
-var
-  lLeftContainer: IwbContainerElementRef;
-  lRightContainer: IwbContainerElementRef;
-  lLeftStart: Integer;
-  lRightStart: Integer;
-  lCompareCount: Integer;
-  lLeftIsContainer: Boolean;
-  lRightIsContainer: Boolean;
-  i: Integer;
-begin
-  Result := False;
-  if (not Assigned(ALeft)) or (not Assigned(ARight)) then
-    Exit;
-  if ALeft.ElementType <> ARight.ElementType then
-    Exit;
-
-  lLeftIsContainer := Supports(ALeft, IwbContainerElementRef, lLeftContainer);
-  lRightIsContainer := Supports(ARight, IwbContainerElementRef, lRightContainer);
-  if lLeftIsContainer or lRightIsContainer then begin
-    if (not lLeftIsContainer) or (not lRightIsContainer) then
-      Exit;
-
-    // Main-record headers contain file-local metadata such as FormID ownership.
-    // ITM semantics care about user data below those additional header elements.
-    lLeftStart := lLeftContainer.AdditionalElementCount;
-    lRightStart := lRightContainer.AdditionalElementCount;
-    lCompareCount := lLeftContainer.ElementCount - lLeftStart;
-    if lCompareCount <> (lRightContainer.ElementCount - lRightStart) then
-      Exit;
-
-    for i := 0 to Pred(lCompareCount) do
-      if not xeAutomationElementContentEquals(lLeftContainer.Elements[lLeftStart + i], lRightContainer.Elements[lRightStart + i]) then
-        Exit;
-
-    Result := True;
-    Exit;
-  end;
-
-  Result := SameText(ALeft.BaseName, ARight.BaseName) and (ALeft.EditValue = ARight.EditValue);
-end;
-
 procedure xeAutomationRunCheckForErrors(const ASource: string; const AFile: IwbFile; const AFindings: TJsonArray;
   var ACheckedRecords: Integer);
 var
@@ -248,23 +179,6 @@ procedure xeAutomationRunCheckForItm(const ASource: string; const AFile: IwbFile
 var
   lFindingsBefore: Integer;
 
-  function IsIdenticalToMaster(const ARecord: IwbMainRecord): Boolean;
-  var
-    lMaster: IwbMainRecord;
-  begin
-    Result := False;
-    if not Assigned(ARecord) then
-      Exit;
-    lMaster := ARecord.MasterOrSelf;
-    if (not Assigned(lMaster)) or lMaster.Equals(ARecord) or lMaster.IsInjected then
-      Exit;
-    // Fresh automation-created overrides may not have GUI conflict state populated
-    // yet. Compare from the master side so modified-state flags on the override do
-    // not hide an otherwise identical record from validation-only ITM reporting.
-    Result := lMaster.ContentEquals(ARecord) or xeAutomationSerializedMainRecordsEqual(lMaster, ARecord) or
-      xeAutomationElementContentEquals(lMaster, ARecord);
-  end;
-
   procedure CheckElement(const AElement: IwbElement);
   var
     lContainer: IwbContainerElementRef;
@@ -277,9 +191,7 @@ var
     if Supports(AElement, IwbMainRecord, lRecord) then begin
       if xeAutomationRecordBelongsToFile(AFile, lRecord) then begin
         Inc(ACheckedRecords);
-        if IsIdenticalToMaster(lRecord) or
-          ((not lRecord.MasterOrSelf.IsInjected) and ((lRecord.ConflictThis = ctIdenticalToMaster) or
-          ((lRecord.ConflictThis = ctConflictBenign) and (lRecord.Signature = 'NAVM')))) then
+        if xeAutomationRecordIsIdenticalToMaster(lRecord) then
           xeAutomationAddValidationFinding(AFindings, ASource, 'warning', xeAutomationFindingValidationItmRecord,
             Format('Identical to master record: %s', [lRecord.Name]), AFile, lRecord, '');
       end;

@@ -1,0 +1,43 @@
+# Automation regression fixtures
+
+Python 3.12 source/fixture checks (no Delphi or game required):
+
+```text
+python -m unittest discover -s Tools/AutomationRegression -p "test_*.py" -v
+```
+
+These checks do not certify Delphi compilation or native runtime semantics.
+Every queued fix needs a new LiteDebug build and game-backed acceptance before
+merge. Preserve request/response artifacts and executable hash with each run.
+
+## Issue #1: ITM headers
+
+`itm_fixture.py` creates synthetic Fallout 4 plugins without redistributing game
+data. Use a dedicated enabled MO2 mod overlay and a load order containing
+Fallout4.esm, AutomationItmMaster.esm and AutomationItmOverride.esp. Generation
+refuses to overwrite fixtures. Never generate into physical game Data.
+
+```text
+python Tools/AutomationRegression/itm_fixture.py generate --overlay <MO2-mod-folder>
+python Tools/AutomationRegression/itm_fixture.py exercise --overlay <MO2-mod-folder> --exe <new-xEdit.exe> --pid <MO2-daemon-pid> --artifacts <run-folder>
+```
+
+Launch the daemon through the broker-backed MO2 client described in the local
+development skill, using the new executable. The runner uses xEdit's native
+`-automation-call-*` relay against that existing daemon; it does not launch a game
+session. It verifies exact ITM findings, dry-run count and apply count, retained
+record ownership, then saves and terminally flushes. Relaunch through MO2 under
+a fresh PID and use separate artifact folders:
+
+```text
+python Tools/AutomationRegression/itm_fixture.py verify --overlay <MO2-mod-folder> --exe <new-xEdit.exe> --pid <fresh-pid> --artifacts <readback-folder>
+python Tools/AutomationRegression/itm_fixture.py disk --overlay <actual-MO2-output-folder>
+```
+
+Disk parsing checks retained records and exact flag bits independently of daemon
+responses; resolve MO2 overwrite/output routing before choosing that directory.
+Also exercise unsaved identical copies, unsaved flag changes after conflict state
+is populated, injected records, NAVM benign conflicts, differing master tables
+and compressed records. The byte fallback deliberately retains uncertain dirty
+records and complex module slots rather than removing them. These live cases and
+the checked-in runner have not been run locally: no Delphi/MO2 setup is installed.

@@ -1301,6 +1301,7 @@ implementation
 
 uses
   JsonDataObjects,
+  xeAutomationRecordComparison,
   DDetours,
   {$IFNDEF LiteVersion}
   cxVTEditors,
@@ -1355,92 +1356,6 @@ begin
       xeAutomationCollectFileMainRecords(lContainer.Elements[i], AFile, ARecords);
 end;
 
-function xeAutomationMainRecordContentEquals(const ALeft, ARight: IwbMainRecord): Boolean;
-var
-  lLeftStream: TMemoryStream;
-  lRightStream: TMemoryStream;
-begin
-  Result := False;
-  if (not Assigned(ALeft)) or (not Assigned(ARight)) then
-    Exit;
-
-  lLeftStream := TMemoryStream.Create;
-  try
-    lRightStream := TMemoryStream.Create;
-    try
-      ALeft.WriteToStream(lLeftStream, rmNo);
-      ARight.WriteToStream(lRightStream, rmNo);
-      Result := (lLeftStream.Size = lRightStream.Size) and
-        ((lLeftStream.Size = 0) or CompareMem(lLeftStream.Memory, lRightStream.Memory, lLeftStream.Size));
-    finally
-      lRightStream.Free;
-    end;
-  finally
-    lLeftStream.Free;
-  end;
-end;
-
-function xeAutomationElementContentEquals(const ALeft, ARight: IwbElement): Boolean;
-var
-  lLeftContainer: IwbContainerElementRef;
-  lRightContainer: IwbContainerElementRef;
-  lLeftStart: Integer;
-  lRightStart: Integer;
-  lCompareCount: Integer;
-  lLeftIsContainer: Boolean;
-  lRightIsContainer: Boolean;
-  i: Integer;
-begin
-  Result := False;
-  if (not Assigned(ALeft)) or (not Assigned(ARight)) then
-    Exit;
-  if ALeft.ElementType <> ARight.ElementType then
-    Exit;
-
-  lLeftIsContainer := Supports(ALeft, IwbContainerElementRef, lLeftContainer);
-  lRightIsContainer := Supports(ARight, IwbContainerElementRef, lRightContainer);
-  if lLeftIsContainer or lRightIsContainer then begin
-    if (not lLeftIsContainer) or (not lRightIsContainer) then
-      Exit;
-
-    // Main-record headers carry file-local ownership/load-order metadata. ITM
-    // cleaning must compare user payload below those additional header fields so
-    // freshly reloaded automation fixtures match the validation-only ITM seam.
-    lLeftStart := lLeftContainer.AdditionalElementCount;
-    lRightStart := lRightContainer.AdditionalElementCount;
-    lCompareCount := lLeftContainer.ElementCount - lLeftStart;
-    if lCompareCount <> (lRightContainer.ElementCount - lRightStart) then
-      Exit;
-
-    for i := 0 to Pred(lCompareCount) do
-      if not xeAutomationElementContentEquals(lLeftContainer.Elements[lLeftStart + i], lRightContainer.Elements[lRightStart + i]) then
-        Exit;
-
-    Result := True;
-    Exit;
-  end;
-
-  Result := SameText(ALeft.BaseName, ARight.BaseName) and (ALeft.EditValue = ARight.EditValue);
-end;
-
-function xeAutomationRecordIsItmCandidate(const ARecord: IwbMainRecord): Boolean;
-var
-  lMaster: IwbMainRecord;
-begin
-  Result := False;
-  if not Assigned(ARecord) then
-    Exit;
-  lMaster := ARecord.MasterOrSelf;
-  if (not Assigned(lMaster)) or lMaster.Equals(ARecord) or lMaster.IsInjected then
-    Exit;
-  // Automation reuses the GUI cleaner's native ITM concept but avoids tree nodes,
-  // filter setup, progress UI, and any save/exit side effects.
-  Result := lMaster.ContentEquals(ARecord) or xeAutomationMainRecordContentEquals(lMaster, ARecord) or
-    xeAutomationElementContentEquals(lMaster, ARecord) or
-    (ARecord.ConflictThis = ctIdenticalToMaster) or
-    ((ARecord.ConflictThis = ctConflictBenign) and (ARecord.Signature = 'NAVM'));
-end;
-
 function xeAutomationRecordIsDeletedRefCandidate(const ARecord: IwbMainRecord): Boolean;
 begin
   Result := Assigned(ARecord) and ARecord.IsDeleted and (
@@ -1491,7 +1406,7 @@ begin
   try
     xeAutomationCollectFileMainRecords(AFile, AFile, lRecords);
     for lRecord in lRecords do
-      if xeAutomationRecordIsItmCandidate(lRecord) then begin
+      if xeAutomationRecordIsIdenticalToMaster(lRecord) then begin
         if not lRecord.IsRemovable then begin
           Inc(ASkipped);
           Continue;
