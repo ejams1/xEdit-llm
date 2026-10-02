@@ -60,6 +60,7 @@ uses
   xeAutomationJobs in 'xEdit\xeAutomationJobs.pas',
   xeAutomationMutationPolicy in 'xEdit\xeAutomationMutationPolicy.pas',
   xeAutomationObjectModel in 'xEdit\xeAutomationObjectModel.pas',
+  xeAutomationRecordComparison in 'xEdit\xeAutomationRecordComparison.pas',
   xeAutomationRegistry in 'xEdit\xeAutomationRegistry.pas',
   xeAutomationServeLoop in 'xEdit\xeAutomationServeLoop.pas',
   xeAutomationSession in 'xEdit\xeAutomationSession.pas',

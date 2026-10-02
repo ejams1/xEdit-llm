@@ -1,0 +1,31 @@
+name: Automation regression sources
+
+on:
+  pull_request:
+    paths:
+      - 'Core/**'
+      - 'xEdit/**'
+      - 'Tools/AutomationRegression/**'
+      - '.github/workflows/automation-regressions.yml'
+  push:
+    paths:
+      - 'Core/**'
+      - 'xEdit/**'
+      - 'Tools/AutomationRegression/**'
+      - '.github/workflows/automation-regressions.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check fixture integrity and source safety
+        run: python -m unittest discover -s Tools/AutomationRegression -p 'test_*.py' -v
+      # Delphi builds and MO2-backed acceptance run on the maintainer's licensed
+      # Windows setup. This job deliberately makes no runtime verification claim.
