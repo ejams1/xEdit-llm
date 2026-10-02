@@ -10492,7 +10492,7 @@
       "handler": "xeAutomationElementsAddChild",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1449
+        "line": 1468
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10504,7 +10504,7 @@
       "handler": "xeAutomationElementsAssignTemplates",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1444
+        "line": 1463
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10516,7 +10516,7 @@
       "handler": "xeAutomationElementsChildren",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1440
+        "line": 1459
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10528,7 +10528,7 @@
       "handler": "xeAutomationElementsClear",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1447
+        "line": 1466
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10540,7 +10540,7 @@
       "handler": "xeAutomationElementsConflictStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1441
+        "line": 1460
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10552,7 +10552,7 @@
       "handler": "xeAutomationElementsCopyChildTo",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1451
+        "line": 1470
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10564,7 +10564,7 @@
       "handler": "xeAutomationElementsEditCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1443
+        "line": 1462
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10576,10 +10576,22 @@
       "handler": "xeAutomationElementsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1439
+        "line": 1457
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "elements.get_value",
+      "kind": "command",
+      "handler": "xeAutomationElementsGetValue",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsElements.pas",
+        "line": 1458
+      },
+      "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
+      "effect": "read-only; full edit/native values; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -10588,7 +10600,7 @@
       "handler": "xeAutomationElementsMoveDown",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1453
+        "line": 1472
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10600,7 +10612,7 @@
       "handler": "xeAutomationElementsMoveUp",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1452
+        "line": 1471
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10612,7 +10624,7 @@
       "handler": "xeAutomationElementsNextMember",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1454
+        "line": 1473
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10624,7 +10636,7 @@
       "handler": "xeAutomationElementsPreviousMember",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1455
+        "line": 1474
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10636,7 +10648,7 @@
       "handler": "xeAutomationElementsRemoveChild",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1450
+        "line": 1469
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10648,7 +10660,7 @@
       "handler": "xeAutomationElementsRequiredMasters",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1442
+        "line": 1461
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -10660,7 +10672,7 @@
       "handler": "xeAutomationElementsSetNativeValue",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1448
+        "line": 1467
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10672,7 +10684,7 @@
       "handler": "xeAutomationElementsSetToDefault",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1446
+        "line": 1465
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10684,7 +10696,7 @@
       "handler": "xeAutomationElementsSetValue",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1445
+        "line": 1464
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",

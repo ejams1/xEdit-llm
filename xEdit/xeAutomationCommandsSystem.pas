@@ -557,13 +557,13 @@ begin
     A['acceptedValues'].Add('<any-windows-codepage-number>');
     S['scope'] := 'startup-only';
   end;
-  // Known limitation: autodetect runs on read; the GUI write path still uses
-  // the bsdGetEncoding chain (CP-1252 default unless override or CLI flag is
-  // set). Saving an autodetected UTF-8 string through xEdit will round-trip
-  // through CP-1252 encode and mojibake on disk. Use -cp:utf-8 / cpoverride
-  // for read+write symmetric UTF-8.
-  Result.O['supports'].O['stringDecoding'].S['readWriteAsymmetry'] :=
-    'read-autodetects-write-uses-bsdGetEncoding';
+  Result.O['supports'].O['stringDecoding'].S['readWriteAsymmetry'] := 'none-for-inline-strings';
+  Result.O['supports'].O['stringDecoding'].B['rejectsLossyWrites'] := True;
+  Result.O['supports'].O['fullElementValues'].S['command'] := 'elements.get_value';
+  Result.O['supports'].O['fullElementValues'].I['maxCharacters'] := 1048576;
+  Result.O['supports'].O['fullElementValues'].I['maxNativeArrayItems'] := 50000;
+  Result.O['supports'].O['fullElementValues'].B['preservesWhitespace'] := True;
+
 end;
 
 initialization

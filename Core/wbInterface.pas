@@ -1,4 +1,4 @@
-﻿
+
 {******************************************************************************
 
   This Source Code Form is subject to the terms of the Mozilla Public License,
@@ -2781,6 +2781,7 @@ type
 
   IwbBaseStringDef = interface(IwbValueDef)
     ['{06632243-538C-48EC-9074-7BB72142CAB8}']
+    function EffectiveEncoding(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TEncoding;
     function OverrideEncoding(aEncoding: TEncoding): IwbBaseStringDef;
 
     function SetFormater(const aFormater: IwbStringDefFormater): IwbBaseStringDef;
@@ -6789,6 +6790,7 @@ type
     function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override;
 
     {---IwbBaseStringDef---}
+    function EffectiveEncoding(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TEncoding; virtual;
     function OverrideEncoding(aEncoding: TEncoding): IwbBaseStringDef;
     function SetFormater(const aFormater: IwbStringDefFormater): IwbBaseStringDef;
   public
@@ -6816,6 +6818,7 @@ type
                        aForward    : Boolean = False); virtual;
     procedure AfterClone(const aSource: TwbDef); override;
 
+    function EffectiveEncoding(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TEncoding; override;
     function ToStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aTransformType: TwbStringTransformType): string; virtual;
     function ToStringTransform(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aTransformType: TwbStringTransformType): string;
 
@@ -16615,12 +16618,57 @@ begin
   FromStringTransform(aBasePtr, aEndPtr, aElement, aValue, ttFromNativeValue);
 end;
 
+function TwbStringDef.EffectiveEncoding(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TEncoding;
+var
+  Len, i: NativeUInt;
+  Decoded: string;
+  Bytes: TBytes;
+begin
+  Result := bsdGetEncoding(aElement);
+  // Per-definition and explicit per-file encodings retain precedence over
+  // autodetection, including an explicit CP-1252 selection.
+  if not (dfTranslatable in defFlags) or Assigned(bsdEncodingOverride) or
+     (Assigned(aElement) and Assigned(aElement._File) and aElement._File.HasExplicitEncodingOverride) then
+    Exit;
+  if not Assigned(aBasePtr) or not Assigned(aEndPtr) or
+     (NativeUInt(aEndPtr) <= NativeUInt(aBasePtr)) then
+    Exit;
+  Len := NativeUInt(aEndPtr) - NativeUInt(aBasePtr);
+  if ndTerminator and (PByte(aBasePtr)[Pred(Len)] = wbTerminator) then
+    Dec(Len);
+  if (sdSize > 0) and (Len > NativeUInt(sdSize)) then
+    Len := sdSize;
+  if sdForward then begin
+    i := 0;
+    while (i < Len) and (PByte(aBasePtr)[i] <> 0) do
+      Inc(i);
+    Len := i;
+  end else
+    while (Len > 0) and (PByte(aBasePtr)[Pred(Len)] = 0) do
+      Dec(Len);
+  if Len > 0 then begin
+    Bytes := BytesOf(aBasePtr, Len);
+    if TryDecodeUtf8(Bytes, Decoded) then
+      Result := TEncoding.UTF8;
+  end;
+end;
+
 procedure TwbStringDef.FromStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string; aTransformType: TwbStringTransformType);
 var
   NewSize : Integer;
   b       : TBytes;
+  Encoding: TEncoding;
 begin
-  b := bsdGetEncoding(aElement).GetBytes(aValue);
+  // Read and write use the same encoding decision on the original storage.
+  // Detect before RequestStorageChange so resizing cannot discard the evidence.
+  Encoding := EffectiveEncoding(aBasePtr, aEndPtr, aElement);
+  b := Encoding.GetBytes(aValue);
+  // Windows code-page encoders may silently substitute '?' or best-fit glyphs.
+  // Reject before mutation rather than accepting irreversible text replacement.
+  if Encoding.GetString(b) <> aValue then
+    raise Exception.CreateFmt('String cannot be represented without loss in %s', [Encoding.EncodingName]);
+  if (sdSize > 0) and (Length(b) > sdSize) then
+    raise Exception.CreateFmt('Encoded string needs %d bytes; field permits %d', [Length(b), sdSize]);
 
   if sdSize > 0 then
     NewSize := sdSize
@@ -16812,26 +16860,14 @@ begin
   if Len > 0 then begin
     b := BytesOf(aBasePtr, Len);
     try
-      // r5 UTF-8 inline autodetect for translatable fields (FULL/DESC/BOOK
-      // text/MESG text/...). Skipped when:
-      //   - the def has its own encoding override (per-def bsdEncodingOverride);
-      //   - the file has an explicit per-file override (.cpoverride sidecar
-      //     or header SNAM <cp:XXXX>) - latched on IwbFile so explicit 1252
-      //     still suppresses autodetect, not inferred from encoding identity.
-      // Non-translatable fields (EditorID, signatures, FormID labels) are
-      // intentionally excluded - they have stable byte contracts and stay on
-      // the existing CP-1252 read path. See TryDecodeUtf8 for defense-layer
-      // detail (RFC 3629 strict + overlong/surrogate/noncharacter/C1-control
-      // rejection + ASCII bypass + BOM strip).
-      if (dfTranslatable in defFlags)
-         and not Assigned(bsdEncodingOverride)
-         and not (Assigned(aElement) and Assigned(aElement._File)
-                  and aElement._File.HasExplicitEncodingOverride)
+      // Share the original-storage encoding decision with writes and metadata.
+      // TryDecodeUtf8 also removes a UTF-8 BOM from the edit surface.
+      if (EffectiveEncoding(aBasePtr, aEndPtr, aElement) = TEncoding.UTF8)
          and TryDecodeUtf8(b, Result) then begin
         if aTransformType = ttCheck then
           Result := '';
       end else begin
-        Result := bsdGetEncoding(aElement).GetString(b);
+        Result := EffectiveEncoding(aBasePtr, aEndPtr, aElement).GetString(b);
         if aTransformType = ttCheck then
           Result := '';
       end;
@@ -22633,6 +22669,10 @@ begin
     lValue := bsdFormater.FromEditValue(lValue, aElement);
 
   b := bsdGetEncoding(aElement).GetBytes(lValue);
+  // Length-prefixed strings do not autodetect, but must still reject code-page
+  // substitution before their storage or length prefix changes.
+  if bsdGetEncoding(aElement).GetString(b) <> lValue then
+    raise Exception.CreateFmt('String cannot be represented without loss in %s', [bsdGetEncoding(aElement).EncodingName]);
   if (dfHasZeroTerminator in defFlags) and ((Length(b) < 1) or (b[High(b)] <> 0)) then
     SetLength(b, Succ(Length(b))); //new byte automatically 0
 
@@ -25031,6 +25071,11 @@ begin
     if Assigned(bsdFormater) then
       Self.bsdFormater := (bsdFormater as IwbDefInternal).SetParent(Self, False) as IwbStringDefFormater;
   end;
+end;
+
+function TwbBaseStringDef.EffectiveEncoding(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TEncoding;
+begin
+  Result := bsdGetEncoding(aElement);
 end;
 
 function TwbBaseStringDef.bsdGetEncoding(const aElement: IwbElement): TEncoding;
