@@ -44,7 +44,7 @@ def main():
         raw(mode, padded_ping(100), mode)
         assert client.call("system.ping") is not None  # next exchange remains usable
     request = json.dumps({"command": "records.create", "idempotencyKey": "fixture-create-once",
-                          "requestId": "stable", "args": {"file": "AutomationStringValues.esp",
+                          "requestId": "stable", "args": {"targetFile": "AutomationStringValues.esp",
                           "signature": "KYWD", "editorId": "AutomationReplayCreated"}},
                          separators=(",", ":"))
     raw("lost-create", request.encode("utf-8"), "disconnect")

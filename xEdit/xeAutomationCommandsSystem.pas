@@ -155,7 +155,7 @@ begin
   // Contract 0.23 consolidates the additive lifecycle/readback surface for
   // pending saves, in-band flush, script policy preflight, partial-mutation
   // reporting, and the newly registered script helpers.
-  Result.S['contractVersion'] := '0.23';
+  Result.S['contractVersion'] := '0.24';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin
@@ -406,6 +406,11 @@ begin
   lApplyFilterRegex := lApplyFilterExtensions.O['regex'];
   lApplyFilterRegex.S['engine'] := 'System.RegularExpressions.TRegEx';
   lApplyFilterRegex.I['perRecordTimeoutMs'] := 100;
+  lApplyFilterRegex.I['requestBudgetMs'] := 250;
+  lApplyFilterRegex.I['maxMatchAttempts'] := 1000;
+  lApplyFilterRegex.I['maxPatternLength'] := 256;
+  lApplyFilterRegex.B['terminatesTimedOutWorker'] := False;
+  lApplyFilterRegex.S['uncertainOutcome'] := 'complete:false,incompleteReason';
   with lApplyFilterRegex.A['fields'] do begin
     Add('editorIdRegex');
     Add('displayNameRegex');
@@ -445,7 +450,17 @@ begin
   lApplyFilterPagination.I['defaultLimit'] := 100;
   lApplyFilterPagination.I['maxLimit'] := 100;
   lApplyFilterPagination.I['defaultOffset'] := 0;
-  lApplyFilterPagination.S['cursorField'] := 'nextOffset';
+  lApplyFilterPagination.S['cursorField'] := 'nextCursor';
+  lApplyFilterPagination.B['offsetCompatibility'] := True;
+  lApplyFilterPagination.S['revisionBinding'] := 'native-plugin-modification-generation';
+  lApplyFilterPagination.I['maxActiveCursors'] := 32;
+  lApplyFilterPagination.I['cursorLifetimeMs'] := 300000;
+  lApplyFilterPagination.I['maxRetainedBytes'] := 67108864;
+  lApplyFilterPagination.I['maxScannedPerPage'] := 5000;
+  lApplyFilterPagination.I['scanBudgetMs'] := 100;
+  lApplyFilterPagination.B['emptyContinuationPagesPossible'] := True;
+  lApplyFilterPagination.B['consumesPageTokens'] := True;
+  lApplyFilterPagination.S['retryRule'] := 'repeat-exact-request-with-idempotency-key';
   lApplyFilterPagination.B['emitsTotal'] := False;
   with lApplyFilterPagination.A['responseFields'] do begin
     Add('count');
@@ -453,6 +468,10 @@ begin
     Add('limit');
     Add('truncated');
     Add('nextOffset');
+    Add('nextCursor');
+    Add('complete');
+    Add('incomplete');
+    Add('incompleteReason');
   end;
 
   // records.references recursion is opt-in so legacy relationship lookups stay
@@ -465,7 +484,25 @@ begin
     Add('DIAL');
     Add('QUST');
   end;
-  lReferencesRecursive.S['dedupBy'] := 'loadOrderFormId';
+  lReferencesRecursive.S['dedupBy'] := 'file-and-loadOrderFormId';
+  with Result.O['supports'].O['recordQueryPagination'] do begin
+    A['commands'].Add('records.list');
+    A['commands'].Add('records.apply_filter');
+    A['commands'].Add('records.references');
+    A['commands'].Add('records.referenced_by');
+    I['defaultLimit'] := 100;
+    I['maxLimit'] := 500;
+    S['cursorArg'] := 'cursor';
+    S['continuationField'] := 'nextCursor';
+    B['reverseIndexRequired'] := True;
+  end;
+  with Result.O['supports'].O['responseProjection'] do begin
+    S['fieldsArg'] := 'fields';
+    S['relationsArg'] := 'includeRelations';
+    B['defaultIncludesRelations'] := True;
+    B['preservesLocatorsAndCompleteness'] := True;
+    B['compactWireJson'] := True;
+  end;
   lReferencesRecursive.S['limitSemantics'] := 'post-union-post-dedup';
 
   // records.conflict_status now surfaces aggregate conflict signal from the

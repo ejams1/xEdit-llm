@@ -29,8 +29,10 @@ def record(signature, payload, flags=0, form_id=0):
     return struct.pack("<4sIIIIHH", signature, len(payload), flags, form_id, 0, 131, 0) + payload
 
 
-def plugin(masters, records, esm=False):
-    header = subrecord(b"HEDR", struct.pack("<fII", 1.0, len(CASES), 0x900))
+def plugin(masters, records, esm=False, record_count=None, next_object_id=0x900):
+    if record_count is None:
+        record_count = len(CASES)
+    header = subrecord(b"HEDR", struct.pack("<fII", 1.0, record_count, next_object_id))
     for master in masters:
         header += subrecord(b"MAST", master.encode("ascii") + b"\0")
         header += subrecord(b"DATA", b"\0" * 8)

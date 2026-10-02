@@ -1301,6 +1301,7 @@ implementation
 
 uses
   JsonDataObjects,
+  xeAutomationRecordQueries,
   xeAutomationRecordComparison,
   DDetours,
   {$IFNDEF LiteVersion}
@@ -9547,6 +9548,7 @@ var
   WasModGroupsExist: Boolean;
 begin
   with TfrmModGroupSelect.Create(Self) do try
+    xeAutomationInvalidateRecordQueries;
     wbReloadModGroups;
     wbModGroupsByName(False).ShowValidationMessages;
     AllModGroups := wbModGroupsByName;
@@ -10232,6 +10234,7 @@ end;
 
 procedure TfrmMain.mniNavBuildReachableClick(Sender: TObject);
 begin
+  xeAutomationInvalidateRecordQueries;
   PerformLongAction('Building reachable information', '', procedure
   var
     i       : Integer;
@@ -10291,6 +10294,7 @@ begin
     if Length(SelectedModules) < 1 then
       Exit;
 
+    xeAutomationInvalidateRecordQueries;
     PerformLongAction('Building reference information', '', procedure
     var
       i: Integer;
@@ -13004,6 +13008,7 @@ begin
   if wbLanguage = s then
     Exit;
 
+  xeAutomationInvalidateRecordQueries;
   wbLanguage := s;
 
   wbLocalizationHandler.Clear;
@@ -13571,6 +13576,7 @@ var
 
 begin
   if Prepare then begin
+    xeAutomationInvalidateRecordQueries;
     SourceFile.BuildOrLoadRef(False);
     PerformLongAction('Changing FormIDs', 'Processed Records: 0', procedure
     var

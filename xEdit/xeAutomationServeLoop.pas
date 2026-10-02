@@ -39,6 +39,7 @@ uses
   Generics.Collections,
   xeAutomationPipeExchange,
   xeAutomationReplay,
+  xeAutomationRecordQueries,
   xeAutomationHostCli,
   xeAutomationTransportPipe;
 
@@ -134,6 +135,7 @@ end;
 
 procedure xeAutomationServeLoopStop;
 begin
+  xeAutomationInvalidateRecordQueries;
   xeAutomationServeActive := False;
   xeAutomationRetireExchange;
   xeAutomationServePipeNameValue := '';

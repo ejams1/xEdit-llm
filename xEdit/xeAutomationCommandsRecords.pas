@@ -28,6 +28,7 @@ uses
   xeAutomationErrors,
   xeAutomationMutationAudit,
   xeAutomationMutationPolicy,
+  xeAutomationRecordQueries,
   xeAutomationRegistry;
 
 const
@@ -704,42 +705,29 @@ end;
 
 function xeAutomationRecordsApplyFilter(const AArgs: TJsonObject): TJsonObject;
 var
-  lSearch: TxeAutomationBoundedMainRecordSearch;
+  lPage: TxeAutomationMainRecords;
   lHits: TJsonArray;
-  lOffset: Integer;
-  lLimit: Integer;
   i: Integer;
 begin
-  // records.list remains the simple enumerator; the broader Apply Filter contract is
-  // isolated here so callers opt into file-scoped glob and status matching explicitly.
-  // Phase 16 (contract 0.21): request-boundary pagination is echoed back through
-  // offset / limit / (optional) nextOffset so cursor-style drain is trivial for
-  // wrappers and total is intentionally NOT emitted -- the underlying scan is
-  // early-exit and cannot cheaply produce a full match count without breaking
-  // the per-page containment guarantee that keeps context bounded.
-  lOffset := xeAutomationReadOffsetArg(AArgs);
-  lLimit := xeAutomationReadApplyFilterLimitArg(AArgs);
-  lSearch := xeAutomationFilterMainRecords(AArgs);
-
+  xeAutomationReadApplyFilterLimitArg(AArgs); // Preserve the strict 1..100 filter contract.
   Result := TJsonObject.Create;
-  Result.B['truncated'] := lSearch.Truncated;
-  Result.I['offset'] := lOffset;
-  Result.I['limit'] := lLimit;
+  try
+  lPage := xeAutomationRecordQueryPage('filter', AArgs, Result);
   lHits := Result.A['hits'];
-  for i := Low(lSearch.Hits) to High(lSearch.Hits) do
-    lHits.Add(xeAutomationNewListedRecordSummary(lSearch.Hits[i]));
+  for i := Low(lPage) to High(lPage) do
+    lHits.Add(xeAutomationNewListedRecordSummary(lPage[i]));
 
   Result.I['count'] := lHits.Count;
-  if lSearch.Truncated then
-    // nextOffset is the load-bearing cursor primitive: wrappers can re-issue the
-    // same filter with offset=nextOffset until truncated is false without ever
-    // materializing a total. Omitting nextOffset when not truncated keeps the
-    // "no more pages" terminator unambiguous for pure-JSON clients.
-    Result.I['nextOffset'] := lOffset + lHits.Count;
-  if lSearch.RegexTimeouts > 0 then
-    Result.I['regexTimeouts'] := lSearch.RegexTimeouts;
-  if lSearch.RegexSlotsExhausted > 0 then
-    Result.I['regexSlotsExhausted'] := lSearch.RegexSlotsExhausted;
+  Result.I['offset'] := xeAutomationReadOffsetArg(AArgs) + Result.I['emittedTotal'] - lHits.Count;
+  // nextOffset is retained for complete full pages. Sparse budget pages may
+  // contain zero hits, so they use only nextCursor to avoid offset retry loops.
+  if Result.B['truncated'] and (lHits.Count > 0) then
+    Result.I['nextOffset'] := Result.I['offset'] + lHits.Count;
+  xeAutomationVerifyRecordQueryRevision(Result);
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 function xeAutomationRecordsGet(const AArgs: TJsonObject): TJsonObject;
@@ -768,29 +756,42 @@ end;
 
 function xeAutomationRecordsReferences(const AArgs: TJsonObject): TJsonObject;
 var
-  lHasRecursive: Boolean;
-  lRecursive: Boolean;
+  lPage: TxeAutomationMainRecords;
+  lHits: TJsonArray;
+  i: Integer;
 begin
-  lRecursive := xeAutomationReadBooleanArg(AArgs, 'recursive', lHasRecursive);
-  if not lHasRecursive then
-    lRecursive := False;
-  Result := xeAutomationNewListedRecordHitsResponse(
-    xeAutomationCollectOutgoingReferences(
-      xeAutomationRequireRootRecord(AArgs),
-      xeAutomationReadSearchLimit(AArgs),
-      lRecursive
-    )
-  );
+  Result := TJsonObject.Create;
+  try
+  lPage := xeAutomationRecordQueryPage('references', AArgs, Result);
+  lHits := Result.A['hits'];
+  for i := Low(lPage) to High(lPage) do
+    lHits.Add(xeAutomationNewListedRecordSummary(lPage[i]));
+  Result.I['count'] := lHits.Count;
+  xeAutomationVerifyRecordQueryRevision(Result);
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 function xeAutomationRecordsReferencedBy(const AArgs: TJsonObject): TJsonObject;
+var
+  lPage: TxeAutomationMainRecords;
+  lHits: TJsonArray;
+  i: Integer;
 begin
-  Result := xeAutomationNewListedRecordHitsResponse(
-    xeAutomationCollectReferencedByRecords(
-      xeAutomationRequireRootRecord(AArgs),
-      xeAutomationReadSearchLimit(AArgs)
-    )
-  );
+  Result := TJsonObject.Create;
+  try
+  lPage := xeAutomationRecordQueryPage('referenced_by', AArgs, Result);
+  lHits := Result.A['hits'];
+  for i := Low(lPage) to High(lPage) do
+    lHits.Add(xeAutomationNewListedRecordSummary(lPage[i]));
+  Result.I['count'] := lHits.Count;
+  xeAutomationVerifyRecordQueryRevision(Result);
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 function xeAutomationRecordsConflictStatus(const AArgs: TJsonObject): TJsonObject;
@@ -805,37 +806,22 @@ end;
 
 function xeAutomationRecordsList(const AArgs: TJsonObject): TJsonObject;
 var
-  lFile: IwbFile;
+  lPage: TxeAutomationMainRecords;
   lRecordList: TJsonArray;
-  lSignature: string;
-  lTruncated: Boolean;
-  lRecord: IwbMainRecord;
   i: Integer;
 begin
-  lFile := xeAutomationRequirePluginFile(xeAutomationRequireStringArg(AArgs, 'file'));
-  lSignature := xeAutomationReadStringArg(AArgs, 'signature');
-
   Result := TJsonObject.Create;
+  try
+  lPage := xeAutomationRecordQueryPage('list', AArgs, Result);
   lRecordList := Result.A['records'];
-  lTruncated := False;
-
-  // Keep the first list surface bounded and shallow by streaming directly from the
-  // file and stopping after a small internal cap instead of materializing matches.
-  for i := 0 to Pred(lFile.RecordCount) do
-    if Supports(lFile.Records[i], IwbMainRecord, lRecord) then
-      if (lSignature = '') or SameText(lRecord.Signature, lSignature) then begin
-        // Report truncation only when the hard cap actually clips one more matching
-        // record, so bounded list callers can trust count/truncated together.
-        if lRecordList.Count >= xeAutomationRecordsListLimit then begin
-          lTruncated := True;
-          Break;
-        end;
-
-        lRecordList.Add(xeAutomationNewListedRecordSummary(lRecord));
-      end;
-
+  for i := Low(lPage) to High(lPage) do
+    lRecordList.Add(xeAutomationNewListedRecordSummary(lPage[i]));
   Result.I['count'] := lRecordList.Count;
-  Result.B['truncated'] := lTruncated;
+  xeAutomationVerifyRecordQueryRevision(Result);
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 function xeAutomationRecordsCreate(const AArgs: TJsonObject): TJsonObject;

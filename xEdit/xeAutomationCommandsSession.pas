@@ -15,6 +15,7 @@ procedure xeAutomationRegisterSessionCommands;
 implementation
 
 uses
+  xeAutomationRecordQueries,
   SysUtils,
   JsonDataObjects,
   wbInterface,
@@ -222,6 +223,8 @@ begin
       );
 
     try
+      // Cursor stacks retain native interfaces; release them before graph close.
+      xeAutomationInvalidateRecordQueries;
       xeDrainPendingRenames(lDrainResults);
     finally
       // From this point the file graph may already be invalid. Arm exit before
