@@ -258,6 +258,25 @@ within a single file is still atomic. Large single-file validation scans,
 compaction, and cleaning need finer steppers before latency can be guaranteed.
 Compilation and game-backed execution remain pending.
 
+## Issue #20: circular leveled-list validation
+
+`validation.circular_leveled_lists` is a read-only job over explicit target
+files. It runs xEdit's native `wbLeveledListCheckCircular` on winning LVLI,
+LVLC, LVLN and LVSP records. Findings include source, root locator, native
+message and a bounded ordered `cyclePathNames` array. Summaries report checked
+records, cycles and dirty-state change; `jobs.get.progress` advances by target
+file. TES3 is rejected because it has no plugin GRUP hierarchy. The native
+checker uses transient tags, which the job clears before and after each file
+scan; verify GUI tag interactions in the final native pass.
+
+Run `circular_fixture.py generate --overlay <MO2-mod>` and load its FO4 plugin.
+Then run `circular_fixture.py exercise --overlay <MO2-mod> --exe <exe>
+--pid <pid> --artifacts <folder>`. It expects LVLI/LVLN/LVSP cycles, an
+acyclic control, structured paths, one-file progress, and unchanged plugin
+dirty state/revision. Test LVLC in a supported older game, duplicate cycles,
+cross-file links, multiple target files, cancellation and the TES3 gate in
+separate profiles. Native compilation and game-backed runs remain pending.
+
 ## Issue #18: command discovery and stale edit expectations
 
 `system.command_schema {"command":"elements.set_value"}` returns an on-demand

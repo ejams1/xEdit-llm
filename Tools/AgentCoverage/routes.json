@@ -353,9 +353,9 @@
       "scriptSymbols": []
     },
     "circular-lists": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native wbLeveledListCheckCircular as a structured read-only job, covering winning LVLI/LVLC/LVLN/LVSP records, cycle paths, progress and supported game gates.",
+      "status": "direct",
+      "routes": ["validation.circular_leveled_lists"],
+      "notes": "Native circular checker scans winning LVLI/LVLC/LVLN/LVSP roots, returns structured cycle-name paths and file progress. TES3 is unsupported; game-backed verification remains pending.",
       "effect": "read-only",
       "scriptSymbols": []
     },
@@ -1328,6 +1328,9 @@
     },
     "validation.check_for_itm": {
       "effect": "read-only; no plugin persistence"
+    },
+    "validation.circular_leveled_lists": {
+      "effect": "read-only native cycle validation; transient tags reset; no plugin persistence"
     },
     "elements.get_value": {
       "effect": "read-only; full edit/native values; no plugin persistence"

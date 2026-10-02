@@ -20,6 +20,8 @@ uses
   JsonDataObjects,
   xeAutomationRecordComparison,
   wbInterface,
+  wbHelpers,
+  wbLoadOrder,
   xeAutomationDataLookup,
   xeAutomationErrors,
   xeAutomationJobs,
@@ -29,6 +31,134 @@ const
   xeAutomationValidationCheckForErrorsKind = 'validation.check_for_errors';
   xeAutomationValidationCheckForItmKind = 'validation.check_for_itm';
   xeAutomationValidationCheckForDeletedRefsKind = 'validation.check_for_deleted_refs';
+  xeAutomationValidationCircularListsKind = 'validation.circular_leveled_lists';
+
+procedure xeAutomationResetCircularCheckTags;
+var
+  lModules: TwbModuleInfos;
+  lFile: IwbFile;
+  i: Integer;
+begin
+  lModules := wbModulesByLoadOrder;
+  for i := Low(lModules) to High(lModules) do begin
+    lFile := xeAutomationTryPluginFileFromModule(lModules[i]);
+    if Assigned(lFile) then
+      lFile.ResetTags;
+  end;
+end;
+
+procedure xeAutomationWriteCircularPath(const ATarget: TJsonArray; const AMessage: string;
+  const ATruncated: TJsonObject);
+const
+  Prefix = 'Circular Leveled List found: ';
+var
+  lRemaining: string;
+  lPart: string;
+  lSeparator: Integer;
+begin
+  lRemaining := Copy(AMessage, Length(Prefix) + 1, MaxInt);
+  while lRemaining <> '' do begin
+    if ATarget.Count >= 100 then begin
+      ATruncated.B['cyclePathTruncated'] := True;
+      Break;
+    end;
+    lSeparator := Pos(' -> ', lRemaining);
+    if lSeparator = 0 then begin
+      lPart := lRemaining;
+      if Length(lPart) > 160 then
+        ATruncated.B['cyclePathTruncated'] := True;
+      ATarget.Add(Copy(lPart, 1, 160));
+      Break;
+    end;
+    lPart := Copy(lRemaining, 1, lSeparator - 1);
+    if Length(lPart) > 160 then
+      ATruncated.B['cyclePathTruncated'] := True;
+    ATarget.Add(Copy(lPart, 1, 160));
+    Delete(lRemaining, 1, lSeparator + 3);
+  end;
+end;
+
+procedure xeAutomationCircularListsJob(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean;
+  const ATarget, AOptions: TJsonObject; const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
+const
+  Signatures: array[0..3] of string = ('LVLI', 'LVLC', 'LVLN', 'LVSP');
+var
+  lFile: IwbFile;
+  lGroup: IwbGroupRecord;
+  lRecord, lWinning: IwbMainRecord;
+  lFinding, lFileResult: TJsonObject;
+  lSignature: string;
+  lDirtyBefore: Boolean;
+  i, j, lChecked, lCycles: Integer;
+begin
+  if wbGameMode = gmTES3 then
+    raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode,
+      'Circular leveled-list checking requires a plugin game with GRUP records');
+  ASummary.S['kind'] := xeAutomationValidationCircularListsKind;
+  ASummary.B['validationOnly'] := True;
+  ASummary.I['fileCount'] := ATarget.A['files'].Count;
+  ASummary.I['checkedRecords'] := 0;
+  ASummary.I['cycleCount'] := 0;
+  ASummary.B['dirtyChanged'] := False;
+  AResult.A['files'].Clear;
+  for i := 0 to ATarget.A['files'].Count - 1 do begin
+    lFile := xeAutomationRequirePluginFile(Trim(ATarget.A['files'].S[i]));
+    lDirtyBefore := lFile.Modified;
+    lChecked := 0;
+    lCycles := 0;
+    // Native checker uses transient tags to avoid revisiting graph branches.
+    // Reset around each file scan, including error paths, as the GUI does.
+    xeAutomationResetCircularCheckTags;
+    try
+      for lSignature in Signatures do begin
+        lGroup := lFile.GroupBySignature[lSignature];
+        if not Assigned(lGroup) then
+          Continue;
+        for j := 0 to Pred(lGroup.ElementCount) do begin
+          if not Supports(lGroup.Elements[j], IwbMainRecord, lRecord) then
+            Continue;
+          lWinning := lRecord.WinningOverride;
+          if not Assigned(lWinning) then
+            Continue;
+          Inc(lChecked);
+          try
+            wbLeveledListCheckCircular(lWinning, nil);
+          except
+            on E: Exception do begin
+              if Pos('Circular Leveled List found: ', E.Message) <> 1 then
+                raise;
+              Inc(lCycles);
+              lFinding := AFindings.AddObject;
+              lFinding.S['source'] := xeAutomationValidationCircularListsKind;
+              lFinding.S['severity'] := 'error';
+              lFinding.S['code'] := 'circular_leveled_list';
+              lFinding.S['message'] := Copy(E.Message, 1, 4096);
+              lFinding.O['target'].S['file'] := lWinning._File.FileName;
+              lFinding.O['target'].S['formId'] := lWinning.LoadOrderFormID.ToString(False);
+              lFinding.O['target'].S['signature'] := lWinning.Signature;
+              lFinding.O['target'].S['path'] := '';
+              lFinding.O['action'].S['kind'] := 'none';
+              xeAutomationWriteCircularPath(lFinding.A['cyclePathNames'], E.Message, lFinding);
+            end;
+          end;
+        end;
+      end;
+    finally
+      xeAutomationResetCircularCheckTags;
+    end;
+    lFileResult := AResult.A['files'].AddObject;
+    lFileResult.S['fileName'] := lFile.FileName;
+    lFileResult.I['checkedRecords'] := lChecked;
+    lFileResult.I['cycleCount'] := lCycles;
+    lFileResult.B['dirtyBefore'] := lDirtyBefore;
+    lFileResult.B['dirtyAfter'] := lFile.Modified;
+    lFileResult.B['dirtyChanged'] := lDirtyBefore <> lFile.Modified;
+    ASummary.I['checkedRecords'] := ASummary.I['checkedRecords'] + lChecked;
+    ASummary.I['cycleCount'] := ASummary.I['cycleCount'] + lCycles;
+    ASummary.B['dirtyChanged'] := ASummary.B['dirtyChanged'] or lFileResult.B['dirtyChanged'];
+  end;
+  ASummary.I['findingCount'] := AFindings.Count;
+end;
 
 function xeAutomationValidationKindName(const AKind: string): string;
 begin
@@ -350,6 +480,8 @@ begin
   xeAutomationRegisterJobKindWithValidator(xeAutomationValidationCheckForItmKind, xeAutomationCheckForItmJobHandler,
     xeAutomationValidateValidationStart);
   xeAutomationRegisterJobKindWithValidator(xeAutomationValidationCheckForDeletedRefsKind, xeAutomationCheckForDeletedRefsJobHandler,
+    xeAutomationValidateValidationStart);
+  xeAutomationRegisterJobKindWithValidator(xeAutomationValidationCircularListsKind, xeAutomationCircularListsJob,
     xeAutomationValidateValidationStart);
 end;
 
