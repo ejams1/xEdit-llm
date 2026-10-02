@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.28",
+  "contractVersion": "0.29",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -4850,9 +4850,11 @@
         }
       ],
       "profile": "special-copy",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native CopyInto wrapper/spawn-rate transformations with explicit mode options and game applicability; verify output semantics independently of plain copies.",
+      "status": "partial",
+      "routes": [
+        "records.copy_into"
+      ],
+      "notes": "Explicit wrapper/spawn_rate modes default to dry-run, preflight leveled schemas/dependencies/target existence and LLCT capacity. Wrapper reports both locators; spawn clones complete entries preserving ownership. Native semantic acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -4894,9 +4896,11 @@
         }
       ],
       "profile": "special-copy",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native CopyInto wrapper/spawn-rate transformations with explicit mode options and game applicability; verify output semantics independently of plain copies.",
+      "status": "partial",
+      "routes": [
+        "records.copy_into"
+      ],
+      "notes": "Explicit wrapper/spawn_rate modes default to dry-run, preflight leveled schemas/dependencies/target existence and LLCT capacity. Wrapper reports both locators; spawn clones complete entries preserving ownership. Native semantic acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -4966,9 +4970,11 @@
         }
       ],
       "profile": "idle-copy",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native idle-tree copy with ordered hierarchy/dependencies and target preflight; generic single-record copy is not sufficient proof.",
+      "status": "partial",
+      "routes": [
+        "records.copy_idle_tree"
+      ],
+      "notes": "Explicit bounded IDLE winner selection in one model directory, changed prefix, full old/new mapping before internal-link replacement, dependency/target preflight and partial phase results. TES4/FO3/FNV schemas; native persistence acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -7255,9 +7261,11 @@
         }
       ],
       "profile": "special-copy",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native CopyInto wrapper/spawn-rate transformations with explicit mode options and game applicability; verify output semantics independently of plain copies.",
+      "status": "partial",
+      "routes": [
+        "records.copy_into"
+      ],
+      "notes": "Explicit wrapper/spawn_rate modes default to dry-run, preflight leveled schemas/dependencies/target existence and LLCT capacity. Wrapper reports both locators; spawn clones complete entries preserving ownership. Native semantic acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10964,7 +10972,7 @@
       "handler": "xeAutomationRecordsApplyFilter",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1259
+        "line": 1613
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10976,7 +10984,7 @@
       "handler": "xeAutomationRecordsBaseRecord",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1260
+        "line": 1614
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10988,10 +10996,22 @@
       "handler": "xeAutomationRecordsConflictStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1265
+        "line": 1620
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "records.copy_idle_tree",
+      "kind": "command",
+      "handler": "xeAutomationRecordsCopyIdleTree",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsRecords.pas",
+        "line": 1617
+      },
+      "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
+      "effect": "default dry-run plan; apply creates idle copies, changes models/internal references in memory -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -11000,7 +11020,7 @@
       "handler": "xeAutomationRecordsCopyInto",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1262
+        "line": 1616
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11012,7 +11032,7 @@
       "handler": "xeAutomationRecordsCreate",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1261
+        "line": 1615
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11024,7 +11044,7 @@
       "handler": "xeAutomationRecordsDelete",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1263
+        "line": 1618
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11036,7 +11056,7 @@
       "handler": "xeAutomationRecordsFindByEditorID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1269
+        "line": 1624
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11048,7 +11068,7 @@
       "handler": "xeAutomationRecordsFindByFormID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1268
+        "line": 1623
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11060,7 +11080,7 @@
       "handler": "xeAutomationRecordsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1270
+        "line": 1625
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11072,7 +11092,7 @@
       "handler": "xeAutomationRecordsList",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1258
+        "line": 1612
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11084,7 +11104,7 @@
       "handler": "xeAutomationRecordsMarkDeleted",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1264
+        "line": 1619
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11096,7 +11116,7 @@
       "handler": "xeAutomationRecordsMasterOrSelf",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1271
+        "line": 1626
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11108,7 +11128,7 @@
       "handler": "xeAutomationRecordsReferencedBy",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1267
+        "line": 1622
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11120,7 +11140,7 @@
       "handler": "xeAutomationRecordsReferences",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1266
+        "line": 1621
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11132,7 +11152,7 @@
       "handler": "xeAutomationRecordsWinningOverride",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1272
+        "line": 1627
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11276,7 +11296,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 882
+        "line": 931
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11288,7 +11308,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 881
+        "line": 930
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11300,7 +11320,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 880
+        "line": 929
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11312,7 +11332,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 879
+        "line": 928
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",

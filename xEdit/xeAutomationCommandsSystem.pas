@@ -279,6 +279,55 @@ begin
       Result.S['persistence'] := 'read-only';
       Result.S['constraintNotes'] := 'Children need explicit limit <=50; response <=1 MiB';
     end;
+  end else if SameText(lCommand, 'records.copy_into') then begin
+    xeAutomationSchemaField(Result, 'source', 'object:file,formId', True);
+    xeAutomationSchemaField(Result, 'target', 'object:file', True);
+    xeAutomationSchemaField(Result, 'mode', 'string:override,new,wrapper,spawn_rate', True);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true-for-wrapper-spawn-only', False);
+    xeAutomationSchemaField(Result, 'editorId', 'string:required-for-wrapper', False);
+    xeAutomationSchemaField(Result, 'editorIdPrefix', 'string', False);
+    xeAutomationSchemaField(Result, 'editorIdSuffix', 'string', False);
+    xeAutomationSchemaField(Result, 'deepCopy', 'boolean:default-false', False);
+    xeAutomationSchemaField(Result, 'overwrite', 'boolean:default-false', False);
+    xeAutomationSchemaField(Result, 'addRequiredMasters', 'boolean:default-true', False);
+    Result.S['prerequisites'] := 'Writable loaded target, native copy/dependency rules; special modes require leveled list, no existing override, supported game, deepCopy/overwrite false';
+    Result.S['persistence'] := 'dry-run-plan-or-in-memory-until-session.save';
+    Result.S['constraintNotes'] := 'Wrapper returns content and forwarding locators. Spawn retains originals plus nine copies each; preflights LLCT capacity';
+    Result.A['errors'].Add('state_conflict');
+    Result.A['errors'].Add('unsupported_game_mode');
+    with Result.O['example'] do begin
+      S['command'] := lCommand;
+      O['args'].O['source'].S['file'] := 'Source.esm';
+      O['args'].O['source'].S['formId'] := '01000800';
+      O['args'].O['target'].S['file'] := 'Patch.esp';
+      O['args'].S['mode'] := 'wrapper';
+      O['args'].S['editorId'] := 'WrappedContent';
+      O['args'].B['dryRun'] := True;
+    end;
+  end else if SameText(lCommand, 'records.copy_idle_tree') then begin
+    xeAutomationSchemaField(Result, 'sources', 'array<object:file,formId>:1..128', True);
+    xeAutomationSchemaField(Result, 'targetFile', 'string', True);
+    xeAutomationSchemaField(Result, 'oldModelPrefix', 'string:resource-directory', True);
+    xeAutomationSchemaField(Result, 'newModelPrefix', 'string:different-resource-directory', True);
+    xeAutomationSchemaField(Result, 'editorIdPrefix', 'string:prefix-or-suffix-required', False);
+    xeAutomationSchemaField(Result, 'editorIdSuffix', 'string:prefix-or-suffix-required', False);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(Result, 'addRequiredMasters', 'boolean:default-true', False);
+    Result.S['prerequisites'] := 'TES4/FO3/FNV native IDLE schemas, explicit winners in one model directory, writable non-update target, complete selection/master preflight';
+    Result.S['persistence'] := 'dry-run-plan-or-in-memory-until-session.save';
+    Result.S['resultNotes'] := 'Returns complete winner/copy mapping and phase/index on partial failure; selected internal links remap, external links remain original';
+    Result.A['errors'].Add('unsupported_game_mode');
+    Result.A['errors'].Add('state_conflict');
+    with Result.O['example'] do begin
+      S['command'] := lCommand;
+      O['args'].A['sources'].AddObject.S['file'] := 'Source.esm';
+      O['args'].A['sources'].O[0].S['formId'] := '01000800';
+      O['args'].S['targetFile'] := 'Patch.esp';
+      O['args'].S['oldModelPrefix'] := 'characters\old';
+      O['args'].S['newModelPrefix'] := 'characters\new';
+      O['args'].S['editorIdPrefix'] := 'Copied';
+      O['args'].B['dryRun'] := True;
+    end;
   end else if SameText(lCommand, 'formids.remap') or
               SameText(lCommand, 'formids.change') or
               SameText(lCommand, 'formids.renumber') or
@@ -392,7 +441,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.28';
+  Result.S['contractVersion'] := '0.29';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin

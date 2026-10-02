@@ -389,16 +389,16 @@
       ]
     },
     "special-copy": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native CopyInto wrapper/spawn-rate transformations with explicit mode options and game applicability; verify output semantics independently of plain copies.",
+      "status": "partial",
+      "routes": ["records.copy_into"],
+      "notes": "Explicit wrapper/spawn_rate modes default to dry-run, preflight leveled schemas/dependencies/target existence and LLCT capacity. Wrapper reports both locators; spawn clones complete entries preserving ownership. Native semantic acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
     "idle-copy": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native idle-tree copy with ordered hierarchy/dependencies and target preflight; generic single-record copy is not sufficient proof.",
+      "status": "partial",
+      "routes": ["records.copy_idle_tree"],
+      "notes": "Explicit bounded IDLE winner selection in one model directory, changed prefix, full old/new mapping before internal-link replacement, dependency/target preflight and partial phase results. TES4/FO3/FNV schemas; native persistence acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
@@ -1126,6 +1126,9 @@
     "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
   },
   "operationOverrides": {
+    "records.copy_idle_tree": {
+      "effect": "default dry-run plan; apply creates idle copies, changes models/internal references in memory -> save + flush"
+    },
     "formids.change": {
       "effect": "single-ID dry-run or in-memory remap with override/referrer update -> save + flush"
     },

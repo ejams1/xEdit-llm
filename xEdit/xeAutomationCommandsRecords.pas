@@ -1093,6 +1093,67 @@ begin
       raise xeAutomationMutationNotAllowed(xeAutomationCopyIntoNilCopyHint(ACopySource, ATargetFile));
 end;
 
+procedure xeAutomationPreflightCopyMasters(const ATargetFile: IwbFile;
+  const ARequested: TStrings; const AAddMasters: Boolean);
+var
+  lMaster: IwbFile;
+  i: Integer;
+begin
+  for i := 0 to ARequested.Count - 1 do begin
+    lMaster := IwbFile(Pointer(ARequested.Objects[i]));
+    if SameText(ARequested[i], ATargetFile.FileName) or ATargetFile.HasMaster(ARequested[i]) then
+      Continue;
+    if not AAddMasters then
+      raise xeAutomationMutationNotAllowed('Copy requires missing masters and addRequiredMasters is false');
+    if not Assigned(lMaster) or (lMaster.LoadOrder >= ATargetFile.LoadOrder) then
+      raise xeAutomationInvalidTarget('Required masters must be loaded before the target');
+    if wbStarfieldReverseEngineeringIncomplete and wbComplexFileFileID and
+      ((ATargetFile.ModuleType <> mtFull) or (lMaster.ModuleType <> mtFull)) then
+      raise xeAutomationMutationNotAllowed('Native Starfield master additions require full modules');
+  end;
+end;
+
+function xeAutomationLeveledEntry(const AElement: IwbElement): IwbContainerElementRef;
+var
+  lOuter: IwbContainerElementRef;
+begin
+  if not Supports(AElement, IwbContainerElementRef, lOuter) then
+    raise xeAutomationInvalidTarget('Native leveled-list entry is not a container');
+  // TES4 stores LVLO directly; later definitions put LVLO and COED inside an
+  // outer entry. Resolve the payload without discarding entry ownership data.
+  if Assigned(lOuter.ElementByName['Count']) and Assigned(lOuter.ElementByName['Level']) then
+    Exit(lOuter);
+  if not Supports(lOuter.ElementBySignature[StrToSignature('LVLO')], IwbContainerElementRef, Result) then
+    raise xeAutomationInvalidTarget('Native leveled-list entry has no LVLO payload');
+  if not Assigned(Result.ElementByName['Count']) or not Assigned(Result.ElementByName['Level']) then
+    raise xeAutomationInvalidTarget('Native LVLO payload lacks count/level');
+end;
+
+procedure xeAutomationAdjustSpawnRate(const ARecord: IwbMainRecord);
+const
+  Counts: array[0..8] of Integer = (1, 1, 2, 2, 2, 2, 2, 3, 3);
+var
+  lEntries, lPayload: IwbContainerElementRef;
+  lOriginals: TArray<IwbElement>;
+  lCopy: IwbElement;
+  i, j: Integer;
+begin
+  lEntries := ARecord.ElementByName['Leveled List Entries'] as IwbContainerElementRef;
+  SetLength(lOriginals, lEntries.ElementCount);
+  for i := Low(lOriginals) to High(lOriginals) do
+    lOriginals[i] := lEntries.Elements[i];
+  // Keep originals untouched; append nine complete entries per original using
+  // the GUI sequence. Snapshot interfaces because sorted insertion moves paths.
+  for i := Low(lOriginals) to High(lOriginals) do
+    for j := Low(Counts) to High(Counts) do begin
+      lCopy := lEntries.Assign(Low(Integer), lOriginals[i], False);
+      lPayload := xeAutomationLeveledEntry(lCopy);
+      lPayload.ElementByName['Count'].NativeValue := Counts[j];
+    end;
+  if lEntries.ElementCount <> Length(lOriginals) * 10 then
+    raise xeAutomationInvalidTarget('Native spawn-rate transformation produced an unexpected entry count');
+end;
+
 function xeAutomationRecordsCopyInto(const AArgs: TJsonObject): TJsonObject;
 var
   lSourceLocator: TxeAutomationLocator;
@@ -1103,6 +1164,10 @@ var
   lCopySource: IwbElement;
   lCopiedElement: IwbElement;
   lCopiedRecord: IwbMainRecord;
+  lWrappedRecord: IwbMainRecord;
+  lEntries, lEntry: IwbContainerElementRef;
+  lAsWrapper, lAsSpawnRate, lDryRun: Boolean;
+  lEditorID: string;
   lRequiredMasters: TStringList;
   lMasterReport: TJsonObject;
   lMode: string;
@@ -1117,12 +1182,9 @@ var
   lDeniedReason: string;
   lSnapshot: TxeAutomationMutationSnapshot;
   lSteps: TArray<string>;
+  i: Integer;
+  lFailure: ExeAutomationError;
 begin
-  if not xeAutomationMutationPolicyConsentSatisfied(lDeniedReason) then begin
-    Result := xeAutomationErrorsBuildConsentRequired('records.copy_into', 'records-mutation', lDeniedReason);
-    Exit;
-  end;
-
   lMasterReport := nil;
   lSourceLocator := xeAutomationParseNestedLocatorArg(AArgs, 'source', True, True);
   lTargetLocator := xeAutomationParseNestedLocatorArg(AArgs, 'target', False, True);
@@ -1139,8 +1201,16 @@ begin
     lAsNew := False
   else if lMode = 'new' then
     lAsNew := True
+  else if (lMode = 'wrapper') or (lMode = 'spawn_rate') then
+    lAsNew := False
   else
     raise xeAutomationInvalidRequest(Format('Automation records.copy_into mode "%s" is not supported', [lMode]));
+
+  lAsWrapper := lMode = 'wrapper';
+  lAsSpawnRate := lMode = 'spawn_rate';
+  lDryRun := xeAutomationReadBooleanArgDefault(AArgs, 'dryRun', lAsWrapper or lAsSpawnRate);
+  if not lDryRun and not xeAutomationMutationPolicyConsentSatisfied(lDeniedReason) then
+    Exit(xeAutomationErrorsBuildConsentRequired('records.copy_into', 'records-mutation', lDeniedReason));
 
   lDeepCopy := xeAutomationReadBooleanArgDefault(AArgs, 'deepCopy', False);
   lOverwrite := xeAutomationReadBooleanArgDefault(AArgs, 'overwrite', False);
@@ -1154,9 +1224,44 @@ begin
   lSourceRecord := xeAutomationRequireMainRecord(lSourceLocator);
   lTargetFile := xeAutomationRequirePluginFile(lTargetLocator.FileName);
   xeAutomationRequireWritableTargetFile(lTargetFile);
+  if (lAsNew or lAsWrapper) and lTargetFile.IsUpdate then
+    raise xeAutomationMutationNotAllowed('New records cannot be copied into update plugins');
 
   if not lSourceRecord.CanCopy then
     raise xeAutomationMutationNotAllowed('Automation records.copy_into source record cannot be copied');
+
+  if lAsWrapper or lAsSpawnRate then begin
+    // Mirror the native leveled-list menu predicates, then verify the active
+    // game's concrete entry definition rather than assuming a shared layout.
+    if wbIsMorrowind or wbIsFallout76 then
+      raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode,
+        'Leveled-list transformations are unavailable for this game');
+    if wbTranslationMode or lDeepCopy or lOverwrite then
+      raise xeAutomationInvalidRequest('Wrapper/spawn-rate modes require translation mode off, deepCopy:false and overwrite:false');
+    if not ((lSourceRecord.Signature = 'LVLB') or (lSourceRecord.Signature = 'LVLC') or
+      (lSourceRecord.Signature = 'LVLI') or (lSourceRecord.Signature = 'LVLN') or
+      (lSourceRecord.Signature = 'LVLP') or (lSourceRecord.Signature = 'LVSC') or
+      (lSourceRecord.Signature = 'LVSP')) then
+      raise xeAutomationInvalidTarget('Wrapper/spawn-rate modes require a native leveled-list record');
+    if not Supports(lSourceRecord.ElementByName['Leveled List Entries'], IwbContainerElementRef, lEntries) then
+      raise xeAutomationInvalidTarget('Source has no native leveled-list entries');
+    if (lEntries.ElementCount < 1) or (lEntries.ElementCount > 128) then
+      raise xeAutomationInvalidTarget('Transformation requires 1..128 source entries');
+    if lAsSpawnRate and Assigned(lSourceRecord.ElementBySignature[StrToSignature('LLCT')]) and
+       (lEntries.ElementCount * 10 > 255) then
+      raise xeAutomationInvalidTarget('Spawn-rate expansion would exceed the native 8-bit LLCT limit');
+    for i := 0 to lEntries.ElementCount - 1 do
+      xeAutomationLeveledEntry(lEntries.Elements[i]);
+    if lAsWrapper then begin
+      lEditorID := xeAutomationRequireStringArg(AArgs, 'editorId');
+      if Length(lEditorID) > 255 then
+        raise xeAutomationInvalidRequest('Wrapper editorId exceeds 255 characters');
+      if SameText(lEditorID, lSourceRecord.EditorID) then
+        raise xeAutomationInvalidRequest('Wrapper editorId must differ from source');
+      if Assigned(lTargetFile.RecordByEditorID[lEditorID]) then
+        raise xeAutomationStateConflict('Wrapper editorId already exists in target');
+    end;
+  end;
 
   lExistingTarget := nil;
   if not lAsNew then begin
@@ -1195,16 +1300,72 @@ begin
   lSnapshot := xeAutomationCaptureMutationSnapshot;
   lSteps := nil;
   try
+    if lDryRun then begin
+      xeAutomationPreflightCopyMasters(lTargetFile, lRequiredMasters, lAddRequiredMasters);
+      Result := TJsonObject.Create;
+      Result.B['dryRun'] := True;
+      Result.B['changed'] := False;
+      Result.S['mode'] := lMode;
+      Result.S['persistence'] := 'read-only-plan';
+      Result.O['source'].S['file'] := lSourceRecord._File.FileName;
+      Result.O['source'].S['formId'] := lSourceRecord.LoadOrderFormID.ToString(False);
+      Result.O['target'].S['file'] := lTargetFile.FileName;
+      if lAsWrapper then Result.S['wrappedEditorId'] := lEditorID;
+      if lAsSpawnRate then Result.I['additionalEntries'] := lEntries.ElementCount * 9;
+      Exit;
+    end;
     try
+      xeAutomationPreflightCopyMasters(lTargetFile, lRequiredMasters, lAddRequiredMasters);
       lMasterReport := xeAutomationApplyCopyRequiredMasters(lTargetFile, lRequiredMasters, lAddRequiredMasters);
       lSteps := ['masters-ready'];
+      lWrappedRecord := nil;
+      if lAsWrapper then begin
+        // Native wrapper order matters: preserve the payload in a fresh record
+        // before resetting its override into a single forwarding entry.
+        lCopiedElement := wbCopyElementToFile(lSourceRecord, lTargetFile, True, True,
+          '', '', '', '', False);
+        lWrappedRecord := xeAutomationIdentifyCopiedMainRecord(lCopiedElement, lSourceRecord,
+          lSourceRecord, lTargetFile, True);
+        lWrappedRecord.EditorID := lEditorID;
+        lWrappedRecord.UpdateRefs;
+        lSteps := ['masters-ready', 'wrapped-record-copied'];
+      end;
       lCopiedElement := wbCopyElementToFile(lCopySource, lTargetFile, lAsNew, lNativeDeepCopy,
         '', '', lEditorIDPrefix, lEditorIDSuffix, lOverwrite);
       lCopiedRecord := xeAutomationIdentifyCopiedMainRecord(lCopiedElement, lCopySource, lSourceRecord, lTargetFile, lAsNew);
       lSteps := ['masters-ready', 'record-copied'];
+      if lAsWrapper then begin
+        lCopiedRecord.Assign(Low(Integer), nil, False);
+        if not Assigned(lCopiedRecord.ElementByName['Leveled List Entries']) then
+          lCopiedRecord.Add('Leveled List Entries', True);
+        lEntries := lCopiedRecord.ElementByName['Leveled List Entries'] as IwbContainerElementRef;
+        if lEntries.ElementCount <> 1 then
+          raise xeAutomationInvalidTarget('Native wrapper reset did not produce one entry');
+        lEntry := xeAutomationLeveledEntry(lEntries.Elements[0]);
+        lEntry.Elements[2].EditValue := lWrappedRecord.EditValue;
+        lEntry.ElementByName['Count'].NativeValue := 1;
+        lEntry.ElementByName['Level'].NativeValue := 1;
+        lCopiedRecord.EditorID := lSourceRecord.EditorID;
+        lCopiedRecord.UpdateRefs;
+        lSteps := ['masters-ready', 'wrapped-record-copied', 'forwarding-list-written'];
+      end else if lAsSpawnRate then begin
+        xeAutomationAdjustSpawnRate(lCopiedRecord);
+        lCopiedRecord.UpdateRefs;
+        lSteps := ['masters-ready', 'record-copied', 'spawn-rate-adjusted'];
+      end;
     except
-      on E: Exception do
-        raise xeAutomationMutationFailure(E, xeAutomationErrorInvalidTarget, 'records.copy_into', lSnapshot, lSteps);
+      on E: Exception do begin
+        lFailure := xeAutomationMutationFailure(E, xeAutomationErrorInvalidTarget, 'records.copy_into', lSnapshot, lSteps);
+        if Assigned(lWrappedRecord) then begin
+          lFailure.Details.O['wrappedLocator'].S['file'] := lWrappedRecord._File.FileName;
+          lFailure.Details.O['wrappedLocator'].S['formId'] := lWrappedRecord.LoadOrderFormID.ToString(False);
+        end;
+        if Assigned(lCopiedRecord) then begin
+          lFailure.Details.O['copiedLocator'].S['file'] := lCopiedRecord._File.FileName;
+          lFailure.Details.O['copiedLocator'].S['formId'] := lCopiedRecord.LoadOrderFormID.ToString(False);
+        end;
+        raise lFailure;
+      end;
     end;
 
     Result := TJsonObject.Create;
@@ -1213,6 +1374,12 @@ begin
       Result.B['changed'] := Result.O['mutationState'].B['mutationsObserved'];
       Result.B['dirty'] := lTargetFile.Modified;
       Result.S['mode'] := lMode;
+      Result.B['dryRun'] := False;
+      Result.S['persistence'] := 'in-memory-until-session.save';
+      if Assigned(lWrappedRecord) then begin
+        Result.O['wrappedLocator'].S['file'] := lWrappedRecord._File.FileName;
+        Result.O['wrappedLocator'].S['formId'] := lWrappedRecord.LoadOrderFormID.ToString(False);
+      end;
       Result.B['deepCopy'] := lDeepCopy;
       Result.B['overwrite'] := lOverwrite;
       Result.B['overwroteExisting'] := lOverwroteExisting;
@@ -1233,6 +1400,193 @@ begin
     end;
   finally
     lRequiredMasters.Free;
+    lMasterReport.Free;
+  end;
+end;
+
+function xeAutomationIdlePrefix(const AValue: string): string;
+begin
+  Result := ExcludeTrailingPathDelimiter(LowerCase(Trim(StringReplace(AValue, '/', '\', [rfReplaceAll]))));
+  if (Result = '') or (Length(Result) > 512) or (Pos(':', Result) > 0) or (Result[1] = '\') or
+     (Pos('..', Result) > 0) then
+    raise xeAutomationInvalidRequest('Idle model prefixes must be nonempty relative resource directories');
+end;
+
+function xeAutomationRecordsCopyIdleTree(const AArgs: TJsonObject): TJsonObject;
+const
+  MaxIdles = 128;
+var
+  lSources, lCopies: TArray<IwbMainRecord>;
+  lModels, lEditorIds: TArray<string>;
+  lInput: TJsonArray;
+  lLocator: TxeAutomationLocator;
+  lTarget: IwbFile;
+  lRequired, lOneRequired: TStringList;
+  lMasterReport, lMapping: TJsonObject;
+  lOldPrefix, lNewPrefix, lPrefix, lSuffix, lModel, lDirectory: string;
+  lDeniedReason, lPhase: string;
+  lDryRun, lAddMasters: Boolean;
+  lElement: IwbElement;
+  lSnapshot: TxeAutomationMutationSnapshot;
+  i, j, k: Integer;
+begin
+  // The GUI groups idle winners by model directory, not by graph descendants.
+  // Explicit locators replace the GUI directory picker and bound the selected set.
+  if (wbGameMode > gmFNV) or wbIsMorrowind then
+    raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode,
+      'Native idle-tree copy supports Oblivion/Fallout 3/New Vegas numeric IDLE schemas');
+  if wbTranslationMode then
+    raise xeAutomationMutationNotAllowed('Idle-tree copy is unavailable in translation mode');
+  if not AArgs.Contains('sources') or (AArgs.Types['sources'] <> jdtArray) then
+    raise xeAutomationInvalidRequest('Idle-tree copy requires sources array of record locators');
+  lInput := AArgs.A['sources'];
+  if (lInput.Count < 1) or (lInput.Count > MaxIdles) then
+    raise xeAutomationInvalidRequest('Idle-tree copy requires 1..128 source records');
+  lDryRun := xeAutomationReadBooleanArgDefault(AArgs, 'dryRun', True);
+  lAddMasters := xeAutomationReadBooleanArgDefault(AArgs, 'addRequiredMasters', True);
+  if not lDryRun and not xeAutomationMutationPolicyConsentSatisfied(lDeniedReason) then
+    Exit(xeAutomationErrorsBuildConsentRequired('records.copy_idle_tree', 'records-mutation', lDeniedReason));
+  lTarget := xeAutomationRequirePluginFile(xeAutomationRequireStringArg(AArgs, 'targetFile'));
+  xeAutomationRequireWritableTargetFile(lTarget);
+  if lTarget.IsUpdate then
+    raise xeAutomationMutationNotAllowed('Idle copies cannot be created in update plugins');
+  lOldPrefix := xeAutomationIdlePrefix(xeAutomationRequireStringArg(AArgs, 'oldModelPrefix'));
+  lNewPrefix := xeAutomationIdlePrefix(xeAutomationRequireStringArg(AArgs, 'newModelPrefix'));
+  if SameText(lOldPrefix, lNewPrefix) then
+    raise xeAutomationInvalidRequest('Idle copy requires a changed model prefix');
+  lPrefix := xeAutomationReadStringArg(AArgs, 'editorIdPrefix');
+  lSuffix := xeAutomationReadStringArg(AArgs, 'editorIdSuffix');
+  if (lPrefix = '') and (lSuffix = '') then
+    raise xeAutomationInvalidRequest('Idle copy requires editorIdPrefix or editorIdSuffix');
+  SetLength(lSources, lInput.Count);
+  SetLength(lCopies, lInput.Count);
+  SetLength(lModels, lInput.Count);
+  SetLength(lEditorIds, lInput.Count);
+  lRequired := TStringList.Create;
+  lRequired.Sorted := True;
+  lRequired.Duplicates := dupIgnore;
+  lMasterReport := nil;
+  try
+    for i := 0 to lInput.Count - 1 do begin
+      if lInput.Types[i] <> jdtObject then
+        raise xeAutomationInvalidRequest('Idle sources must be locator objects');
+      lLocator := xeAutomationParseLocator(lInput.O[i], True, False);
+      if lLocator.Path <> '' then
+        raise xeAutomationInvalidRequest('Idle sources must address record roots');
+      lSources[i] := xeAutomationRequireMainRecord(lLocator).WinningOverride;
+      if (lSources[i].Signature <> 'IDLE') or not lSources[i].CanCopy then
+        raise xeAutomationInvalidTarget('Idle sources must resolve to copyable winning IDLE records');
+      for j := 0 to i - 1 do
+        if lSources[j].Equals(lSources[i]) then
+          raise xeAutomationInvalidRequest('Idle selection contains duplicate winning records');
+      lElement := lSources[i].ElementByPath['MODL\MODL'];
+      if not Assigned(lElement) then
+        raise xeAutomationInvalidTarget('Idle source has no native model path');
+      lModel := LowerCase(Trim(StringReplace(lElement.EditValue, '/', '\', [rfReplaceAll])));
+      if (Length(lModel) > 1024) or (ExtractFileExt(lModel) = '') then
+        raise xeAutomationInvalidTarget('Idle source must have a bounded model filename');
+      lDirectory := ExcludeTrailingPathDelimiter(ExtractFilePath(lModel));
+      if not SameText(lDirectory, lOldPrefix) then
+        raise xeAutomationInvalidTarget('Every selected idle must belong to oldModelPrefix directory');
+      lModels[i] := lNewPrefix + Copy(lModel, Length(lOldPrefix) + 1, MaxInt);
+      lEditorIds[i] := lPrefix + lSources[i].EditorID + lSuffix;
+      if (Length(lEditorIds[i]) > 255) or Assigned(lTarget.RecordByEditorID[lEditorIds[i]]) then
+        raise xeAutomationStateConflict('Copied idle EditorID is too long or already exists in target');
+      for j := 0 to i - 1 do
+        if SameText(lEditorIds[j], lEditorIds[i]) then
+          raise xeAutomationStateConflict('Copied idle EditorIDs must be unique');
+      lOneRequired := xeAutomationCollectCopyRequiredMasters(lSources[i], True, True);
+      try
+        for j := 0 to lOneRequired.Count - 1 do
+          lRequired.AddObject(lOneRequired[j], lOneRequired.Objects[j]);
+      finally
+        lOneRequired.Free;
+      end;
+    end;
+    xeAutomationPreflightCopyMasters(lTarget, lRequired, lAddMasters);
+    lSnapshot := xeAutomationCaptureMutationSnapshot;
+    Result := TJsonObject.Create;
+    try
+      Result.B['dryRun'] := lDryRun;
+      Result.B['complete'] := False;
+      Result.I['planned'] := lInput.Count;
+      Result.I['copied'] := 0;
+      Result.I['rewritten'] := 0;
+      Result.S['persistence'] := 'in-memory-until-session.save';
+      Result.A['mappings'].Clear;
+      for i := 0 to lInput.Count - 1 do begin
+        lMapping := Result.A['mappings'].AddObject;
+        lMapping.O['source'].S['file'] := lSources[i]._File.FileName;
+        lMapping.O['source'].S['formId'] := lSources[i].LoadOrderFormID.ToString(False);
+        lMapping.O['target'].S['file'] := lTarget.FileName;
+        lMapping.S['editorId'] := lEditorIds[i];
+        lMapping.S['model'] := lModels[i];
+        lMapping.B['copied'] := False;
+        lMapping.B['rewritten'] := False;
+      end;
+      if not lDryRun then begin
+        lPhase := 'masters';
+        i := 0;
+        try
+          lMasterReport := xeAutomationApplyCopyRequiredMasters(lTarget, lRequired, lAddMasters);
+          // Copy all records before replacing links. Allocating the complete map
+          // first preserves hierarchy/condition links to later selection entries.
+          lPhase := 'copy';
+          for i := 0 to lInput.Count - 1 do begin
+            lElement := wbCopyElementToFile(lSources[i], lTarget, True, True,
+              '', '', lPrefix, lSuffix, False);
+            lCopies[i] := xeAutomationIdentifyCopiedMainRecord(lElement, lSources[i], lSources[i], lTarget, True);
+            lMapping := Result.A['mappings'].O[i];
+            lMapping.O['target'].S['formId'] := lCopies[i].LoadOrderFormID.ToString(False);
+            lMapping.B['copied'] := True;
+            Result.I['copied'] := i + 1;
+          end;
+          lPhase := 'rewrite';
+          for i := 0 to lInput.Count - 1 do begin
+            lCopies[i].ElementEditValues['MODL\MODL'] := lModels[i];
+            for k := 0 to lInput.Count - 1 do
+              lCopies[i].CompareExchangeFormID(lSources[k].LoadOrderFormID, lCopies[k].LoadOrderFormID);
+            lCopies[i].UpdateRefs;
+            Result.A['mappings'].O[i].B['rewritten'] := True;
+            Result.I['rewritten'] := i + 1;
+          end;
+        except
+          on E: Exception do begin
+            if E is ExeAutomationError then
+              Result.O['failure'].S['code'] := ExeAutomationError(E).Code
+            else
+              Result.O['failure'].S['code'] := xeAutomationErrorInternalError;
+            Result.O['failure'].S['message'] := E.Message;
+            Result.O['failure'].S['phase'] := lPhase;
+            Result.O['failure'].I['index'] := i;
+            if (E is ExeAutomationError) and Assigned(ExeAutomationError(E).Details) then
+              Result.O['failure'].O['details'].Assign(ExeAutomationError(E).Details);
+          end;
+        end;
+        xeAutomationInvalidateRecordQueries;
+        xeAutomationWriteMutationAudit(Result.O['mutationState'], lSnapshot);
+        Result.B['changed'] := Result.O['mutationState'].B['mutationsObserved'];
+        if Result.Contains('failure') then begin
+          Result.O['failure'].B['partialKnown'] := Result.B['changed'];
+          if Result.B['changed'] then Result.O['failure'].B['partial'] := True
+          else Result.O['failure']['partial'] := nil;
+        end;
+        if Assigned(lMasterReport) then begin
+          Result.O['masters'] := lMasterReport;
+          lMasterReport := nil;
+        end;
+      end else
+        Result.B['changed'] := False;
+      Result.B['complete'] := not Result.Contains('failure');
+      Result.A['dirtyFiles'].Clear;
+      if not lDryRun and lTarget.Modified then
+        Result.A['dirtyFiles'].Add(lTarget.FileName);
+    except
+      Result.Free;
+      raise;
+    end;
+  finally
+    lRequired.Free;
     lMasterReport.Free;
   end;
 end;
@@ -1260,6 +1614,7 @@ begin
   xeAutomationRegisterCommand('records.base_record', xeAutomationRecordsBaseRecord);
   xeAutomationRegisterCommand('records.create', xeAutomationRecordsCreate);
   xeAutomationRegisterCommand('records.copy_into', xeAutomationRecordsCopyInto);
+  xeAutomationRegisterCommand('records.copy_idle_tree', xeAutomationRecordsCopyIdleTree);
   xeAutomationRegisterCommand('records.delete', xeAutomationRecordsDelete);
   xeAutomationRegisterCommand('records.mark_deleted', xeAutomationRecordsMarkDeleted);
   xeAutomationRegisterCommand('records.conflict_status', xeAutomationRecordsConflictStatus);
