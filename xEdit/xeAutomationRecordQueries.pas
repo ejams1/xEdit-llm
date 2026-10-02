@@ -13,6 +13,7 @@ function xeAutomationRecordQueryPage(const AKind: string; const AArgs: TJsonObje
   const AMetadata: TJsonObject): TxeAutomationMainRecords;
 procedure xeAutomationInvalidateRecordQueries;
 procedure xeAutomationVerifyRecordQueryRevision(const AMetadata: TJsonObject);
+function xeAutomationQuerySemanticRevision: UInt64;
 
 implementation
 
@@ -53,6 +54,7 @@ type
 var
   Cursors: TObjectDictionary<string, TxeRecordQuery>;
   TotalRetainedBytes: Int64;
+  SemanticRevision: UInt64;
 
 constructor TxeRecordQuery.Create;
 begin
@@ -79,6 +81,12 @@ begin
   // without a plugin mutation generation. Retained native interfaces are released.
   if Assigned(Cursors) then
     Cursors.Clear;
+  Inc(SemanticRevision);
+end;
+
+function xeAutomationQuerySemanticRevision: UInt64;
+begin
+  Result := SemanticRevision;
 end;
 
 procedure xeAutomationVerifyRecordQueryRevision(const AMetadata: TJsonObject);

@@ -237,3 +237,23 @@ save/flush, then relaunch and read back all 1,201 records. Run empty/sparse,
 recursive child-overrides, duplicate forward/reverse links, missing/rebuilt
 reference index, regex pathological patterns and projection of nested element
 wrappers in the MO2 test pass. Compilation and these native cases are pending.
+
+## Issue #14: incremental job progress
+
+`jobs.get` advances one target file per request on xEdit's main thread. Its
+`progress` object reports completed/total/remaining target files and the next
+file. `jobs.findings` and read-only session probes work between steps; loaded
+graph mutations, save, flush, and scripts return `job_busy` while a job is
+active. `jobs.cancel` retains completed summaries/findings and stops before the
+next file. Apply jobs preflight writability of every target before the first
+file can change. A retained terminal job releases its native file references.
+
+Run `job_fixture.py --exe <exe> --pid <pid> --artifacts <folder> --files
+<small-plugin> <second-plugin>` against two disposable loaded plugins. It
+checks one-file advancement, progress, findings paging, safe cancellation,
+read-only probes, write blocking, restart, aggregation, and discard. Capture
+request timings and inspect dirty state after a separate apply/cancel test;
+that test needs a fixture where the first file actually changes. Native work
+within a single file is still atomic. Large single-file validation scans,
+compaction, and cleaning need finer steppers before latency can be guaranteed.
+Compilation and game-backed execution remain pending.

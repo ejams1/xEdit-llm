@@ -21,6 +21,7 @@ type
 procedure xeAutomationRegisterJobKind(const AKind: string; const AHandler: TxeAutomationJobHandler);
 procedure xeAutomationRegisterJobKindWithValidator(const AKind: string; const AHandler: TxeAutomationJobHandler;
   const AValidator: TxeAutomationJobStartValidator);
+procedure xeAutomationAssertJobCommandAllowed(const ACommand: string);
 function xeAutomationListJobKinds: TArray<string>;
 function xeAutomationStartJob(const AKind: string; const ADryRun, ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject): TJsonObject;
 function xeAutomationGetJob(const AJobId: string): TJsonObject;
@@ -34,11 +35,17 @@ uses
   System.Generics.Collections,
   SysUtils,
   Classes,
+  wbInterface,
+  xeAutomationDataLookup,
+  xeAutomationMutationPolicy,
   xeAutomationMutationAudit,
+  xeAutomationRecordQueries,
   xeAutomationErrors;
 
 const
   xeAutomationTerminalJobRetention = 16;
+  xeAutomationMaxJobFindings = 5000;
+  xeAutomationMaxJobFindingBytes = 1048576;
 
 type
   TxeAutomationJobKindRegistration = record
@@ -62,6 +69,11 @@ type
     ResultData: TJsonObject;
     FailureData: TJsonObject;
     Findings: TJsonArray;
+    WorkIndex: Integer;
+    TotalWork: Integer;
+    StartMutation: TxeAutomationMutationSnapshot;
+    ExpectedRevision, ExpectedSemanticRevision: UInt64;
+    PreflightDone: Boolean;
     constructor Create;
     destructor Destroy; override;
     function IsTerminal: Boolean;
@@ -74,6 +86,24 @@ var
   xeAutomationNextJobId: Integer;
   xeAutomationNextJobSequence: Int64;
   xeAutomationActiveJob: TxeAutomationJob;
+
+procedure xeAutomationAssertJobCommandAllowed(const ACommand: string);
+begin
+  if not Assigned(xeAutomationActiveJob) or xeAutomationActiveJob.IsTerminal then
+    Exit;
+  if (Copy(ACommand, 1, 5) = 'jobs.') or (Copy(ACommand, 1, 7) = 'system.') or
+     (Copy(ACommand, 1, 12) = 'session.get_') or
+     (ACommand = 'records.list') or (ACommand = 'records.get') or
+     (ACommand = 'records.references') or (ACommand = 'records.referenced_by') or
+     (ACommand = 'records.conflict_status') or
+     (ACommand = 'elements.get') or (ACommand = 'elements.get_value') or
+     (ACommand = 'elements.children') or
+     (ACommand = 'files.list') or (ACommand = 'files.get') then
+    Exit;
+  // A pending plan owns the loaded graph. Save/flush, scripts and other edits
+  // must wait until completion/cancellation; read-only probes remain available.
+  raise xeAutomationNewError('job_busy', 'Cancel or finish the active job before changing the loaded session');
+end;
 
 constructor TxeAutomationJob.Create;
 begin
@@ -106,7 +136,7 @@ function TxeAutomationJob.IsCancelable: Boolean;
 begin
   // Native xEdit operations are advanced only on the main request path. Once a
   // handler is running there is no safe mid-operation interrupt point to expose.
-  Result := State in [xajsQueued, xajsCancelRequested];
+  Result := State in [xajsQueued, xajsRunning, xajsCancelRequested];
 end;
 
 function xeAutomationNormalizeJobKind(const AKind: string): string;
@@ -223,6 +253,14 @@ begin
   Result.B['dryRunSpecified'] := AJob.DryRunSpecified;
   Result.L['sequence'] := AJob.Sequence;
   Result.I['findingCount'] := AJob.Findings.Count;
+  with Result.O['progress'] do begin
+    I['completed'] := AJob.WorkIndex;
+    I['total'] := AJob.TotalWork;
+    I['remaining'] := AJob.TotalWork - AJob.WorkIndex;
+    S['unit'] := 'target-file';
+    if AJob.WorkIndex < AJob.TotalWork then
+      S['nextFile'] := AJob.Target.A['files'].S[AJob.WorkIndex];
+  end;
   if AJob.SummaryData.Count > 0 then
     Result.O['summary'].Assign(AJob.SummaryData);
   if AJob.ResultData.Count > 0 then
@@ -259,6 +297,72 @@ begin
   end;
 end;
 
+procedure xeAutomationMergeJobObject(const ADest, ASource: TJsonObject);
+var
+  lName: string;
+  lArray: TJsonArray;
+  i, j: Integer;
+begin
+  // Each existing handler writes a complete singleton result. Aggregate its
+  // per-file counts and file arrays once, preserving completed steps on cancel.
+  for i := 0 to ASource.Count - 1 do begin
+    lName := ASource.Names[i];
+    case ASource.Types[lName] of
+      jdtInt, jdtLong: ADest.L[lName] := ADest.L[lName] + ASource.L[lName];
+      jdtULong: ADest.U[lName] := ADest.U[lName] + ASource.U[lName];
+      jdtFloat: ADest.F[lName] := ADest.F[lName] + ASource.F[lName];
+      jdtBool: ADest.B[lName] := ADest.B[lName] or ASource.B[lName];
+      jdtString:
+        if not ADest.Contains(lName) then
+          ADest.S[lName] := ASource.S[lName];
+      jdtObject: xeAutomationMergeJobObject(ADest.O[lName], ASource.O[lName]);
+      jdtArray: begin
+        lArray := ADest.A[lName];
+        for j := 0 to ASource.A[lName].Count - 1 do
+          xeAutomationAddFindingCopy(lArray, ASource.A[lName], j);
+      end;
+    end;
+  end;
+end;
+
+procedure xeAutomationRunNextFile(const AJob: TxeAutomationJob;
+  const ARegistration: TxeAutomationJobKindRegistration);
+var
+  lTarget, lSummary, lResult, lFailure: TJsonObject;
+  lFindings: TJsonArray;
+  i: Integer;
+begin
+  lTarget := AJob.Target.Clone;
+  lSummary := TJsonObject.Create;
+  lResult := TJsonObject.Create;
+  lFailure := TJsonObject.Create;
+  lFindings := TJsonArray.Create;
+  try
+    lTarget.A['files'].Clear;
+    lTarget.A['files'].Add(AJob.Target.A['files'].S[AJob.WorkIndex]);
+    ARegistration.Handler(AJob.Id, AJob.DryRun, AJob.DryRunSpecified,
+      lTarget, AJob.Options, lFindings, lSummary, lResult, lFailure);
+    if (AJob.Findings.Count + lFindings.Count > xeAutomationMaxJobFindings) or
+       (TEncoding.UTF8.GetByteCount(AJob.Findings.ToJSON(False)) +
+        TEncoding.UTF8.GetByteCount(lFindings.ToJSON(False)) > xeAutomationMaxJobFindingBytes) then
+      raise xeAutomationNewError('job_capacity', 'Job findings exceed the retained result budget');
+    xeAutomationMergeJobObject(AJob.SummaryData, lSummary);
+    xeAutomationMergeJobObject(AJob.ResultData, lResult);
+    for i := 0 to lFindings.Count - 1 do
+      xeAutomationAddFindingCopy(AJob.Findings, lFindings, i);
+    if lFailure.Count > 0 then
+      AJob.FailureData.Assign(lFailure)
+    else
+      Inc(AJob.WorkIndex);
+  finally
+    lFindings.Free;
+    lFailure.Free;
+    lResult.Free;
+    lSummary.Free;
+    lTarget.Free;
+  end;
+end;
+
 procedure xeAutomationPruneTerminalJobs;
 var
   lTerminalCount: Integer;
@@ -285,8 +389,31 @@ end;
 procedure xeAutomationFinishActiveJobIfTerminal(const AJob: TxeAutomationJob);
 begin
   if (AJob = xeAutomationActiveJob) and AJob.IsTerminal then begin
+    // The retained result must not pin plugin interfaces after the plan ends.
+    AJob.StartMutation.Files := nil;
     xeAutomationActiveJob := nil;
     xeAutomationPruneTerminalJobs;
+  end;
+end;
+
+procedure xeAutomationPreflightJobTargets(const AJob: TxeAutomationJob);
+var
+  lFile: IwbFile;
+  i: Integer;
+begin
+  if AJob.DryRun or
+     not ((Copy(AJob.Kind, 1, 9) = 'cleaning.') or
+          (AJob.Kind = 'files.hygiene.batch') or
+          (AJob.Kind = 'plugin.formids.compact_for_esl') or
+          (AJob.Kind = 'plugin.esl.apply')) then
+    Exit;
+  // Reject a protected later target before the first file can be changed.
+  for i := 0 to AJob.TotalWork - 1 do begin
+    lFile := xeAutomationRequirePluginFile(Trim(AJob.Target.A['files'].S[i]));
+    if Copy(AJob.Kind, 1, 7) = 'plugin.' then
+      xeAutomationRequireWritableEslMutationTarget(lFile)
+    else
+      xeAutomationRequireWritableTargetFile(lFile);
   end;
 end;
 
@@ -307,21 +434,41 @@ begin
     Exit;
   end;
 
-  if AJob.State <> xajsQueued then
+  if not (AJob.State in [xajsQueued, xajsRunning]) then
     Exit;
 
-  lSnapshot := xeAutomationCaptureMutationSnapshot;
+  lSnapshot := AJob.StartMutation;
   AJob.State := xajsRunning;
   try
+    if (wbGlobalModifedGeneration <> AJob.ExpectedRevision) or
+       (xeAutomationQuerySemanticRevision <> AJob.ExpectedSemanticRevision) then
+      raise xeAutomationNewError('job_state_changed', 'Loaded graph changed outside this job; restart planning');
+    if not AJob.PreflightDone then begin
+      xeAutomationPreflightJobTargets(AJob);
+      AJob.PreflightDone := True;
+    end;
     if not xeAutomationGetJobKinds.TryGetValue(AJob.Kind, lRegistration) then
       raise xeAutomationNewError(xeAutomationErrorUnknownJobKind, Format('Automation job kind not registered: %s', [AJob.Kind]));
-    lRegistration.Handler(AJob.Id, AJob.DryRun, AJob.DryRunSpecified, AJob.Target, AJob.Options, AJob.Findings,
-      AJob.SummaryData, AJob.ResultData, AJob.FailureData);
+    // One target file per poll is the safe yield point shared by current kinds.
+    // Native work inside a file remains atomic and runs on the main thread.
+    xeAutomationRunNextFile(AJob, lRegistration);
+    AJob.ExpectedRevision := wbGlobalModifedGeneration;
+    AJob.ExpectedSemanticRevision := xeAutomationQuerySemanticRevision;
     if AJob.State = xajsCancelRequested then
       AJob.State := xajsCanceled
-    else if AJob.FailureData.Count > 0 then
-      AJob.State := xajsFailed
-    else
+    else if AJob.FailureData.Count > 0 then begin
+      AJob.State := xajsFailed;
+      AJob.FailureData.I['completedFiles'] := AJob.WorkIndex;
+      xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
+      if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
+        AJob.FailureData.B['partial'] := True;
+        AJob.FailureData.B['partialKnown'] := True;
+      end else begin
+        AJob.FailureData['partial'] := nil;
+        AJob.FailureData.B['partialKnown'] := False;
+      end;
+    end
+    else if AJob.WorkIndex >= AJob.TotalWork then
       AJob.State := xajsSucceeded;
   except
     on E: ExeAutomationError do begin
@@ -332,6 +479,7 @@ begin
       AJob.FailureData.S['code'] := E.Code;
       AJob.FailureData.S['message'] := E.Message;
       AJob.FailureData.S['phase'] := 'execution';
+      AJob.FailureData.I['completedFiles'] := AJob.WorkIndex;
       xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
       if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
         AJob.FailureData.B['partial'] := True;
@@ -347,6 +495,7 @@ begin
       AJob.FailureData.S['code'] := xeAutomationErrorInternalError;
       AJob.FailureData.S['message'] := E.Message;
       AJob.FailureData.S['phase'] := 'execution';
+      AJob.FailureData.I['completedFiles'] := AJob.WorkIndex;
       xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
       if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
         AJob.FailureData.B['partial'] := True;
@@ -397,6 +546,10 @@ begin
     lJob.DryRunSpecified := ADryRunSpecified;
     xeAutomationCopyJsonObject(ATarget, lJob.Target);
     xeAutomationCopyJsonObject(AOptions, lJob.Options);
+    lJob.TotalWork := lJob.Target.A['files'].Count;
+    lJob.StartMutation := xeAutomationCaptureMutationSnapshot;
+    lJob.ExpectedRevision := lJob.StartMutation.Generation;
+    lJob.ExpectedSemanticRevision := xeAutomationQuerySemanticRevision;
 
     xeAutomationGetJobs.Add(lJob);
     xeAutomationActiveJob := lJob;
@@ -448,8 +601,12 @@ begin
   if lJob.IsTerminal then
     Exit(xeAutomationNewJobSnapshot(lJob));
 
-  if lJob.State = xajsQueued then begin
+  if lJob.State in [xajsQueued, xajsRunning] then begin
     lJob.State := xajsCancelRequested;
+    if lJob.WorkIndex > 0 then begin
+      xeAutomationWriteMutationAudit(lJob.FailureData.O['mutationState'], lJob.StartMutation);
+      lJob.SummaryData.B['partialChanges'] := lJob.FailureData.O['mutationState'].B['mutationsObserved'];
+    end;
     xeAutomationAdvanceJob(lJob);
   end else
     raise xeAutomationNewError(xeAutomationErrorOperationNotCancelable, Format('Automation job is not cancelable: %s', [AJobId]));
