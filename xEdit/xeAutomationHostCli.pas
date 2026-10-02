@@ -10,6 +10,7 @@ unit xeAutomationHostCli;
 
 interface
 
+function xeAutomationBuildTransportErrorText(const ACode, AMessage: string; const AExecuted: Boolean): string;
 function xeAutomationTryRunCli(out AExitCode: Integer): Boolean;
 function xeAutomationExecuteRequestText(const aRequestText: string): string; overload;
 function xeAutomationExecuteRequestText(const aRequestText: string; out aSucceeded: Boolean): string; overload;
@@ -26,6 +27,8 @@ uses
   // are registered later from serve-mode startup once the live session is loaded.
   xeAutomationCommandsSystem,
   xeAutomationErrors,
+  xeAutomationReplay,
+  xeAutomationWireLimits,
   xeAutomationRegistry,
   xeAutomationSession,
   xeAutomationTypes,
@@ -307,7 +310,7 @@ begin
     // legacy clients continue to receive the exact original envelope shape.
     if Assigned(aDetails) then
       lResponse.O['error'].O['details'].Assign(aDetails);
-    Result := lResponse.ToJSON(True);
+    Result := lResponse.ToJSON(False);
   finally
     lResponse.Free;
   end;
@@ -355,7 +358,7 @@ begin
   Result := True;
 end;
 
-function xeAutomationExecuteRequestText(const aRequestText: string; out aSucceeded: Boolean): string; overload;
+function xeAutomationExecuteRequestInner(const aRequestText: string; out aSucceeded, aDispatched: Boolean): string;
 var
   lCommand: string;
   lRequestBase: TJsonBaseObject;
@@ -365,6 +368,7 @@ var
   lResponse: TJsonObject;
 begin
   lCommand := '';
+  aDispatched := False;
   aSucceeded := False;
   lRequestBase := nil;
   lRequest := nil;
@@ -401,6 +405,7 @@ begin
 
     // Request execution is registry-driven so serve mode can deliberately expand
     // the command surface only after xEdit has loaded the in-memory session.
+    aDispatched := True;
     lResult := xeAutomationExecuteCommand(lCommand, lArgs);
 
     lResponse := TJsonObject.Create;
@@ -413,7 +418,7 @@ begin
     lResult := nil;
     xeAutomationLogResultToMessages(lCommand, lRequest, True, '', '');
     aSucceeded := True;
-    Result := lResponse.ToJSON(True);
+    Result := lResponse.ToJSON(False);
   except
     on E: ExeAutomationError do begin
       xeAutomationLogResultToMessages(lCommand, lRequest, False, E.Code, E.Message);
@@ -434,6 +439,122 @@ begin
   lResult.Free;
   lArgs.Free;
   lRequestBase.Free;
+end;
+
+function xeAutomationBuildTransportErrorText(const ACode, AMessage: string; const AExecuted: Boolean): string;
+var
+  lDetails: TJsonObject;
+begin
+  lDetails := TJsonObject.Create;
+  try
+    lDetails.B['executed'] := AExecuted;
+    lDetails.S['executionOutcome'] := 'unknown';
+    Result := xeAutomationBuildErrorResponseText('', ACode, Copy(AMessage, 1, 1024), nil, lDetails);
+  finally
+    lDetails.Free;
+  end;
+end;
+
+function xeAutomationExecuteRequestText(const aRequestText: string; out aSucceeded: Boolean): string; overload;
+var
+  lBase: TJsonBaseObject;
+  lRequest, lMetadata, lDetails: TJsonObject;
+  lKey, lField, lCommand, lCommandCandidate, lCode: string;
+  lReserved, lDispatched, lMetadataSafe: Boolean;
+  lBytes: Integer;
+begin
+  lBase := nil;
+  lRequest := nil;
+  lMetadata := nil;
+  lKey := '';
+  lCommand := '';
+  lReserved := False;
+  lDispatched := False;
+  lMetadataSafe := False;
+  aSucceeded := False;
+  try
+    try
+      lBytes := TEncoding.UTF8.GetByteCount(aRequestText);
+      if lBytes > xeAutomationMaxRequestBytes then
+        raise xeAutomationNewError('request_too_large', 'Request exceeds the advertised UTF-8 byte limit');
+      lBase := TJsonBaseObject.ParseUtf8(aRequestText);
+      if not (lBase is TJsonObject) then
+        raise xeAutomationInvalidRequest('Automation request must be a JSON object');
+      lRequest := TJsonObject(lBase);
+      for lField in ['requestId', 'id'] do
+        if lRequest.Contains(lField) then begin
+          if not (lRequest.Types[lField] in [jdtString, jdtInt, jdtLong, jdtULong, jdtBool]) then
+            raise xeAutomationInvalidRequest('Correlation fields must be bounded scalar values');
+          if TEncoding.UTF8.GetByteCount(lRequest.S[lField]) > xeAutomationCorrelationMaxBytes then
+            raise xeAutomationInvalidRequest('Correlation field exceeds 512 UTF-8 bytes');
+        end;
+      if lRequest.Types['command'] <> jdtString then
+        raise xeAutomationInvalidRequest('Command must be a string');
+      lCommandCandidate := Trim(lRequest.S['command']);
+      if (lCommandCandidate = '') or (TEncoding.UTF8.GetByteCount(lCommandCandidate) > 128) then
+        raise xeAutomationInvalidRequest('Command must contain 1 to 128 UTF-8 bytes');
+      // Admission errors must never echo an oversized unvalidated command.
+      lCommand := lCommandCandidate;
+      if lRequest.Contains('args') and (lRequest.Types['args'] <> jdtObject) then
+        raise xeAutomationInvalidRequest('Args must be an object');
+      lMetadataSafe := True;
+      lMetadata := lRequest;
+      if lRequest.Contains('idempotencyKey') then begin
+        if lRequest.Types['idempotencyKey'] <> jdtString then
+          raise xeAutomationInvalidRequest('Idempotency key must be a string');
+        lKey := lRequest.S['idempotencyKey'];
+        if (lKey = '') or (TEncoding.UTF8.GetByteCount(lKey) > xeAutomationIdempotencyKeyMaxBytes) then
+          raise xeAutomationInvalidRequest('Idempotency key must contain 1 to 128 UTF-8 bytes');
+        if xeAutomationReplayReserve(lKey, aRequestText, Result, aSucceeded) then
+          Exit;
+        lReserved := True;
+      end;
+      Result := xeAutomationExecuteRequestInner(aRequestText, aSucceeded, lDispatched);
+    except
+      on E: Exception do begin
+        if not lMetadataSafe then
+          lMetadata := nil;
+        if E is ExeAutomationError then
+          lCode := ExeAutomationError(E).Code
+        else if lDispatched then
+          lCode := xeAutomationErrorInternalError
+        else
+          lCode := xeAutomationErrorInvalidRequest;
+        lDetails := TJsonObject.Create;
+        try
+          lDetails.B['executed'] := lDispatched;
+          lDetails.I['maxRequestBytes'] := xeAutomationMaxRequestBytes;
+          Result := xeAutomationBuildErrorResponseText(lCommand, lCode, E.Message, lMetadata, lDetails);
+        finally
+          lDetails.Free;
+        end;
+      end;
+    end;
+    lBytes := TEncoding.UTF8.GetByteCount(Result);
+    if lBytes > xeAutomationMaxResponseBytes then begin
+      lDetails := TJsonObject.Create;
+      try
+        lDetails.I['actualBytes'] := lBytes;
+        lDetails.I['maxBytes'] := xeAutomationMaxResponseBytes;
+        lDetails.B['executed'] := lDispatched;
+        if aSucceeded then
+          lDetails.S['executionOutcome'] := 'succeeded'
+        else
+          lDetails.S['executionOutcome'] := 'failed';
+        Result := xeAutomationBuildErrorResponseText(lCommand, 'response_too_large',
+          'Command outcome exceeds the response limit; execution is not undone', lMetadata, lDetails);
+        aSucceeded := False;
+      finally
+        lDetails.Free;
+      end;
+    end;
+    // Store the final bounded envelope (including partial failures/size errors)
+    // before delivery. Disconnect/reset never clears the session replay cache.
+    if lReserved then
+      xeAutomationReplayComplete(lKey, Result, aSucceeded);
+  finally
+    lBase.Free;
+  end;
 end;
 
 function xeAutomationExecuteRequestText(const aRequestText: string): string; overload;
