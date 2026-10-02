@@ -1,0 +1,128 @@
+[
+  {
+    "task": 1,
+    "title": "Fix ITM comparison to preserve meaningful record-header differences",
+    "priority": "Critical",
+    "body": "Priority: **Critical**\n\nThe fallback skips AdditionalElementCount, including the record header, and can override a negative native equality result. Validation duplicates it. Share a canonical comparison that preserves meaningful flags; test flag-only overrides and ensure cleaning retains them.\n\nSource evidence (reviewed checkout): `xEdit/xeMainForm.pas:1383; xEdit/xeAutomationCommandsValidation.pas:162; Core/wbImplementation.pas:12643`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 1 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/1"
+  },
+  {
+    "task": 2,
+    "title": "Add lossless element-value reads and explicit preview metadata",
+    "priority": "High",
+    "body": "Priority: **High**\n\nelements.get trims and truncates values to 160 characters. Add an explicit full edit/native-value read with type, length, encoding and truncation metadata. Keep bounded enumeration previews. Verify long text, whitespace, empty strings and typed values.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationObjectModel.pas:268`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 2 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/2"
+  },
+  {
+    "task": 3,
+    "title": "Prevent encoding data loss when editing autodetected UTF-8 strings",
+    "priority": "High",
+    "body": "Priority: **High**\n\nRead-side UTF-8 autodetection and write-side bsdGetEncoding can disagree. Preserve detected encoding or reject lossy writes before mutation, expose effective encoding, and verify multilingual edit/save/reload and override precedence.\n\nSource evidence (reviewed checkout): `Core/wbInterface.pas:16623,16815`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 3 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/3"
+  },
+  {
+    "task": 4,
+    "title": "Preflight mutations and report partial create/copy/save failures",
+    "priority": "High",
+    "body": "Priority: **High**\n\nCreation checks EditorID support after mutation; copies add masters before copying; multi-file saves can partially complete. Preflight feasible requirements and report affected files, completed steps, remaining state and partial outcomes. Add failure injection and rollback where feasible.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationCommandsRecords.pas:835,1073; xEdit/xeAutomationCommandsSession.pas:100`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 4 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/4"
+  },
+  {
+    "task": 5,
+    "title": "Add pipe deadlines and prevent stalled clients from blocking the daemon",
+    "priority": "High",
+    "body": "Priority: **High**\n\nSynchronous FlushFileBuffers on the main thread can wait for a nonreading client. The client bounds open attempts but not response reads. Bound exchange waits, keep failures connection-local and verify stalled and disconnected clients do not wedge the daemon.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationServeLoop.pas:280; xEdit/xeAutomationTransportPipe.pas:163`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 5 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/5"
+  },
+  {
+    "task": 6,
+    "title": "Handle oversized pipe messages without silent response loss",
+    "priority": "High",
+    "body": "Priority: **High**\n\nThe server relies on a fixed 4 MiB nonblocking message buffer; delivery can fail after a mutation has executed. Define advertised byte limits and reliable bounded framing/chunking or explicit oversized errors. Test boundary cases and ambiguous execution outcomes.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationServeLoop.pas:43,156`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 6 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/6"
+  },
+  {
+    "task": 7,
+    "title": "Add idempotency keys and bounded mutation response replay",
+    "priority": "High",
+    "body": "Priority: **High**\n\nCorrelation fields are echoed without deduplication. Add session-scoped idempotency keys, bounded completed-request replay and rejection of changed payloads reusing a key. Test lost-response retries and document eviction and session boundaries.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationHostCli.pas:44; xEdit/xeAutomationRegistry.pas:89`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 7 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/7"
+  },
+  {
+    "task": 8,
+    "title": "Inventory xEdit operations and map agent coverage and implementation gaps",
+    "priority": "High",
+    "body": "Priority: **High**\n\nCreate a reproducible source-linked matrix for GUI actions, registered commands/jobs and script-policy operations. Document routes, game/native prerequisites, mutation/persistence behavior and verification status. Distinguish direct, composed, script-only, unsupported, presentation-only and unverified routes. List missing implementation families with acceptance criteria and detect inventory drift. Static presence must never imply runtime verification.\n\nSource evidence (reviewed checkout): `xEdit/xeMainForm.dfm; xEdit/xeAutomationCommands*.pas; xEdit/xeScriptRuntimePolicy.pas`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 8 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/8"
+  },
+  {
+    "task": 9,
+    "title": "Add reproducible automation regression fixtures and CI",
+    "priority": "High",
+    "body": "Priority: **High**\n\nCheck in a fixture runner with Delphi/runtime requirements. Cover ITM flags, lossless strings and encoding, partial failures, retry replay, stalled/oversized pipes, pagination and fresh-process persistence. Run static checks in CI and document the environment for game-backed tests. Historical local artifacts are not reproducible coverage.\n\nSource evidence (reviewed checkout): `ROADMAP.md; .github; .gitignore`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 9 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/9"
+  },
+  {
+    "task": 10,
+    "title": "Track mutations accurately and correct misleading status fields",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\nCreation can change an existing record EditorID but report changed:false; dirty-file set comparison misses script edits to already-dirty files; generic job errors assert partial:false without proof. Use mutation generations/change records or explicit uncertainty. Test actual state transitions and failure after prior work.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationCommandsRecords.pas:899; xEdit/xeAutomationCommandsScripts.pas:606; xEdit/xeAutomationJobs.pas:350`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 10 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/10"
+  },
+  {
+    "task": 11,
+    "title": "Correct daemon launch documentation and add a verified lifecycle example",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\nREADME/BUILD use -AutomationPipe:<name>, but startup recognizes -automation-serve and derives the pipe from PID. Replace the absent ARCHITECTURE.md link. Provide verified launch, game/plugin selection, consent, readiness and save/flush/exit/readback examples; distinguish assumed from verified steps.\n\nSource evidence (reviewed checkout): `README.md:116; BUILD.md; xEdit/xeInit.pas:1516`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 11 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/11"
+  },
+  {
+    "task": 12,
+    "title": "Add complete pagination to record lists and reference relationships",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\nrecords.list and reference queries cap results without continuation. Add stable complete traversal to list/references/referenced_by with completeness metadata, deduplication and recursive semantics. Test multiple pages, empty results, duplicate references and invalidation after mutation.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationCommandsRecords.pas:800; xEdit/xeAutomationDataLookup.pas:1120`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 12 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/12"
+  },
+  {
+    "task": 13,
+    "title": "Use revision-bound filter cursors instead of repeated offset rescans",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\nEach apply_filter page starts from the beginning and repeats predicate evaluation. Add bounded revision-bound continuation, explicit invalidation and benchmarks for large-result draining while preserving ordering and semantics.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationDataLookup.pas:1209`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 13 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/13"
+  },
+  {
+    "task": 14,
+    "title": "Advance jobs in bounded main-thread steps with progress and cancellation",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\njobs.get runs the entire handler synchronously. Preserve the native main-thread boundary but advance safe work units incrementally, expose progress/cancellation boundaries and verify responsiveness, partial canceled work, ownership and retention.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationJobs.pas:307`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 14 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/14"
+  },
+  {
+    "task": 15,
+    "title": "Bound regex work per request and mark incomplete search results",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\nEach match starts a task; timed-out workers remain running and four occupied slots cause further candidates to be treated as nonmatches. Add request-wide budgets and incomplete-result semantics, investigate bounded/interruptible execution or isolation, and test pathological and ordinary patterns.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationDataLookup.pas:348`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 15 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/15"
+  },
+  {
+    "task": 16,
+    "title": "Add compact response serialization and field/relation projection",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\nPretty-printed output repeats locators, paths, file summaries and relations. Add compact wire serialization and fields/includeRelations options while preserving actionable identity and completeness metadata. Measure representative response sizes and check compatibility.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationHostCli.pas:310,416; xEdit/xeAutomationObjectModel.pas`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 16 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/16"
+  },
+  {
+    "task": 17,
+    "title": "Add bounded batch reads and preflighted batch edits",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\nAdd bounded projected subtree/batch reads and edit batches to reduce individual calls and routine script generation. Define preflight, ordering, stale expectations, partial failures, limits and persistence; verify reduced round trips and mixed targets.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationCommandsRecords.pas; xEdit/xeAutomationCommandsElements.pas`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 17 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/17"
+  },
+  {
+    "task": 18,
+    "title": "Expose command schemas, value constraints and robust editing contracts",
+    "priority": "Medium",
+    "body": "Priority: **Medium**\n\nAdd on-demand argument schemas, examples, prerequisites and errors with enum/flag/reference/template constraints. Add consistent expected-value/revision checks, stable handles or explicit path invalidation after sorting, and resulting-value readback. Verify discovery-to-edit workflows and bounded defaults.\n\nSource evidence (reviewed checkout): `xEdit/xeAutomationRegistry.pas:19; xEdit/xeAutomationCommandsElements.pas`.\n\nAcceptance requires implementation of the behavior above and reproducible regression checks for the described cases. Source-review finding; game-backed reproduction has not been run in this environment.\n\nCreated from task 18 of the user-approved project review.",
+    "url": "https://github.com/ejams1/xEdit-llm/issues/18"
+  }
+]

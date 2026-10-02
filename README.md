@@ -117,6 +117,8 @@ This fork includes an opt-in daemon mode that exposes a JSON-over-named-pipe con
 
 Destructive operations require `-IKnowWhatImDoing` at xEdit launch time, mirroring the existing convention for `-StripEmptyMasters` and similar destructive switches.
 
+The [agent operation coverage matrix](AUTOMATION-COVERAGE.md) maps GUI actions, registered commands/jobs, and script-policy entries to agent routes and remaining implementation gaps. It distinguishes source coverage from runtime verification. Regenerate it with `python Tools/AgentCoverage/generate.py`; use `--check` to detect unmapped actions and inventory drift.
+
 ## xEdit versions
 
 All xEdit executable files can support all game modes. To choose which mode to use either:

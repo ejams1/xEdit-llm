@@ -1,0 +1,1320 @@
+{
+  "profiles": {
+    "unassessed": {
+      "status": "unassessed",
+      "routes": [],
+      "notes": "New main-form action needs manual route audit.",
+      "effect": "unknown",
+      "scriptSymbols": []
+    },
+    "dialog-control": {
+      "status": "parent-workflow",
+      "routes": [],
+      "notes": "Child editor/dialog control; audit through its containing workflow.",
+      "effect": "depends on containing workflow",
+      "scriptSymbols": []
+    },
+    "presentation": {
+      "status": "presentation",
+      "routes": [],
+      "notes": "UI layout, selection, display ordering or external help link; no standalone plugin-data operation.",
+      "effect": "UI preference/navigation only",
+      "scriptSymbols": []
+    },
+    "obsolete": {
+      "status": "obsolete",
+      "routes": [],
+      "notes": "Native legacy cleaning handler displays an obsolete-operation warning; use current cleaning jobs.",
+      "effect": "no plugin mutation",
+      "scriptSymbols": []
+    },
+    "compare": {
+      "status": "partial",
+      "routes": [
+        "records.conflict_status",
+        "elements.conflict_status",
+        "records.get",
+        "elements.get"
+      ],
+      "notes": "Inspect loaded overrides. GUI Compare To can load a comparison file; arbitrary selected-record comparison/layout is not reproduced.",
+      "effect": "read-only; no plugin persistence",
+      "scriptSymbols": []
+    },
+    "filter": {
+      "status": "partial",
+      "routes": [
+        "records.apply_filter"
+      ],
+      "notes": "Returns bounded query results rather than applying a GUI tree filter; not every native filter checkbox/preset is represented. Game predicates remain native.",
+      "effect": "read-only; no plugin persistence",
+      "scriptSymbols": []
+    },
+    "cleaning-filter": {
+      "status": "composed",
+      "routes": [
+        "validation.check_for_itm",
+        "validation.check_for_deleted_refs",
+        "cleaning.quick_clean"
+      ],
+      "notes": "Use dry-run validation/cleaning for findings; does not reproduce the GUI filter state. ITM correctness tracked in #1.",
+      "effect": "read-only dry run; apply mutates plugins -> session.save + terminal session.flush",
+      "scriptSymbols": []
+    },
+    "validation": {
+      "status": "direct",
+      "routes": [
+        "validation.check_for_errors"
+      ],
+      "notes": "Loaded file targets; native validation and record definitions determine game applicability.",
+      "effect": "read-only; no plugin persistence",
+      "scriptSymbols": []
+    },
+    "cleaning": {
+      "status": "partial",
+      "routes": [
+        "cleaning.quick_clean",
+        "cleaning.quick_auto_clean"
+      ],
+      "notes": "dryRun defaults safe; apply has consent/native target gates. Jobs combine ITM and deleted-reference work; no standalone UDR-only/ITM-only apply selector.",
+      "effect": "plugin mutation on apply -> session.save + terminal session.flush",
+      "scriptSymbols": []
+    },
+    "compact": {
+      "status": "direct",
+      "routes": [
+        "plugin.esl.analyze",
+        "plugin.formids.compact_for_esl",
+        "plugin.esl.apply"
+      ],
+      "notes": "Light-plugin-capable modes only; analyze first and preserve native compaction eligibility checks.",
+      "effect": "read-only analysis/dry run; apply mutates IDs/header -> save + flush",
+      "scriptSymbols": []
+    },
+    "scripts": {
+      "status": "partial",
+      "routes": [
+        "scripts.list",
+        "scripts.read",
+        "scripts.write",
+        "scripts.run"
+      ],
+      "notes": "Headless script subset only. Explicit locators replace GUI selection. GUI/OS/file-write APIs and unclassified symbols are not universally permitted.",
+      "effect": "write script immediately; script plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "create-file": {
+      "status": "direct",
+      "routes": [
+        "files.create"
+      ],
+      "notes": "Native game support and flag constraints apply; does not select an existing file for later loading.",
+      "effect": "plugin creation -> save + flush",
+      "scriptSymbols": []
+    },
+    "create-record": {
+      "status": "partial",
+      "routes": [
+        "records.create"
+      ],
+      "notes": "Root and supported parent-spec records only; native Add menu can address broader group/selection structures.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "delete-record": {
+      "status": "partial",
+      "routes": [
+        "records.delete",
+        "elements.remove_child"
+      ],
+      "notes": "Record/element targets supported; GUI removal also accepts files/groups and multi-selection.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "copy": {
+      "status": "partial",
+      "routes": [
+        "records.copy_into"
+      ],
+      "notes": "For record roots: mode override/new, deepCopy and overwrite. Repeat for explicit targets. GUI selected files/groups and specialized modes need separate routes.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "add-masters": {
+      "status": "script-candidate",
+      "routes": [
+        "files.add_required_masters",
+        "scripts.run"
+      ],
+      "notes": "Structured command adds dependencies inferred from a source, not an arbitrary user-specified master list. AddMasterIfMissing is admitted; explicit-master recipe still needs verification.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": [
+        "AddMasterIfMissing"
+      ]
+    },
+    "sort-masters": {
+      "status": "direct",
+      "routes": [
+        "files.sort_masters"
+      ],
+      "notes": "Loaded editable target; order follows current native load order.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "clean-masters": {
+      "status": "direct",
+      "routes": [
+        "files.clean_masters"
+      ],
+      "notes": "Loaded editable target; native dependency checks determine unused masters.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "edit": {
+      "status": "direct",
+      "routes": [
+        "elements.get",
+        "elements.edit_capabilities",
+        "elements.set_value",
+        "elements.set_native_value"
+      ],
+      "notes": "Schema/value-bearing writable target required. Full readback and encoding limitations tracked in #2/#3.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "add-child": {
+      "status": "direct",
+      "routes": [
+        "elements.edit_capabilities",
+        "elements.assign_templates",
+        "elements.add_child"
+      ],
+      "notes": "Native CanAssign and template selection apply; index paths can move after sorting.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "remove-child": {
+      "status": "direct",
+      "routes": [
+        "elements.remove_child"
+      ],
+      "notes": "Native IsRemovable gate; multi-selection needs repeated calls.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "clear": {
+      "status": "direct",
+      "routes": [
+        "elements.clear"
+      ],
+      "notes": "Native IsClearable gate; clear is distinct from removing the container.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "next-member": {
+      "status": "direct",
+      "routes": [
+        "elements.next_member"
+      ],
+      "notes": "Native CanChangeMember union/schema predicate.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "previous-member": {
+      "status": "direct",
+      "routes": [
+        "elements.previous_member"
+      ],
+      "notes": "Native CanChangeMember union/schema predicate.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "default": {
+      "status": "direct",
+      "routes": [
+        "elements.set_to_default"
+      ],
+      "notes": "Native optional-struct reset predicate; not a general reset of arbitrary record roots.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "move-up": {
+      "status": "direct",
+      "routes": [
+        "elements.move_up"
+      ],
+      "notes": "Native CanMoveUp and reorderable-container gate.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "move-down": {
+      "status": "direct",
+      "routes": [
+        "elements.move_down"
+      ],
+      "notes": "Native CanMoveDown and reorderable-container gate.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "batch-elements": {
+      "status": "partial",
+      "routes": [
+        "elements.copy_child_to",
+        "elements.remove_child"
+      ],
+      "notes": "Repeat per locator; generic child append/copy is not the complete GUI replacement/multiple-row operation. No bounded atomic batch contract.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "navigation": {
+      "status": "direct",
+      "routes": [
+        "session.navigate_to_record"
+      ],
+      "notes": "Requires live main form and loaded record; does not implement back/forward history.",
+      "effect": "read-only; no plugin persistence",
+      "scriptSymbols": []
+    },
+    "clipboard": {
+      "status": "partial",
+      "routes": [
+        "records.get",
+        "elements.get"
+      ],
+      "notes": "Structured summaries replace many clipboard reads. Full/short-name path variants and complete DisplayName are not all exposed; preview truncation tracked in #2.",
+      "effect": "read-only; no plugin persistence",
+      "scriptSymbols": []
+    },
+    "flags": {
+      "status": "script-candidate",
+      "routes": [
+        "scripts.run"
+      ],
+      "notes": "SetIsPersistent/SetIsVisibleWhenDistant match primitive flag setters; verify native child-group relocation and REFR-specific GUI scope.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": [
+        "SetIsPersistent",
+        "SetIsVisibleWhenDistant"
+      ]
+    },
+    "mark-modified": {
+      "status": "script-candidate",
+      "routes": [
+        "scripts.run"
+      ],
+      "notes": "MarkModifiedRecursive is admitted; script must choose targets explicitly. Native file-without-ONAM selection recipe unverified.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": [
+        "MarkModifiedRecursive"
+      ]
+    },
+    "build-ref": {
+      "status": "script-candidate",
+      "routes": [
+        "scripts.run",
+        "records.references",
+        "records.referenced_by"
+      ],
+      "notes": "BuildRef is admitted. Explicit reference-index rebuild/parity/progress recipe needs game-backed verification; reference queries are capped.",
+      "effect": "native index mutation; no plugin write intended",
+      "scriptSymbols": [
+        "BuildRef"
+      ]
+    },
+    "disabled-copy": {
+      "status": "composed",
+      "routes": [
+        "records.copy_into",
+        "scripts.run"
+      ],
+      "notes": "Copy mode override, then admitted SetIsInitiallyDisabled on copied locator. Two steps are not atomic and recipe requires runtime verification.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": [
+        "SetIsInitiallyDisabled"
+      ]
+    },
+    "cancel": {
+      "status": "partial",
+      "routes": [
+        "jobs.cancel"
+      ],
+      "notes": "Can cancel a queued job only; GUI cancellation during long native work is not reproduced. See #14.",
+      "effect": "cancellation; earlier plugin mutations may require save",
+      "scriptSymbols": []
+    },
+    "save": {
+      "status": "direct",
+      "routes": [
+        "session.get_dirty_state",
+        "session.save",
+        "session.flush"
+      ],
+      "notes": "Inspect both dirty files and pending shutdown files. Flush ends the session and fresh-process reload verifies durability.",
+      "effect": "disk persistence; terminal session flush",
+      "scriptSymbols": []
+    },
+    "circular-lists": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Expose native wbLeveledListCheckCircular as a structured read-only job, covering winning LVLI/LVLC/LVLN/LVSP records, cycle paths, progress and supported game gates.",
+      "effect": "read-only",
+      "scriptSymbols": []
+    },
+    "form-id": {
+      "status": "script-candidate",
+      "routes": [
+        "scripts.run"
+      ],
+      "notes": "Provide explicit single-ID change, arbitrary start/range renumbering and injection workflows with collision checks, dependent-reference updates, preservation options and dry-run mappings. Primitive setters are not semantic parity.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": [
+        "SetLoadOrderFormID",
+        "CompareExchangeFormID"
+      ]
+    },
+    "replace-references": {
+      "status": "script-candidate",
+      "routes": [
+        "scripts.run"
+      ],
+      "notes": "Accept explicit old/new mappings, scope and dependency additions; return complete changed-record results and partial failures. Verify CompareExchangeFormID/UpdateRefs ordering and avoid a GUI CSV picker.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": [
+        "CompareExchangeFormID",
+        "UpdateRefs"
+      ]
+    },
+    "special-copy": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Expose native CopyInto wrapper/spawn-rate transformations with explicit mode options and game applicability; verify output semantics independently of plain copies.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "idle-copy": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Expose native idle-tree copy with ordered hierarchy/dependencies and target preflight; generic single-record copy is not sufficient proof.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "injected-cleanup": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Expose cleanup as a bounded dry-run/apply job with affected-record findings, native injection rules and dependency checks.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "delta-patch": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Accept explicit compared/source/target files and native delta options; report changed records, required masters and errors without modal file selection.",
+      "effect": "copies a compared module to an .esu on disk immediately and starts a loader; needs dedicated lifecycle/persistence contract",
+      "scriptSymbols": []
+    },
+    "merged-patch": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Expose native merge behavior and game gates with explicit inputs/target, dry run, per-record outcomes and reproducible merge fixtures.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "seq": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Expose native SEQ generation with game gates, explicit bounded output path, overwrite policy, selected inputs and independently validated output. GUI gate is wbIsSkyrim with a file target; skips load-order zero and emits eligible Start Game Enabled quest IDs.",
+      "effect": "external disk output",
+      "scriptSymbols": []
+    },
+    "lod": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "effect": "external disk output",
+      "scriptSymbols": []
+    },
+    "reachable": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Expose native reachability analysis with roots/scope, structured findings and bounded progress; reference indexing alone is not the same operation.",
+      "effect": "analysis/index mutation; no plugin write intended",
+      "scriptSymbols": []
+    },
+    "localization": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
+      "effect": "plugin and external string-table mutation",
+      "scriptSymbols": []
+    },
+    "modgroups": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Support create/edit/delete, CRC refresh, reload and enable/disable with explicit file scope and native conflict-group behavior; UI row hiding is separate.",
+      "effect": "external configuration and session conflict state",
+      "scriptSymbols": []
+    },
+    "vwd-mesh": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Wrap native resource-based eligibility and override-target behavior; plain flag setters do not reproduce mesh discovery and filtering.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "dirty-report": {
+      "status": "partial",
+      "routes": [
+        "validation.check_for_itm",
+        "validation.check_for_deleted_refs"
+      ],
+      "notes": "Provide native report formatting and structured counts/identities from validation/cleaning results; generic job findings are not the existing report export.",
+      "effect": "read-only report/external output",
+      "scriptSymbols": []
+    },
+    "standalone-cleaning": {
+      "status": "partial",
+      "routes": [
+        "cleaning.quick_clean",
+        "validation.check_for_itm",
+        "validation.check_for_deleted_refs"
+      ],
+      "notes": "Offer distinct apply selectors/jobs preserving native eligibility and deleted-navmesh refusal. Current quick_clean combines operations. Depends on correctness fix #1.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "general-structure": {
+      "status": "partial",
+      "routes": [
+        "records.create",
+        "records.copy_into",
+        "records.delete"
+      ],
+      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
+      "effect": "plugin/session mutation",
+      "scriptSymbols": []
+    },
+    "batch-rows": {
+      "status": "partial",
+      "routes": [
+        "elements.copy_child_to",
+        "elements.remove_child"
+      ],
+      "notes": "Provide replacement vs append semantics, multiple-row selection and per-target outcomes with native schema preflight. Coordinate with batch work #17.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "comparison": {
+      "status": "partial",
+      "routes": [
+        "records.conflict_status",
+        "elements.conflict_status"
+      ],
+      "notes": "Support comparison-only file loading and arbitrary record alignment without modal selection; report missing rows and scope separately from override conflict_status.",
+      "effect": "session load/read-only comparison",
+      "scriptSymbols": []
+    },
+    "filters": {
+      "status": "partial",
+      "routes": [
+        "records.apply_filter"
+      ],
+      "notes": "Inventory native filter-dialog predicates against apply_filter, implement missing semantic predicates and distinguish query results from GUI filter state.",
+      "effect": "read-only query/session presentation",
+      "scriptSymbols": []
+    },
+    "explicit-masters": {
+      "status": "script-candidate",
+      "routes": [
+        "files.add_required_masters",
+        "scripts.run"
+      ],
+      "notes": "Provide a structured explicit-master-list operation with load-order/ownership preflight. files.add_required_masters infers dependencies and is not equivalent.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "reference-index": {
+      "status": "script-candidate",
+      "routes": [
+        "scripts.run"
+      ],
+      "notes": "Verify admitted BuildRef recipe or add a progress-aware command with scope, completeness and index revision reporting.",
+      "effect": "analysis/index mutation",
+      "scriptSymbols": [
+        "BuildRef"
+      ]
+    },
+    "record-flags": {
+      "status": "script-candidate",
+      "routes": [
+        "scripts.run"
+      ],
+      "notes": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": [
+        "SetIsPersistent",
+        "SetIsVisibleWhenDistant"
+      ]
+    },
+    "diagnostics": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Audit hidden/Test/Bandit Fix/race-LVLI actions per conditional build/game. Provide supported native diagnostics as explicit operations or document intentional exclusion.",
+      "effect": "game/build-specific mutation or diagnostics",
+      "scriptSymbols": []
+    },
+    "logs": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "effect": "session read/external output",
+      "scriptSymbols": []
+    },
+    "modified": {
+      "status": "script-candidate",
+      "routes": [
+        "scripts.run"
+      ],
+      "notes": "Verify explicit MarkModifiedRecursive recipe and without-ONAM selection; report actual changed targets and preserve native game-specific rules.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": [
+        "MarkModifiedRecursive"
+      ]
+    },
+    "preferences": {
+      "status": "missing",
+      "routes": [],
+      "notes": "Separate GUI appearance settings from semantic options/language/ModGroups/game-link configuration; expose supported semantic settings or intentional unsupported reasons.",
+      "effect": "session preferences/external game integration",
+      "scriptSymbols": []
+    },
+    "search-formid": {
+      "status": "composed",
+      "routes": [
+        "records.find_by_form_id",
+        "session.navigate_to_record"
+      ],
+      "notes": "Find loaded FormID then navigate; message Ctrl-double-click uses the same lookup seam.",
+      "effect": "read-only; no plugin persistence",
+      "scriptSymbols": []
+    },
+    "search-editorid": {
+      "status": "partial",
+      "routes": [
+        "records.find_by_editor_id",
+        "records.apply_filter",
+        "session.navigate_to_record"
+      ],
+      "notes": "GUI searches a visible-tree EditorID prefix and cycles results. Use apply_filter editorIdPattern with an explicit prefix glob; exact lookup alone differs.",
+      "effect": "read-only; no plugin persistence",
+      "scriptSymbols": []
+    },
+    "modal-field": {
+      "status": "partial",
+      "routes": [
+        "elements.get",
+        "elements.set_value",
+        "elements.set_native_value"
+      ],
+      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "effect": "read or plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "drag-copy": {
+      "status": "partial",
+      "routes": [
+        "elements.copy_child_to",
+        "records.copy_into"
+      ],
+      "notes": "Native drag/drop can replace fields or whole record columns via Assign(Low(Integer),source,...). Child append and record copy do not cover every replacement/placement shape.",
+      "effect": "plugin mutation -> save + flush",
+      "scriptSymbols": []
+    },
+    "keyboard": {
+      "status": "partial",
+      "routes": [
+        "session.save",
+        "elements.add_child",
+        "elements.move_up",
+        "elements.move_down",
+        "elements.remove_child",
+        "records.create",
+        "records.delete",
+        "session.navigate_to_record"
+      ],
+      "notes": "Shortcuts dispatch to mapped menu/edit workflows, including options, ModGroups and FormID changes; not a universal keyboard API.",
+      "effect": "UI navigation or plugin mutation/persistence",
+      "scriptSymbols": []
+    }
+  },
+  "handlers": {
+    "vstViewClick": "presentation",
+    "bnPinnedClick": "presentation",
+    "edViewFilterChange": "presentation",
+    "bnLegendClick": "presentation",
+    "vstSpreadSheetClick": "presentation",
+    "bnPayPalClick": "presentation",
+    "bnPatreonClick": "presentation",
+    "bnNexusModsClick": "presentation",
+    "bnKoFiClick": "presentation",
+    "bnHelpClick": "presentation",
+    "bnVideosClick": "presentation",
+    "bnGitHubClick": "presentation",
+    "bnDiscordClick": "presentation",
+    "mniNavFilterRemoveClick": "presentation",
+    "mniNavHiddenClick": "presentation",
+    "mniViewSortClick": "presentation",
+    "mniViewClipboardClick": "presentation",
+    "mniViewHideNoConflictClick": "presentation",
+    "mniViewStickAutoClick": "presentation",
+    "mniViewStickSelectedClick": "presentation",
+    "mniViewColumnWidthClick": "presentation",
+    "mniMasterAndLeafsClick": "presentation",
+    "acBackExecute": "presentation",
+    "acForwardExecute": "presentation",
+    "mniSpreadsheetRebuildClick": "presentation",
+    "mniViewHeaderHiddenClick": "presentation",
+    "mniViewHeaderUnhideAllClick": "presentation",
+    "mniNavHeaderFilesClick": "presentation",
+    "mniNavHeaderINFOClick": "presentation",
+    "mniBtnShrinkButtonsClick": "presentation",
+    "mniMessagesClearClick": "presentation",
+    "mniNavCompareToClick": "comparison",
+    "mniNavCompareSelectedClick": "comparison",
+    "mniViewCompareReferencedRowClick": "comparison",
+    "mniSpreadsheetCompareSelectedClick": "comparison",
+    "mniRefByCompareSelectedClick": "comparison",
+    "mniNavCreateDeltaPatchClick": "delta-patch",
+    "mniNavFilterApplyClick": "filters",
+    "mniNavFilterConflictsClick": "filters",
+    "mniNavFilterForCleaningClick": "cleaning-filter",
+    "mniNavCleaningObsoleteClick": "obsolete",
+    "mniNavCheckForErrorsClick": "validation",
+    "mniNavCheckForCircularLeveledListsClick": "circular-lists",
+    "mniNavChangeFormIDClick": "form-id",
+    "mniNavRenumberFormIDsFromClick": "form-id",
+    "mniNavChangeReferencingRecordsClick": "replace-references",
+    "mniNavBatchChangeReferencingRecordsClick": "replace-references",
+    "mniNavApplyScriptClick": "scripts",
+    "acScriptExecute": "scripts",
+    "mniNavUndeleteAndDisableReferencesClick": "standalone-cleaning",
+    "mniNavRemoveIdenticalToMasterClick": "standalone-cleaning",
+    "mniNavLOManagersDirtyInfoClick": "dirty-report",
+    "mniNavSetVWDAutoClick": "vwd-mesh",
+    "mniNavSetVWDAutoIntoClick": "vwd-mesh",
+    "mniNavCellChild": "record-flags",
+    "mniRefByVWDClick": "record-flags",
+    "mniCreateNewFileClick": "create-file",
+    "mniNavAddClick": "general-structure",
+    "mniNavRemoveClick": "general-structure",
+    "mniNavCopyIntoClick": "general-structure",
+    "mniNavMarkModifiedClick": "modified",
+    "mniRefByMarkModifiedClick": "modified",
+    "mniMarkallfileswithoutONAMasmodifiedClick": "modified",
+    "mniNavAddMastersClick": "explicit-masters",
+    "mniNavSortMastersClick": "sort-masters",
+    "mniNavCleanMastersClick": "clean-masters",
+    "mniNavCreateModGroupClick": "modgroups",
+    "mniNavEditModGroupClick": "modgroups",
+    "mniNavDeleteModGroupsClick": "modgroups",
+    "mniNavUpdateCRCModGroupsClick": "modgroups",
+    "mniModGroupsClick": "modgroups",
+    "mniModGroupsAbleClick": "modgroups",
+    "mniViewModGroupsReloadClick": "modgroups",
+    "mniViewHeaderCopyIntoClick": "copy",
+    "mniRefByCopyIntoClick": "copy",
+    "mniNavCleanupInjectedClick": "injected-cleanup",
+    "mniNavCopyIdleClick": "idle-copy",
+    "mniNavTestClick": "diagnostics",
+    "mniNavBanditFixClick": "diagnostics",
+    "mniNavRaceLVLIsClick": "diagnostics",
+    "mniNavCreateMergedPatchClick": "merged-patch",
+    "mniNavCreateSEQFileClick": "seq",
+    "mniNavGenerateLODClick": "lod",
+    "mniNavBuildRefClick": "reference-index",
+    "mniNavBuildReachableClick": "reachable",
+    "mniNavLocalizationSwitchClick": "localization",
+    "mniMainLocalizationEditorClick": "localization",
+    "mniMainLocalizationLanguageClick": "localization",
+    "mniNavOptionsClick": "preferences",
+    "mniMainPluggyLinkClick": "preferences",
+    "mniNavOtherCodeSiteLoggingClick": "presentation",
+    "mniViewEditClick": "edit",
+    "mniViewAddClick": "add-child",
+    "mniViewRemoveClick": "remove-child",
+    "mniViewClearClick": "clear",
+    "mniViewRemoveFromSelectedClick": "batch-rows",
+    "mniViewCopyToSelectedRecordsClick": "batch-rows",
+    "mniViewCopyMultipleToSelectedRecordsClick": "batch-rows",
+    "mniViewNextMemberClick": "next-member",
+    "mniViewPreviousMemberClick": "previous-member",
+    "mniViewSetToDefaultClick": "default",
+    "mniViewMoveUpClick": "move-up",
+    "mniViewMoveDownClick": "move-down",
+    "mniCopyPathToClipboardClick": "clipboard",
+    "mniCopyFullPathToClipboardClick": "clipboard",
+    "mniCopyIndexedPathToClipboardClick": "clipboard",
+    "mniCopyPathNameToClipboardClick": "clipboard",
+    "mniCopySignatureToClipboardClick": "clipboard",
+    "mniCopyNameToClipboardClick": "clipboard",
+    "mniCopyDisplayNameToClipboardClick": "clipboard",
+    "mniCopyShortNameToClipboardClick": "clipboard",
+    "mniViewHeaderRemoveClick": "delete-record",
+    "mniRefByRemoveClick": "delete-record",
+    "mniViewHeaderJumpToClick": "navigation",
+    "mniRefByCopyDisabledOverrideIntoClick": "disabled-copy",
+    "mniMessagesSaveSelectedClick": "logs",
+    "mniNavLogAnalyzerClick": "logs",
+    "mniMainSaveClick": "save",
+    "btnCancelClick": "cancel",
+    "pgMainChange": "presentation",
+    "edFilterNoBeepOnEnterKeyPress": "presentation",
+    "edViewFilterNameKeyDown": "presentation",
+    "bnMainMenuMouseDown": "presentation",
+    "vstNavHeaderClick": "presentation",
+    "vstNavChange": "presentation",
+    "vstNavKeyPress": "presentation",
+    "edFormIDSearchChange": "presentation",
+    "edEditorIDSearchChange": "presentation",
+    "edFileNameFilterChange": "presentation",
+    "edFileNameFilterKeyDown": "presentation",
+    "vstViewHeaderClick": "presentation",
+    "vstViewKeyPress": "presentation",
+    "splElementsMouseDown": "presentation",
+    "edFormIDSearchKeyDown": "search-formid",
+    "mmoMessagesDblClick": "search-formid",
+    "edEditorIDSearchKeyDown": "search-editorid",
+    "lvReferencedByDblClick": "navigation",
+    "vstViewHeaderMouseDown": "navigation",
+    "vstViewNewText": "edit",
+    "vstSpreadSheetNewText": "edit",
+    "vstViewDblClick": "modal-field",
+    "vstViewDragDrop": "drag-copy",
+    "vstSpreadSheetDragDrop": "drag-copy",
+    "vstViewHeaderDropped": "drag-copy",
+    "FormKeyDown": "keyboard",
+    "vstViewKeyDown": "keyboard",
+    "vstNavKeyDown": "keyboard",
+    "lvReferencedByKeyDown": "keyboard"
+  },
+  "components": {
+    "mniNavCompactFormIDs": "compact",
+    "mniNavCopyAsSpawnRateOverride": "special-copy",
+    "mniNavCopyAsWrapper": "special-copy",
+    "mniViewHeaderCopyAsWrapper": "special-copy"
+  },
+  "commandFamilies": {
+    "system": {
+      "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
+      "effect": "read-only"
+    },
+    "session": {
+      "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
+      "effect": "reads/UI navigation or disk persistence; flush is terminal"
+    },
+    "files": {
+      "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
+      "effect": "reads or in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "records": {
+      "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
+      "effect": "reads or in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements": {
+      "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
+      "effect": "reads or in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "scripts": {
+      "prerequisites": "Canonical script IDs; writes/deletes restricted to Agent/; run requires consent, admitted symbols and execution budgets.",
+      "effect": "list/read pure; script storage writes immediate; run may mutate plugins -> save + flush"
+    },
+    "jobs": {
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get executes synchronously; light jobs need supported game; apply requires consent/native writable targets.",
+      "effect": "validation/analysis/dry-run reads; cleaning/hygiene/ESL apply mutates plugins -> save + flush"
+    }
+  },
+  "requiredProfiles": [
+    "circular-lists",
+    "form-id",
+    "replace-references",
+    "special-copy",
+    "idle-copy",
+    "injected-cleanup",
+    "delta-patch",
+    "merged-patch",
+    "seq",
+    "lod",
+    "reachable",
+    "localization",
+    "modgroups",
+    "vwd-mesh",
+    "dirty-report",
+    "standalone-cleaning",
+    "general-structure",
+    "batch-rows",
+    "comparison",
+    "filters",
+    "explicit-masters",
+    "reference-index",
+    "record-flags",
+    "diagnostics",
+    "logs",
+    "modified",
+    "preferences",
+    "drag-copy"
+  ],
+  "gaps": [
+    {
+      "id": "G01",
+      "title": "Validate circular leveled lists",
+      "profiles": [
+        "circular-lists"
+      ],
+      "acceptance": "Expose native wbLeveledListCheckCircular as a structured read-only job, covering winning LVLI/LVLC/LVLN/LVSP records, cycle paths, progress and supported game gates."
+    },
+    {
+      "id": "G02",
+      "title": "Change, renumber and inject FormIDs",
+      "profiles": [
+        "form-id"
+      ],
+      "acceptance": "Provide explicit single-ID change, arbitrary start/range renumbering and injection workflows with collision checks, dependent-reference updates, preservation options and dry-run mappings. Primitive setters are not semantic parity."
+    },
+    {
+      "id": "G03",
+      "title": "Replace referring FormIDs in single/batch workflows",
+      "profiles": [
+        "replace-references"
+      ],
+      "acceptance": "Accept explicit old/new mappings, scope and dependency additions; return complete changed-record results and partial failures. Verify CompareExchangeFormID/UpdateRefs ordering and avoid a GUI CSV picker."
+    },
+    {
+      "id": "G04",
+      "title": "Wrapper and spawn-rate copy modes",
+      "profiles": [
+        "special-copy"
+      ],
+      "acceptance": "Expose native CopyInto wrapper/spawn-rate transformations with explicit mode options and game applicability; verify output semantics independently of plain copies."
+    },
+    {
+      "id": "G05",
+      "title": "Copy idle animations",
+      "profiles": [
+        "idle-copy"
+      ],
+      "acceptance": "Expose native idle-tree copy with ordered hierarchy/dependencies and target preflight; generic single-record copy is not sufficient proof."
+    },
+    {
+      "id": "G06",
+      "title": "Clean references to injected records",
+      "profiles": [
+        "injected-cleanup"
+      ],
+      "acceptance": "Expose cleanup as a bounded dry-run/apply job with affected-record findings, native injection rules and dependency checks."
+    },
+    {
+      "id": "G07",
+      "title": "Create delta patches",
+      "profiles": [
+        "delta-patch"
+      ],
+      "acceptance": "Accept explicit compared/source/target files and native delta options; report changed records, required masters and errors without modal file selection. Native operation immediately creates an .esu copy and reloads it; do not describe this as only an in-memory patch."
+    },
+    {
+      "id": "G08",
+      "title": "Create merged patches",
+      "profiles": [
+        "merged-patch"
+      ],
+      "acceptance": "Expose native merge behavior and game gates with explicit inputs/target, dry run, per-record outcomes and reproducible merge fixtures."
+    },
+    {
+      "id": "G09",
+      "title": "Generate SEQ files",
+      "profiles": [
+        "seq"
+      ],
+      "acceptance": "Expose native SEQ generation with game gates, explicit bounded output path, overwrite policy, selected inputs and independently validated output. Preserve Skyrim GUI gate and eligible Start Game Enabled quest semantics."
+    },
+    {
+      "id": "G10",
+      "title": "Generate LOD",
+      "profiles": [
+        "lod"
+      ],
+      "acceptance": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Preserve native rejection of Fallout 76/Starfield and include Split LOD Atlas output."
+    },
+    {
+      "id": "G11",
+      "title": "Build reachable information",
+      "profiles": [
+        "reachable"
+      ],
+      "acceptance": "Expose native reachability analysis with roots/scope, structured findings and bounded progress; reference indexing alone is not the same operation."
+    },
+    {
+      "id": "G12",
+      "title": "Localize/delocalize, edit strings and select language",
+      "profiles": [
+        "localization"
+      ],
+      "acceptance": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Include child-editor string export and native Skyrim/FO4/FO76/Starfield gating."
+    },
+    {
+      "id": "G13",
+      "title": "Manage and use ModGroups",
+      "profiles": [
+        "modgroups"
+      ],
+      "acceptance": "Support create/edit/delete, CRC refresh, reload and enable/disable with explicit file scope and native conflict-group behavior; UI row hiding is separate."
+    },
+    {
+      "id": "G14",
+      "title": "Automatically set VWD from mesh resources",
+      "profiles": [
+        "vwd-mesh"
+      ],
+      "acceptance": "Wrap native resource-based eligibility and override-target behavior; plain flag setters do not reproduce mesh discovery and filtering."
+    },
+    {
+      "id": "G15",
+      "title": "Generate BOSS/LOOT cleaning reports",
+      "profiles": [
+        "dirty-report"
+      ],
+      "acceptance": "Provide native report formatting and structured counts/identities from validation/cleaning results; generic job findings are not the existing report export."
+    },
+    {
+      "id": "G16",
+      "title": "Apply only ITM removal or only UDR cleaning",
+      "profiles": [
+        "standalone-cleaning"
+      ],
+      "acceptance": "Offer distinct apply selectors/jobs preserving native eligibility and deleted-navmesh refusal. Current quick_clean combines operations. Depends on correctness fix #1."
+    },
+    {
+      "id": "G17",
+      "title": "Create/delete/copy file and group selections",
+      "profiles": [
+        "general-structure"
+      ],
+      "acceptance": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal."
+    },
+    {
+      "id": "G18",
+      "title": "Replace/copy/remove multiple rows across records",
+      "profiles": [
+        "batch-rows"
+      ],
+      "acceptance": "Provide replacement vs append semantics, multiple-row selection and per-target outcomes with native schema preflight. Coordinate with batch work #17."
+    },
+    {
+      "id": "G19",
+      "title": "Load comparison files and compare arbitrary record selections",
+      "profiles": [
+        "comparison"
+      ],
+      "acceptance": "Support comparison-only file loading and arbitrary record alignment without modal selection; report missing rows and scope separately from override conflict_status."
+    },
+    {
+      "id": "G20",
+      "title": "Cover native filter presets and remaining predicates",
+      "profiles": [
+        "filters"
+      ],
+      "acceptance": "Inventory native filter-dialog predicates against apply_filter, implement missing semantic predicates and distinguish query results from GUI filter state."
+    },
+    {
+      "id": "G21",
+      "title": "Add explicitly requested masters",
+      "profiles": [
+        "explicit-masters"
+      ],
+      "acceptance": "Provide a structured explicit-master-list operation with load-order/ownership preflight. files.add_required_masters infers dependencies and is not equivalent."
+    },
+    {
+      "id": "G22",
+      "title": "Expose reference-index rebuild",
+      "profiles": [
+        "reference-index"
+      ],
+      "acceptance": "Verify admitted BuildRef recipe or add a progress-aware command with scope, completeness and index revision reporting."
+    },
+    {
+      "id": "G23",
+      "title": "Expose persistent/VWD flag workflows",
+      "profiles": [
+        "record-flags"
+      ],
+      "acceptance": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route."
+    },
+    {
+      "id": "G24",
+      "title": "Expose specialized diagnostics or declare unsupported",
+      "profiles": [
+        "diagnostics"
+      ],
+      "acceptance": "Audit hidden/Test/Bandit Fix/race-LVLI actions per conditional build/game. Provide supported native diagnostics as explicit operations or document intentional exclusion."
+    },
+    {
+      "id": "G25",
+      "title": "Read/export messages and analyze logs",
+      "profiles": [
+        "logs"
+      ],
+      "acceptance": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log."
+    },
+    {
+      "id": "G26",
+      "title": "Mark selected/native-filtered records modified",
+      "profiles": [
+        "modified"
+      ],
+      "acceptance": "Verify explicit MarkModifiedRecursive recipe and without-ONAM selection; report actual changed targets and preserve native game-specific rules."
+    },
+    {
+      "id": "G27",
+      "title": "Agent session options and game-link control",
+      "profiles": [
+        "preferences"
+      ],
+      "acceptance": "Separate GUI appearance settings from semantic options/language/ModGroups/game-link configuration; expose supported semantic settings or intentional unsupported reasons."
+    },
+    {
+      "id": "G28",
+      "title": "Replace values/whole records through drag and column-copy workflows",
+      "profiles": [
+        "drag-copy",
+        "modal-field"
+      ],
+      "acceptance": "Expose native Assign replacement semantics separately from child append and generic record copy; cover full modal values and external compare workflow or explicitly exclude it. Verify schema compatibility, master preflight and resulting values."
+    }
+  ],
+  "recipes": "These recipes are source-derived and require game-backed verification. Substitute real loaded identities; inspect every response and stop on errors.\n\n1. **Inspect and edit a field:** `records.find_by_form_id` or `records.find_by_editor_id` -> `records.get` -> paged `elements.children` -> `elements.edit_capabilities` -> `elements.set_value`/`elements.set_native_value` -> `elements.get`. Do not feed truncated preview text back into writes. Lossless read and encoding fixes remain #2/#3.\n2. **Create an override patch:** `files.create` -> `records.copy_into` with `mode:\"override\"`, `addRequiredMasters:true`, explicit source/target -> inspect returned locator -> field edits. Deep-copy and overwrite flags are explicit; wrapper/spawn-rate modes are missing. Copy errors may leave masters added (#4).\n3. **Validate/clean:** `jobs.start` with a validation kind and `target:{files:[...]}` -> `jobs.get` -> paged `jobs.findings`. For cleaning use `dryRun:true`, review findings, then a separate start with `dryRun:false`. Do not apply ITM cleaning until #1 is fixed and verified.\n4. **Persist:** `session.get_dirty_state` -> `session.save` with explicit files or `all:true` -> inspect dirty/pending state -> `session.flush` -> wait for exit -> restart and independently reread the plugin. Do not default to `force:true`.\n5. **Primitive script candidates:** write an Agent/ script with `scripts.write`, then `scripts.run` with explicit targets. An example Process body is `SetIsPersistent(e, True);` followed by `Result := 0;`. Equivalent VWD primitive is `SetIsVisibleWhenDistant(e, True);`, and explicit-master primitive is `AddMasterIfMissing(GetFile(e), 'Dependency.esm');`. These are admitted symbols, not verified complete workflows; native child-group relocation, dependency rules and script-target policy must be tested. Full Initialize/Process/Finalize lifecycle, budgets, failure details and no implicit save still apply.",
+  "forms": {
+    "xEdit/xeDeveloperMessageForm.dfm": "presentation",
+    "xEdit/xeFileSelectForm.dfm": "dialog-control",
+    "xEdit/xeFilterOptionsForm.dfm": "filters",
+    "xEdit/xeLocalizationForm.dfm": "localization",
+    "xEdit/xeLocalizePluginForm.dfm": "localization",
+    "xEdit/xeLODGenForm.dfm": "lod",
+    "xEdit/xeLogAnalyzerForm.dfm": "logs",
+    "xEdit/xeModGroupSelectForm.dfm": "modgroups",
+    "xEdit/xeModGroupEditForm.dfm": "modgroups",
+    "xEdit/xeModuleSelectForm.dfm": "dialog-control",
+    "xEdit/xeOptionsForm.dfm": "preferences",
+    "xEdit/xeRichEditForm.dfm": "presentation",
+    "xEdit/xeScriptForm.dfm": "scripts",
+    "xEdit/xeTipForm.dfm": "presentation",
+    "xEdit/xeViewElementsForm.dfm": "modal-field",
+    "xEdit/xeWaitForm.dfm": "cancel",
+    "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
+  },
+  "operationOverrides": {
+    "elements.add_child": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.assign_templates": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "elements.children": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "elements.clear": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.conflict_status": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "elements.copy_child_to": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.edit_capabilities": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "elements.get": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "elements.move_down": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.move_up": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.next_member": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.previous_member": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.remove_child": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.required_masters": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "elements.set_native_value": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.set_to_default": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "elements.set_value": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "files.add_required_masters": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "files.clean_masters": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "files.create": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "files.get": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "files.get_header": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "files.get_masters": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "files.list": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "files.set_header_flags": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "files.sort_masters": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "jobs.cancel": {
+      "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects"
+    },
+    "jobs.discard": {
+      "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects"
+    },
+    "jobs.findings": {
+      "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects"
+    },
+    "jobs.get": {
+      "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects"
+    },
+    "jobs.start": {
+      "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects"
+    },
+    "records.apply_filter": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.base_record": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.conflict_status": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.copy_into": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "records.create": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "records.delete": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "records.find_by_editor_id": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.find_by_form_id": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.get": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.list": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.mark_deleted": {
+      "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
+    },
+    "records.master_or_self": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.referenced_by": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.references": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "records.winning_override": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "scripts.delete": {
+      "effect": "immediate script-file write/delete under Agent/; separate from plugin save"
+    },
+    "scripts.list": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "scripts.read": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "scripts.run": {
+      "effect": "synchronous script; may mutate plugin/index/objects; plugin changes -> save + flush"
+    },
+    "scripts.write": {
+      "effect": "immediate script-file write/delete under Agent/; separate from plugin save"
+    },
+    "session.flush": {
+      "effect": "drains queued renames, destroys loaded graph and exits; force:true may discard unsaved changes"
+    },
+    "session.get_dirty_state": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "session.get_gui_snapshot": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "session.navigate_to_record": {
+      "effect": "GUI navigation; no plugin persistence"
+    },
+    "session.save": {
+      "effect": "writes plugins or queues final rename; inspect pending state and flush before durability claim"
+    },
+    "system.capabilities": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "system.describe": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "system.ping": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "cleaning.quick_auto_clean": {
+      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+    },
+    "cleaning.quick_clean": {
+      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+    },
+    "cleaning.sort_and_clean_masters": {
+      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+    },
+    "files.hygiene.batch": {
+      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+    },
+    "plugin.esl.analyze": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "plugin.esl.apply": {
+      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+    },
+    "plugin.formids.compact_for_esl": {
+      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+    },
+    "validation.check_for_deleted_refs": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "validation.check_for_errors": {
+      "effect": "read-only; no plugin persistence"
+    },
+    "validation.check_for_itm": {
+      "effect": "read-only; no plugin persistence"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+name: Agent operation coverage
+
+on:
+  pull_request:
+    paths:
+      - 'xEdit/**'
+      - 'Tools/AgentCoverage/**'
+      - 'AUTOMATION-COVERAGE.md'
+      - '.github/workflows/agent-coverage.yml'
+  push:
+    paths:
+      - 'xEdit/**'
+      - 'Tools/AgentCoverage/**'
+      - 'AUTOMATION-COVERAGE.md'
+      - '.github/workflows/agent-coverage.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test extraction and drift detection
+        run: python -m unittest discover -s Tools/AgentCoverage -p test_generate.py -v
+      - name: Check source coverage and generated artifacts
+        run: python Tools/AgentCoverage/generate.py --check
