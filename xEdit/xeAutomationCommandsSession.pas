@@ -22,6 +22,7 @@ uses
   xeAutomationDataLookup,
   xeAutomationErrors,
   xeAutomationGuiSnapshot,
+  xeAutomationMutationAudit,
   xeAutomationMutationPolicy,
   xeAutomationObjectModel,
   xeAutomationRegistry,
@@ -67,6 +68,7 @@ begin
       lDirtyFiles.Add(xeAutomationNewFileSummary(lFile));
   end;
 
+  Result.S['mutationRevision'] := UIntToStr(wbGlobalModifedGeneration);
   Result.I['unsavedChangeCount'] := lDirtyFiles.Count;
   Result.B['dirty'] := lDirtyFiles.Count > 0;
 
@@ -98,45 +100,91 @@ end;
 function xeAutomationSessionSave(const AArgs: TJsonObject): TJsonObject;
 var
   lSaveTargets: TxeAutomationTargetFiles;
-  lSavedFilesNow: TJsonArray;
-  lSavedFilesPendingShutdown: TJsonArray;
-  lSaveError: string;
+  lSavedFilesNow, lSavedFilesPendingShutdown: TJsonArray;
+  lSaveError, lDeniedReason, lCode: string;
   lWasDirty: Boolean;
-  i: Integer;
-  lDeniedReason: string;
+  lDetails, lEntry: TJsonObject;
+  i, j: Integer;
 begin
-  if not xeAutomationMutationPolicyConsentSatisfied(lDeniedReason) then begin
-    Result := xeAutomationErrorsBuildConsentRequired('session.save', 'session-mutation', lDeniedReason);
-    Exit;
-  end;
-
+  if not xeAutomationMutationPolicyConsentSatisfied(lDeniedReason) then
+    Exit(xeAutomationErrorsBuildConsentRequired('session.save', 'session-mutation', lDeniedReason));
+  // Resolve and validate every target before the first native save. A batch is
+  // not atomic: preserve completed/failed/not-attempted state on any later error.
   lSaveTargets := xeAutomationResolveSaveTargets(AArgs);
-
   Result := TJsonObject.Create;
-  lSavedFilesNow := Result.A['savedFilesNow'];
-  lSavedFilesPendingShutdown := Result.A['savedFilesPendingShutdown'];
-  for i := Low(lSaveTargets) to High(lSaveTargets) do begin
-    lWasDirty := lSaveTargets[i].Modified;
-    lSaveError := '';
-    xeSavePluginFile(lSaveTargets[i], True, lSaveError);
-    if (lSaveError <> '') and not xeSavePluginFilePendingShutdown(lSaveTargets[i]) then
-      raise xeAutomationSaveFailed(
-        Format('Automation save failed for %s: %s', [lSaveTargets[i].FileName, lSaveError])
-      );
-
-    if lWasDirty and not lSaveTargets[i].Modified then begin
-      // A queued rename is still a successful save, but the final module filename
-      // will not exist on disk until shutdown drains FilesToRename.
-      if xeSavePluginFilePendingShutdown(lSaveTargets[i]) then
-        lSavedFilesPendingShutdown.Add(xeAutomationNewFileSummary(lSaveTargets[i]))
-      else
-        lSavedFilesNow.Add(xeAutomationNewFileSummary(lSaveTargets[i]));
+  try
+    lSavedFilesNow := Result.A['savedFilesNow'];
+    lSavedFilesPendingShutdown := Result.A['savedFilesPendingShutdown'];
+    Result.A['steps'].Clear;
+    for i := Low(lSaveTargets) to High(lSaveTargets) do begin
+      lEntry := Result.A['steps'].AddObject;
+      lEntry.S['fileName'] := lSaveTargets[i].FileName;
+      lEntry.S['status'] := 'attempting';
+      try
+        lWasDirty := lSaveTargets[i].Modified;
+        lSaveError := '';
+        xeSavePluginFile(lSaveTargets[i], True, lSaveError);
+        if (lSaveError <> '') and not xeSavePluginFilePendingShutdown(lSaveTargets[i]) then
+          raise xeAutomationSaveFailed(Format('Automation save failed for %s: %s', [lSaveTargets[i].FileName, lSaveError]));
+        if lWasDirty and lSaveTargets[i].Modified then
+          raise xeAutomationSaveFailed('Native save left the requested file dirty');
+        if lWasDirty then begin
+          if xeSavePluginFilePendingShutdown(lSaveTargets[i]) then begin
+            lSavedFilesPendingShutdown.Add(xeAutomationNewFileSummary(lSaveTargets[i]));
+            lEntry.S['status'] := 'saved-pending-flush';
+          end else begin
+            lSavedFilesNow.Add(xeAutomationNewFileSummary(lSaveTargets[i]));
+            lEntry.S['status'] := 'saved-now';
+          end;
+        end else
+          lEntry.S['status'] := 'unchanged';
+      except
+        on E: Exception do begin
+          lEntry.S['status'] := 'failed';
+          lEntry.S['error'] := E.Message;
+          lEntry.B['dirty'] := lSaveTargets[i].Modified;
+          lEntry.B['pendingFlush'] := xeSavePluginFilePendingShutdown(lSaveTargets[i]);
+          for j := i + 1 to High(lSaveTargets) do begin
+            lEntry := Result.A['steps'].AddObject;
+            lEntry.S['fileName'] := lSaveTargets[j].FileName;
+            lEntry.S['status'] := 'not-attempted';
+            lEntry.B['dirty'] := lSaveTargets[j].Modified;
+          end;
+          lDetails := TJsonObject.Create;
+          try
+            lCode := xeAutomationErrorSaveFailed;
+            if E is ExeAutomationError then begin
+              lCode := ExeAutomationError(E).Code;
+              if Assigned(ExeAutomationError(E).Details) then
+                lDetails.Assign(ExeAutomationError(E).Details);
+            end;
+            lDetails.S['phase'] := 'session.save';
+            lDetails.O['outcome'].Assign(Result);
+            lDetails.O['remainingState'] := xeAutomationBuildDirtyState;
+            // The failing native save itself may have written output before
+            // throwing. If no earlier save completed, its outcome is uncertain.
+            if (lSavedFilesNow.Count + lSavedFilesPendingShutdown.Count > 0) then begin
+              lDetails.B['partial'] := True;
+              lDetails.B['partialKnown'] := True;
+            end else begin
+              lDetails['partial'] := nil;
+              lDetails.B['partialKnown'] := False;
+            end;
+            lDetails.B['rollbackComplete'] := False;
+            raise xeAutomationNewError(lCode, E.Message, lDetails);
+          finally
+            lDetails.Free;
+          end;
+        end;
+      end;
     end;
+    Result.I['savedNowCount'] := lSavedFilesNow.Count;
+    Result.I['savePendingShutdownCount'] := lSavedFilesPendingShutdown.Count;
+    Result.O['dirtyState'] := xeAutomationBuildDirtyState;
+  except
+    Result.Free;
+    raise;
   end;
-
-  Result.I['savedNowCount'] := lSavedFilesNow.Count;
-  Result.I['savePendingShutdownCount'] := lSavedFilesPendingShutdown.Count;
-  Result.O['dirtyState'] := xeAutomationBuildDirtyState;
 end;
 
 function xeAutomationSessionFlush(const AArgs: TJsonObject): TJsonObject;

@@ -10876,7 +10876,7 @@
       "handler": "xeAutomationRecordsApplyFilter",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1243
+        "line": 1273
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10888,7 +10888,7 @@
       "handler": "xeAutomationRecordsBaseRecord",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1244
+        "line": 1274
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10900,7 +10900,7 @@
       "handler": "xeAutomationRecordsConflictStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1249
+        "line": 1279
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10912,7 +10912,7 @@
       "handler": "xeAutomationRecordsCopyInto",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1246
+        "line": 1276
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10924,7 +10924,7 @@
       "handler": "xeAutomationRecordsCreate",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1245
+        "line": 1275
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10936,7 +10936,7 @@
       "handler": "xeAutomationRecordsDelete",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1247
+        "line": 1277
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -10948,7 +10948,7 @@
       "handler": "xeAutomationRecordsFindByEditorID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1253
+        "line": 1283
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10960,7 +10960,7 @@
       "handler": "xeAutomationRecordsFindByFormID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1252
+        "line": 1282
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10972,7 +10972,7 @@
       "handler": "xeAutomationRecordsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1254
+        "line": 1284
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10984,7 +10984,7 @@
       "handler": "xeAutomationRecordsList",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1242
+        "line": 1272
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -10996,7 +10996,7 @@
       "handler": "xeAutomationRecordsMarkDeleted",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1248
+        "line": 1278
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11008,7 +11008,7 @@
       "handler": "xeAutomationRecordsMasterOrSelf",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1255
+        "line": 1285
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11020,7 +11020,7 @@
       "handler": "xeAutomationRecordsReferencedBy",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1251
+        "line": 1281
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11032,7 +11032,7 @@
       "handler": "xeAutomationRecordsReferences",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1250
+        "line": 1280
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11044,7 +11044,7 @@
       "handler": "xeAutomationRecordsWinningOverride",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1256
+        "line": 1286
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11056,7 +11056,7 @@
       "handler": "xeAutomationScriptsDelete",
       "source": {
         "file": "xEdit/xeAutomationCommandsScripts.pas",
-        "line": 968
+        "line": 964
       },
       "prerequisites": "Canonical script IDs; writes/deletes restricted to Agent/; run requires consent, admitted symbols and execution budgets.",
       "effect": "immediate script-file write/delete under Agent/; separate from plugin save",
@@ -11068,7 +11068,7 @@
       "handler": "xeAutomationScriptsList",
       "source": {
         "file": "xEdit/xeAutomationCommandsScripts.pas",
-        "line": 965
+        "line": 961
       },
       "prerequisites": "Canonical script IDs; writes/deletes restricted to Agent/; run requires consent, admitted symbols and execution budgets.",
       "effect": "read-only; no plugin persistence",
@@ -11080,7 +11080,7 @@
       "handler": "xeAutomationScriptsRead",
       "source": {
         "file": "xEdit/xeAutomationCommandsScripts.pas",
-        "line": 966
+        "line": 962
       },
       "prerequisites": "Canonical script IDs; writes/deletes restricted to Agent/; run requires consent, admitted symbols and execution budgets.",
       "effect": "read-only; no plugin persistence",
@@ -11092,7 +11092,7 @@
       "handler": "xeAutomationScriptsRun",
       "source": {
         "file": "xEdit/xeAutomationCommandsScripts.pas",
-        "line": 969
+        "line": 965
       },
       "prerequisites": "Canonical script IDs; writes/deletes restricted to Agent/; run requires consent, admitted symbols and execution budgets.",
       "effect": "synchronous script; may mutate plugin/index/objects; plugin changes -> save + flush",
@@ -11104,7 +11104,7 @@
       "handler": "xeAutomationScriptsWrite",
       "source": {
         "file": "xEdit/xeAutomationCommandsScripts.pas",
-        "line": 967
+        "line": 963
       },
       "prerequisites": "Canonical script IDs; writes/deletes restricted to Agent/; run requires consent, admitted symbols and execution budgets.",
       "effect": "immediate script-file write/delete under Agent/; separate from plugin save",
@@ -11116,7 +11116,7 @@
       "handler": "xeAutomationSessionFlush",
       "source": {
         "file": "xEdit/xeAutomationCommandsSession.pas",
-        "line": 216
+        "line": 264
       },
       "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
       "effect": "drains queued renames, destroys loaded graph and exits; force:true may discard unsaved changes",
@@ -11128,7 +11128,7 @@
       "handler": "xeAutomationSessionGetDirtyState",
       "source": {
         "file": "xEdit/xeAutomationCommandsSession.pas",
-        "line": 213
+        "line": 261
       },
       "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
       "effect": "read-only; no plugin persistence",
@@ -11140,7 +11140,7 @@
       "handler": "xeAutomationSessionGetGuiSnapshot",
       "source": {
         "file": "xEdit/xeAutomationCommandsSession.pas",
-        "line": 214
+        "line": 262
       },
       "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
       "effect": "read-only; no plugin persistence",
@@ -11164,7 +11164,7 @@
       "handler": "xeAutomationSessionSave",
       "source": {
         "file": "xEdit/xeAutomationCommandsSession.pas",
-        "line": 215
+        "line": 263
       },
       "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
       "effect": "writes plugins or queues final rename; inspect pending state and flush before durability claim",

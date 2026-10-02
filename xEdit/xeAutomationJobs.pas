@@ -1,4 +1,4 @@
-﻿{******************************************************************************
+{******************************************************************************
 
   This Source Code Form is subject to the terms of the Mozilla Public License,
   v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
@@ -34,6 +34,7 @@ uses
   System.Generics.Collections,
   SysUtils,
   Classes,
+  xeAutomationMutationAudit,
   xeAutomationErrors;
 
 const
@@ -292,6 +293,7 @@ end;
 procedure xeAutomationAdvanceJob(const AJob: TxeAutomationJob);
 var
   lRegistration: TxeAutomationJobKindRegistration;
+  lSnapshot: TxeAutomationMutationSnapshot;
 begin
   if not Assigned(AJob) or AJob.IsTerminal then
     Exit;
@@ -308,6 +310,7 @@ begin
   if AJob.State <> xajsQueued then
     Exit;
 
+  lSnapshot := xeAutomationCaptureMutationSnapshot;
   AJob.State := xajsRunning;
   try
     if not xeAutomationGetJobKinds.TryGetValue(AJob.Kind, lRegistration) then
@@ -324,17 +327,35 @@ begin
     on E: ExeAutomationError do begin
       // Accepted jobs report execution failures in durable job state instead of
       // turning a later poll into a transport-level error envelope.
+      if Assigned(E.Details) then
+        AJob.FailureData.O['details'].Assign(E.Details);
       AJob.FailureData.S['code'] := E.Code;
       AJob.FailureData.S['message'] := E.Message;
       AJob.FailureData.S['phase'] := 'execution';
-      AJob.FailureData.B['partial'] := False;
+      xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
+      if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
+        AJob.FailureData.B['partial'] := True;
+        AJob.FailureData.B['partialKnown'] := True;
+      end else begin
+        // Generic exceptions cannot establish absence of external-file writes.
+        AJob.FailureData['partial'] := nil;
+        AJob.FailureData.B['partialKnown'] := False;
+      end;
       AJob.State := xajsFailed;
     end;
     on E: Exception do begin
       AJob.FailureData.S['code'] := xeAutomationErrorInternalError;
       AJob.FailureData.S['message'] := E.Message;
       AJob.FailureData.S['phase'] := 'execution';
-      AJob.FailureData.B['partial'] := False;
+      xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
+      if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
+        AJob.FailureData.B['partial'] := True;
+        AJob.FailureData.B['partialKnown'] := True;
+      end else begin
+        // Generic exceptions cannot establish absence of external-file writes.
+        AJob.FailureData['partial'] := nil;
+        AJob.FailureData.B['partialKnown'] := False;
+      end;
       AJob.State := xajsFailed;
     end;
   end;
