@@ -33,6 +33,7 @@ class CopyModesFixtureTests(unittest.TestCase):
         lists = [row for row in records(fixtures("fo4")[SOURCE]) if row[0] == b"LVLI"]
         self.assertEqual(len(lists), 2)
         fields = lists[1][2]
+        self.assertEqual(len(fields[b"LVLO"]), 12)
         self.assertEqual(struct.unpack_from("<H", fields[b"LVLO"], 0)[0], 4)
         self.assertEqual(struct.unpack_from("<I", fields[b"LVLO"], 4)[0], lists[0][1])
         self.assertEqual(struct.unpack_from("<H", fields[b"LVLO"], 8)[0], 7)

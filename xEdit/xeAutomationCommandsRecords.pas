@@ -25,9 +25,11 @@ uses
   Classes,
   SysUtils,
   wbImplementation,
+  wbLoadOrder,
   xeAutomationErrors,
   xeAutomationMutationAudit,
   xeAutomationMutationPolicy,
+  xeAutomationJobs,
   xeAutomationRecordQueries,
   xeAutomationRegistry;
 
@@ -96,6 +98,7 @@ var
   lMasters: TwbFilesSet;
   lFile: IwbFile;
   lChildGroup: IwbGroupRecord;
+  lContainer: IwbContainer;
 begin
   Result := TStringList.Create;
   Result.Sorted := True;
@@ -110,6 +113,13 @@ begin
       // so master preflight must include child-only dependencies before copy/add checks.
       if ADeepCopy and Supports(ASourceRecord.ChildGroup, IwbGroupRecord, lChildGroup) then
         lChildGroup.ReportRequiredMasters(lMasters, AAsNew);
+      // Native copy recursively recreates ancestor groups/owners too. Their
+      // direct dependencies must be planned before AddMaster can mutate a file.
+      lContainer := ASourceRecord.Container;
+      while Assigned(lContainer) do begin
+        lContainer.ReportRequiredMasters(lMasters, AAsNew, False);
+        lContainer := lContainer.Container;
+      end;
       for lFile in lMasters do
         Result.AddObject(lFile.FileName, Pointer(lFile));
     finally
@@ -1591,6 +1601,248 @@ begin
   end;
 end;
 
+procedure xeAutomationValidateInjectedCleanup(var ADryRun: Boolean;
+  const ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject);
+var
+  lFiles, lRecords, lPlan: TJsonArray;
+  lFile, lInjectionFile, lCommonInjectionFile: IwbFile;
+  lSource, lExisting: IwbMainRecord;
+  lInjectionFiles: TwbFiles;
+  lLocator: TxeAutomationLocator;
+  lRequired: TStringList;
+  lModules: TwbModuleInfos;
+  lEntry: TJsonObject;
+  lOverwrite, lAddMasters, lSelected: Boolean;
+  i, j: Integer;
+begin
+  if wbIsMorrowind then
+    raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode,
+      'Injected cleanup requires numeric FormIDs');
+  if wbTranslationMode then
+    raise xeAutomationMutationNotAllowed('Injected cleanup is unavailable in translation mode');
+  if not ADryRunSpecified then ADryRun := True;
+  if not Assigned(ATarget) or not ATarget.Contains('files') or
+     (ATarget.Types['files'] <> jdtArray) then
+    raise xeAutomationInvalidRequest('Injected cleanup requires target.files array');
+  lFiles := ATarget.A['files'];
+  if (lFiles.Count < 1) or (lFiles.Count > 32) then
+    raise xeAutomationInvalidRequest('Injected cleanup requires 1..32 source files');
+  if not Assigned(AOptions) or not AOptions.Contains('records') or
+     (AOptions.Types['records'] <> jdtArray) then
+    raise xeAutomationInvalidRequest('Injected cleanup requires options.records locator array');
+  lRecords := AOptions.A['records'];
+  if (lRecords.Count < 1) or (lRecords.Count > 128) then
+    raise xeAutomationInvalidRequest('Injected cleanup requires 1..128 explicit record locators');
+  lOverwrite := xeAutomationReadBooleanArgDefault(AOptions, 'overwrite', False);
+  lAddMasters := xeAutomationReadBooleanArgDefault(AOptions, 'addRequiredMasters', True);
+  for i := 0 to lFiles.Count - 1 do begin
+    if lFiles.Types[i] <> jdtString then
+      raise xeAutomationInvalidRequest('target.files entries must be strings');
+    lFile := xeAutomationRequirePluginFile(Trim(lFiles.S[i]));
+    if not ADryRun then xeAutomationRequireWritableTargetFile(lFile);
+    for j := 0 to i - 1 do
+      if SameText(lFiles.S[j], lFiles.S[i]) then
+        raise xeAutomationInvalidRequest('target.files contains duplicate files');
+  end;
+  // InjectionSourceFiles depends on the native reference cache. Construct it
+  // before planning, without invoking RemoveInjected in a dry-run scene.
+  lModules := wbModulesByLoadOrder;
+  for i := Low(lModules) to High(lModules) do begin
+    lFile := xeAutomationTryPluginFileFromModule(lModules[i]);
+    if Assigned(lFile) then lFile.BuildOrLoadRef(False);
+  end;
+  AOptions.Remove('_cleanupPlan');
+  lPlan := AOptions.A['_cleanupPlan'];
+  lCommonInjectionFile := nil;
+  for i := 0 to lRecords.Count - 1 do begin
+    if lRecords.Types[i] <> jdtObject then
+      raise xeAutomationInvalidRequest('options.records entries must be locator objects');
+    lLocator := xeAutomationParseLocator(lRecords.O[i], True, False);
+    if lLocator.Path <> '' then
+      raise xeAutomationInvalidRequest('Injected cleanup accepts record roots only');
+    lSource := xeAutomationRequireOwnedMainRecord(lLocator);
+    lSource.BuildRef;
+    if (lSource.Signature = 'TES4') or not lSource.CanCopy then
+      raise xeAutomationInvalidTarget('Injected cleanup requires copyable non-header records');
+    lSelected := False;
+    for j := 0 to lFiles.Count - 1 do
+      if SameText(lSource._File.FileName, Trim(lFiles.S[j])) then lSelected := True;
+    if not lSelected then
+      raise xeAutomationInvalidRequest('Each selected record must belong to target.files');
+    for j := 0 to i - 1 do
+      if SameText(lPlan.O[j].S['file'], lSource._File.FileName) and
+         SameText(lPlan.O[j].S['formId'], lSource.LoadOrderFormID.ToString(False)) then
+        raise xeAutomationInvalidRequest('Injected cleanup contains duplicate records');
+    lInjectionFiles := lSource.InjectionSourceFiles;
+    if (Length(lInjectionFiles) <> 1) or not lSource.ReferencesInjected then
+      raise xeAutomationInvalidTarget('Each selected record must reference injections from exactly one provider file');
+    lInjectionFile := lInjectionFiles[0];
+    if Assigned(lCommonInjectionFile) and not lCommonInjectionFile.Equals(lInjectionFile) then
+      raise xeAutomationInvalidTarget('Selection must share one injection provider; split different providers into separate jobs');
+    lCommonInjectionFile := lInjectionFile;
+    if AOptions.Contains('injectionFile') and
+       not SameText(xeAutomationRequireStringArg(AOptions, 'injectionFile'), lInjectionFile.FileName) then
+      raise xeAutomationInvalidTarget('Injection provider differs from expected injectionFile');
+    if not ADryRun then begin
+      xeAutomationRequireWritableRootRecordTarget(lSource);
+      xeAutomationRequireWritableTargetFile(lInjectionFile);
+    end;
+    lExisting := xeAutomationResolveOwnedMainRecordInFile(lInjectionFile, lSource.LoadOrderFormID.ToString(False));
+    if Assigned(lExisting) then begin
+      if not lOverwrite then
+        raise xeAutomationStateConflict('Injection provider already owns an override; set overwrite:true explicitly');
+      if not ADryRun then xeAutomationRequireWritableRootRecordTarget(lExisting);
+    end;
+    if wbIsStarfield and lSource.ContainsReflection and
+      (wbStarfieldReverseEngineeringIncomplete or lSource.ContainsUnsafeReflection) then
+      raise xeAutomationMutationNotAllowed('Reflection records cannot be preserved by copy');
+    lRequired := xeAutomationCollectCopyRequiredMasters(lSource, False, True);
+    try
+      xeAutomationPreflightCopyMasters(lInjectionFile, lRequired, lAddMasters);
+      lEntry := lPlan.AddObject;
+      for j := 0 to lRequired.Count - 1 do
+        if not SameText(lRequired[j], lInjectionFile.FileName) then begin
+          lEntry.A['requiredMasters'].Add(lRequired[j]);
+          if not lInjectionFile.HasMaster(lRequired[j]) then
+            lEntry.A['missingMasters'].Add(lRequired[j]);
+        end;
+    finally
+      lRequired.Free;
+    end;
+    lEntry.S['file'] := lSource._File.FileName;
+    lEntry.S['formId'] := lSource.LoadOrderFormID.ToString(False);
+    lEntry.S['signature'] := lSource.Signature;
+    lEntry.S['injectionFile'] := lInjectionFile.FileName;
+    lEntry.B['overwrite'] := Assigned(lExisting);
+  end;
+  if TEncoding.UTF8.GetByteCount(lPlan.ToJSON(False)) > 524288 then
+    raise xeAutomationNewError('job_capacity', 'Injected cleanup dependency plan exceeds 512 KiB; split the selection');
+end;
+
+procedure xeAutomationCleanupDirtyFile(const AFiles: TJsonArray; const AFile: IwbFile);
+var
+  i: Integer;
+begin
+  if not AFile.Modified then Exit;
+  for i := 0 to AFiles.Count - 1 do
+    if SameText(AFiles.S[i], AFile.FileName) then Exit;
+  AFiles.Add(AFile.FileName);
+end;
+
+procedure xeAutomationInjectedCleanupJob(const AJobId: string;
+  const ADryRun, ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject;
+  const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
+var
+  lPlan: TJsonArray;
+  lLocator: TxeAutomationLocator;
+  lSource, lPreserved: IwbMainRecord;
+  lInjectionFile: IwbFile;
+  lElement: IwbElement;
+  lRequired: TStringList;
+  lMasterReport, lFinding, lChanged: TJsonObject;
+  lAddMasters, lRemaining: Boolean;
+  lPhase: string;
+  i, j: Integer;
+  lGenerationBefore: UInt64;
+begin
+  lGenerationBefore := wbGlobalModifedGeneration;
+  lPlan := AOptions.A['_cleanupPlan'];
+  lAddMasters := xeAutomationReadBooleanArgDefault(AOptions, 'addRequiredMasters', True);
+  ASummary.B['dryRun'] := ADryRun;
+  ASummary.I['planned'] := 0;
+  ASummary.I['applied'] := 0;
+  ASummary.I['requiresManualReview'] := 0;
+  ASummary.S['persistence'] := 'in-memory-until-session.save';
+  AResult.A['records'].Clear;
+  for i := 0 to lPlan.Count - 1 do begin
+    if not SameText(lPlan.O[i].S['file'], Trim(ATarget.A['files'].S[0])) then Continue;
+    ASummary.I['planned'] := ASummary.I['planned'] + 1;
+    lFinding := AFindings.AddObject;
+    lFinding.S['source'] := 'cleaning.cleanup_injected_references';
+    lFinding.S['severity'] := 'info';
+    lFinding.S['code'] := 'injected_cleanup_planned';
+    lFinding.O['target'].S['file'] := lPlan.O[i].S['file'];
+    lFinding.O['target'].S['formId'] := lPlan.O[i].S['formId'];
+    lFinding.O['target'].S['signature'] := lPlan.O[i].S['signature'];
+    lFinding.S['injectionFile'] := lPlan.O[i].S['injectionFile'];
+    if lPlan.O[i].Contains('requiredMasters') then
+      lFinding.A['requiredMasters'].Assign(lPlan.O[i].A['requiredMasters']);
+    if lPlan.O[i].Contains('missingMasters') then
+      lFinding.A['missingMasters'].Assign(lPlan.O[i].A['missingMasters']);
+    lFinding.B['applied'] := False;
+    if ADryRun then Continue;
+    lPhase := 'resolve';
+    try
+      lLocator.FileName := lPlan.O[i].S['file'];
+      lLocator.FormID := lPlan.O[i].S['formId'];
+      lLocator.Path := '';
+      lSource := xeAutomationRequireOwnedMainRecord(lLocator);
+      lInjectionFile := xeAutomationRequirePluginFile(lPlan.O[i].S['injectionFile']);
+      lRequired := xeAutomationCollectCopyRequiredMasters(lSource, False, True);
+      try
+        lPhase := 'masters';
+        lMasterReport := xeAutomationApplyCopyRequiredMasters(lInjectionFile, lRequired, lAddMasters);
+        lMasterReport.Free;
+      finally
+        lRequired.Free;
+      end;
+      // Preserve the full original record in its injection provider first.
+      // Removing first would discard exactly the data the override must retain.
+      lPhase := 'preserve-copy';
+      lElement := wbCopyElementToFile(lSource, lInjectionFile, False, True,
+        '', '', '', '', lPlan.O[i].B['overwrite']);
+      lPreserved := xeAutomationIdentifyCopiedMainRecord(lElement, lSource, lSource, lInjectionFile, False);
+      if not lPreserved._File.Equals(lInjectionFile) or
+         (lPreserved.LoadOrderFormID <> lSource.LoadOrderFormID) then
+        raise xeAutomationInvalidTarget('Cleanup preservation copy does not belong to the injection provider at the source ID');
+      lChanged := AResult.A['records'].AddObject;
+      lChanged.O['source'].Assign(lFinding.O['target']);
+      lChanged.O['preserved'].S['file'] := lInjectionFile.FileName;
+      lChanged.O['preserved'].S['formId'] := lPreserved.LoadOrderFormID.ToString(False);
+      lChanged.B['cleaned'] := False;
+      lPhase := 'remove-injected';
+      lRemaining := lSource.RemoveInjected(False);
+      lSource.UpdateRefs;
+      lPreserved.UpdateRefs;
+      // Native false means automatic removal completed; independently expose
+      // current ReferencesInjected so required/unremovable fields stay visible.
+      lRemaining := lRemaining or lSource.ReferencesInjected;
+      lChanged.B['cleaned'] := not lRemaining;
+      lChanged.B['requiresManualReview'] := lRemaining;
+      lFinding.B['applied'] := True;
+      lFinding.B['requiresManualReview'] := lRemaining;
+      lFinding.S['code'] := 'injected_cleanup_applied';
+      if lRemaining then begin
+        lFinding.S['severity'] := 'warning';
+        lFinding.S['code'] := 'injected_cleanup_incomplete';
+        ASummary.I['requiresManualReview'] := ASummary.I['requiresManualReview'] + 1;
+      end;
+      ASummary.I['applied'] := ASummary.I['applied'] + 1;
+    except
+      on E: Exception do begin
+        if E is ExeAutomationError then AFailure.S['code'] := ExeAutomationError(E).Code
+        else AFailure.S['code'] := xeAutomationErrorInternalError;
+        AFailure.S['message'] := E.Message;
+        AFailure.S['phase'] := lPhase;
+        AFailure.I['recordIndex'] := i;
+        if (E is ExeAutomationError) and Assigned(ExeAutomationError(E).Details) then
+          AFailure.O['details'].Assign(ExeAutomationError(E).Details);
+        Break;
+      end;
+    end;
+  end;
+  ASummary.B['changed'] := wbGlobalModifedGeneration <> lGenerationBefore;
+  ASummary.B['requiresSave'] := not ADryRun and ASummary.B['changed'];
+  if not ADryRun then xeAutomationInvalidateRecordQueries;
+  ASummary.A['dirtyFiles'].Clear;
+  for j := 0 to lPlan.Count - 1 do begin
+    lInjectionFile := xeAutomationRequirePluginFile(lPlan.O[j].S['injectionFile']);
+    xeAutomationCleanupDirtyFile(ASummary.A['dirtyFiles'], lInjectionFile);
+    lInjectionFile := xeAutomationRequirePluginFile(lPlan.O[j].S['file']);
+    xeAutomationCleanupDirtyFile(ASummary.A['dirtyFiles'], lInjectionFile);
+  end;
+end;
+
 function xeAutomationRecordsMasterOrSelf(const AArgs: TJsonObject): TJsonObject;
 var
   lRecord: IwbMainRecord;
@@ -1609,6 +1861,10 @@ end;
 
 procedure xeAutomationRegisterRecordsCommands;
 begin
+  // Cleanup shares native copy/dependency planning with records.copy_into;
+  // register its job here so startup/capability probes use the same code seam.
+  xeAutomationRegisterJobKindWithValidator('cleaning.cleanup_injected_references',
+    xeAutomationInjectedCleanupJob, xeAutomationValidateInjectedCleanup);
   xeAutomationRegisterCommand('records.list', xeAutomationRecordsList);
   xeAutomationRegisterCommand('records.apply_filter', xeAutomationRecordsApplyFilter);
   xeAutomationRegisterCommand('records.base_record', xeAutomationRecordsBaseRecord);

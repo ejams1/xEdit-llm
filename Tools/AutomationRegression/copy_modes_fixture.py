@@ -21,7 +21,7 @@ def leveled_source():
     body = subrecord(b"EDID", b"AutoCopySource\0") + subrecord(b"OBND", b"\0" * 12)
     body += subrecord(b"LVLD", b"\0") + subrecord(b"LVLF", b"\0")
     body += subrecord(b"LLCT", b"\1")
-    body += subrecord(b"LVLO", struct.pack("<HHIHB2xB", 4, 0, 0x01000800, 7, 0, 0))
+    body += subrecord(b"LVLO", struct.pack("<HHIHBB", 4, 0, 0x01000800, 7, 0, 0))
     body += subrecord(b"COED", struct.pack("<IIf", 0, 0, 0.5))
     return plugin(["Fallout4.esm"], target + record(b"LVLI", body, form_id=0x01000801), 2, True)
 

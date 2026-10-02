@@ -403,9 +403,9 @@
       "scriptSymbols": []
     },
     "injected-cleanup": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose cleanup as a bounded dry-run/apply job with affected-record findings, native injection rules and dependency checks.",
+      "status": "partial",
+      "routes": ["cleaning.cleanup_injected_references"],
+      "notes": "Bounded explicit record selection, complete injection-owner/dependency/writable preflight, copy into provider before native RemoveInjected(False), remaining-reference findings and partial record results. Numeric games, shared single provider; native semantic acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
@@ -1126,6 +1126,9 @@
     "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
   },
   "operationOverrides": {
+    "cleaning.cleanup_injected_references": {
+      "effect": "default dry-run plan; apply preserves overrides in injection provider then removes source references in memory -> save both + flush"
+    },
     "records.copy_idle_tree": {
       "effect": "default dry-run plan; apply creates idle copies, changes models/internal references in memory -> save + flush"
     },
