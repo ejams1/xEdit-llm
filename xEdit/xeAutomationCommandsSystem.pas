@@ -283,6 +283,24 @@ begin
       Result.S['persistence'] := 'read-only';
       Result.S['constraintNotes'] := 'Children need explicit limit <=50; response <=1 MiB';
     end;
+  end else if SameText(lCommand, 'patches.merge') then begin
+    xeAutomationSchemaField(Result, 'records', 'array<object:file,formId>:1..32', True);
+    xeAutomationSchemaField(Result, 'targetFile', 'string:empty-loaded-plugin-last-in-load-order', True);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    Result.S['prerequisites'] := 'TES4/FO3/FNV; explicit root selection uses all loaded overrides and each declared-master baseline; empty target loads last; apply requires consent/writable target';
+    Result.S['persistence'] := 'in-memory-until-session.save-and-terminal-session.flush';
+    Result.S['constraintNotes'] := '32 records, 128 overrides per record, 512 entries per list, 16384 inspected entries; native list families; modern games reject; faulty ordered/deleted participants skip entire record';
+    Result.S['resultNotes'] := 'Per-record planned/applied/unchanged/skipped outcomes, list counts, winners, required masters and first phase/index failure; no rollback';
+    Result.A['errors'].Add('patch_capacity');
+    Result.A['errors'].Add('unsupported_game_mode');
+    Result.A['errors'].Add('state_conflict');
+    with Result.O['example'] do begin
+      S['command'] := lCommand;
+      O['args'].A['records'].AddObject.S['file'] := 'Source.esm';
+      O['args'].A['records'].O[0].S['formId'] := '01000800';
+      O['args'].S['targetFile'] := 'Merged.esp';
+      O['args'].B['dryRun'] := True;
+    end;
   end else if SameText(lCommand, 'patches.delta') then begin
     xeAutomationSchemaField(Result, 'sourceFile', 'string:loaded-saved-baseline', True);
     xeAutomationSchemaField(Result, 'comparePath', 'string:existing-external-plugin-path', True);
@@ -465,7 +483,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.31';
+  Result.S['contractVersion'] := '0.32';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin

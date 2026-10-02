@@ -417,9 +417,9 @@
       "scriptSymbols": []
     },
     "merged-patch": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native merge behavior and game gates with explicit inputs/target, dry run, per-record outcomes and reproducible merge fixtures.",
+      "status": "partial",
+      "routes": ["patches.merge"],
+      "notes": "TES4/FO3/FNV only; explicit bounded record selection uses all loaded overrides, declared-master baselines, duplicate-aware native deltas and FLST set/ordered rules. Empty last-loaded target, default dry run, per-record outcomes and counts. Modern native-warning games reject; runtime testing pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
@@ -1130,6 +1130,9 @@
     "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
   },
   "operationOverrides": {
+    "patches.merge": {
+      "effect": "default dry-run native list plan; apply adds/cleans masters and copies winning records with merged list deltas in memory -> save + flush"
+    },
     "patches.delta": {
       "effect": "dry run reads headers only; apply immediately creates .esu disk copy, then edits loaded delta -> save + flush"
     },

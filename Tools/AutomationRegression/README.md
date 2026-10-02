@@ -460,3 +460,32 @@ Relaunch with AutomationDeltaOutput.esu appended and run `verify`. Also verify
 changed master-order references, child-group ancestor retention, both options
 false, unsupported modes, capacity gates and partial native-load failures before
 acceptance. Delphi compilation and game-backed execution remain pending.
+
+## Issue #27: merged patches
+
+`patches.merge` takes `records` (1..32 root locators), `targetFile` (empty loaded
+plugin after all contributing files), and `dryRun` (default true). The explicit
+record selection uses each record's full loaded override chain. It supports
+TES4/FO3/FNV native list families; modern games, which the native GUI warns are
+unsupported, reject before mutation. Plans are bounded by 128 overrides per
+record, 512 entries per list and 16384 inspected entries across the request.
+
+Planning uses each override's declared-master baseline, applies list additions,
+removals and duplicate multiplicities, and handles FLST sets and append-only
+OrderedList suffixes. Faulty ordered lists and deleted participants skip the
+entire record. Apply copies the whole winning record to preserve unrelated
+fields, rewrites differing lists/counts, updates references and cleans target
+masters. All plans finish before the first write. Results expose each winner,
+list counts, skip/planned/applied outcomes, apply attempts and failure phase/index.
+Edits require explicit `session.save` and terminal `session.flush`.
+
+Generate `merged_fixture.py generate --overlay <MO2-mod-folder>` for FO3, load
+Fallout3.esm followed by AutomationMergeBase.esm, AutomationMergeLeft.esp,
+AutomationMergeRight.esp and AutomationMergeOutput.esp. Run `exercise`, relaunch
+with the same order after save/flush, then `verify`. The fixture covers independent
+sibling baselines, removal of duplicate entries, independent additions, winning
+scalar preservation, ownership payloads, FLST sets, ordered appends and faulty
+reorder skips. Also test TES4/FNV-specific families, different declared-master
+baselines, single/no-difference overrides, capacity/target refusals, unsupported
+modern modes and native partial failures before acceptance. Delphi compilation
+and game-backed execution remain pending.

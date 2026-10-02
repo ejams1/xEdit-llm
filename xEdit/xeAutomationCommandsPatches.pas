@@ -15,7 +15,7 @@ uses
   Windows, Classes, SysUtils, JsonDataObjects, wbInterface, wbImplementation,
   xeAutomationDataLookup, xeAutomationErrors, xeAutomationMutationAudit,
   xeAutomationMutationPolicy, xeAutomationObjectModel, xeAutomationRecordQueries,
-  xeAutomationRegistry, xeMainForm;
+  xeAutomationRegistry, xeAutomationMergedPatch, xeMainForm;
 
 const
   MaxDeltaRecords = 1000;
@@ -310,6 +310,7 @@ end;
 procedure xeAutomationRegisterPatchCommands;
 begin
   xeAutomationRegisterCommand('patches.delta', xeAutomationDeltaPatch);
+  xeAutomationRegisterCommand('patches.merge', xeAutomationMergedPatchCommand);
 end;
 
 end.
