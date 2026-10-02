@@ -37,7 +37,7 @@ uses
   xeAutomationRegistry;
 
 const
-  xeAutomationFinalJobKinds: array[0..9] of string = (
+  xeAutomationFinalJobKinds: array[0..10] of string = (
     'files.hygiene.batch',
     'plugin.esl.analyze',
     'plugin.esl.apply',
@@ -45,6 +45,7 @@ const
     'validation.check_for_errors',
     'validation.check_for_itm',
     'validation.check_for_deleted_refs',
+    'validation.circular_leveled_lists',
     'cleaning.quick_clean',
     'cleaning.quick_auto_clean',
     'cleaning.sort_and_clean_masters'
@@ -57,6 +58,7 @@ var
   lValidationErrorsRegistered: Boolean;
   lValidationItmRegistered: Boolean;
   lValidationDeletedRefsRegistered: Boolean;
+  lValidationCircularRegistered: Boolean;
   lCleaningQuickRegistered: Boolean;
   lCleaningQuickAutoRegistered: Boolean;
   lCleaningMastersRegistered: Boolean;
@@ -77,6 +79,7 @@ begin
   lValidationErrorsRegistered := False;
   lValidationItmRegistered := False;
   lValidationDeletedRefsRegistered := False;
+  lValidationCircularRegistered := False;
   lCleaningQuickRegistered := False;
   lCleaningQuickAutoRegistered := False;
   lCleaningMastersRegistered := False;
@@ -89,6 +92,8 @@ begin
       lValidationItmRegistered := True;
     end else if SameText(lJobKind, 'validation.check_for_deleted_refs') then begin
       lValidationDeletedRefsRegistered := True;
+    end else if SameText(lJobKind, 'validation.circular_leveled_lists') then begin
+      lValidationCircularRegistered := True;
     end else if SameText(lJobKind, 'cleaning.quick_clean') then begin
       lCleaningQuickRegistered := True;
     end else if SameText(lJobKind, 'cleaning.quick_auto_clean') then begin
@@ -100,7 +105,8 @@ begin
     xeAutomationRegisterPluginAnalysisCommands;
   // Keep validation capability advertising registry-derived: these kinds are
   // registered lazily only after their implementation unit is linked here.
-  if not (lValidationErrorsRegistered and lValidationItmRegistered and lValidationDeletedRefsRegistered) then
+  if not (lValidationErrorsRegistered and lValidationItmRegistered and
+          lValidationDeletedRefsRegistered and lValidationCircularRegistered) then
     xeAutomationRegisterValidationCommands;
   // Cleaning capability advertising remains truthful because these kinds are
   // registered only after the 6D in-memory/apply-safe implementation is linked.
@@ -324,9 +330,8 @@ var
   lReverseNavigation: TJsonObject;
 begin
   Result := TJsonObject.Create;
-  // Contract 0.26 adds on-demand discovery and optimistic edit expectations
-  // to the existing lifecycle, query and batch command surface.
-  Result.S['contractVersion'] := '0.26';
+  // Contract 0.27 adds native circular-list validation to the job surface.
+  Result.S['contractVersion'] := '0.27';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin
