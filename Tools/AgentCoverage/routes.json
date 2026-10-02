@@ -1113,6 +1113,9 @@
     "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
   },
   "operationOverrides": {
+    "system.command_schema": {
+      "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence"
+    },
     "batch.edit": {
       "effect": "preflighted in-memory element writes; partial failures report completed steps -> session.save + terminal session.flush"
     },

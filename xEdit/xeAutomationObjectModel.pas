@@ -202,6 +202,7 @@ begin
   Result := TJsonObject.Create;
   Result.B['changed'] := AChanged;
   Result.B['dirty'] := ADirty;
+  Result.S['mutationRevision'] := UIntToStr(wbGlobalModifedGeneration);
   xeAutomationWriteLocator(Result.O['locator'], AFileName, AFormID, APath);
 end;
 

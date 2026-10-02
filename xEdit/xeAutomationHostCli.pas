@@ -55,6 +55,17 @@ begin
     aResponse.Values['id'] := aRequest.Values['id'];
 end;
 
+procedure xeAutomationValidateExpectedRevision(const AArgs: TJsonObject);
+begin
+  if not Assigned(AArgs) or not AArgs.Contains('expectedRevision') then
+    Exit;
+  if AArgs.Types['expectedRevision'] <> jdtString then
+    raise xeAutomationInvalidRequest('Automation expectedRevision must be a string');
+  if AArgs.S['expectedRevision'] <> UIntToStr(wbGlobalModifedGeneration) then
+    raise xeAutomationNewError('stale_revision',
+      'Loaded plugin revision differs from expectedRevision');
+end;
+
 function xeAutomationSanitizeRequestLogValue(const aValue: string): string;
 const
   CxeAutomationMaxRequestLogValueLength = 120;
@@ -408,6 +419,7 @@ begin
     // Request execution is registry-driven so serve mode can deliberately expand
     // the command surface only after xEdit has loaded the in-memory session.
     xeAutomationValidateProjection(lArgs);
+    xeAutomationValidateExpectedRevision(lArgs);
     xeAutomationAssertJobCommandAllowed(lCommand);
     aDispatched := True;
     lResult := xeAutomationExecuteCommand(lCommand, lArgs);

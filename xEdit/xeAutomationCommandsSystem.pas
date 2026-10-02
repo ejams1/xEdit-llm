@@ -29,7 +29,9 @@ uses
   xeAutomationCommandsScripts,
   xeAutomationCommandsSession,
   xeAutomationCommandsSessionNavigation,
+  xeAutomationErrors,
   xeAutomationJobs,
+  xeAutomationObjectModel,
   xeAutomationReplay,
   xeAutomationWireLimits,
   xeAutomationRegistry;
@@ -134,6 +136,173 @@ begin
   Result.S['dataPath'] := wbDataPath;
 end;
 
+procedure xeAutomationSchemaField(const ATarget: TJsonObject; const AName, AType: string;
+  const ARequired: Boolean);
+begin
+  ATarget.O['argumentSchema'].O['properties'].O[AName].S['type'] := AType;
+  if ARequired then
+    ATarget.O['argumentSchema'].A['required'].Add(AName);
+end;
+
+procedure xeAutomationSchemaLocator(const ATarget: TJsonObject);
+begin
+  xeAutomationSchemaField(ATarget, 'file', 'string', True);
+  xeAutomationSchemaField(ATarget, 'formId', 'string:8-hex-digits', True);
+  xeAutomationSchemaField(ATarget, 'path', 'string:record-relative-indexed-path', False);
+end;
+
+function xeAutomationSystemCommandSchema(const AArgs: TJsonObject): TJsonObject;
+var
+  lCommand: string;
+  lExample, lExampleItem: TJsonObject;
+begin
+  lCommand := LowerCase(xeAutomationRequireStringArg(AArgs, 'command'));
+  xeAutomationEnsureCapabilityCommandSurface;
+  if not xeAutomationHasCommand(lCommand) then
+    raise xeAutomationUnknownCommand(lCommand);
+  Result := TJsonObject.Create;
+  Result.S['command'] := lCommand;
+  Result.B['schemaAvailable'] := True;
+  Result.O['argumentSchema'].S['type'] := 'object';
+  Result.O['argumentSchema'].A['required'].Clear;
+  Result.A['errors'].Add('invalid_request');
+  if SameText(lCommand, 'system.command_schema') then begin
+    xeAutomationSchemaField(Result, 'command', 'string:registered-command', True);
+    Result.S['prerequisites'] := 'None; unimplemented schemas return schemaAvailable:false';
+    Result.S['persistence'] := 'read-only';
+  end else if SameText(lCommand, 'elements.set_value') or
+     SameText(lCommand, 'elements.set_native_value') then begin
+    xeAutomationSchemaLocator(Result);
+    if SameText(lCommand, 'elements.set_value') then
+      xeAutomationSchemaField(Result, 'value', 'string', True)
+    else
+      xeAutomationSchemaField(Result, 'value', 'json-scalar-or-formId-array', True);
+    xeAutomationSchemaField(Result, 'expectedRevision', 'string:decimal-uint64', False);
+    xeAutomationSchemaField(Result, 'expectedValue', 'string:exact-edit-value', False);
+    if SameText(lCommand, 'elements.set_native_value') then begin
+      xeAutomationSchemaField(Result, 'kind', 'string', False);
+      with Result.O['argumentSchema'].O['properties'].O['kind'].A['enum'] do begin
+        Add('int'); Add('float'); Add('string'); Add('bool'); Add('formId'); Add('formIdArray');
+      end;
+    end;
+    Result.S['prerequisites'] :=
+      'Loaded owned editable element and mutation consent; inspect elements.edit_capabilities and elements.get_value first';
+    Result.S['persistence'] := 'in-memory-until-session.save-then-terminal-session.flush';
+    Result.A['errors'].Add('stale_revision');
+    Result.A['errors'].Add('stale_value');
+    Result.A['errors'].Add('mutation_not_allowed');
+    lExample := Result.O['example'];
+    lExample.S['command'] := lCommand;
+    if SameText(lCommand, 'system.command_schema') then
+      lExample.O['args'].S['command'] := 'elements.set_value';
+    lExample.O['args'].S['file'] := 'MyPatch.esp';
+    lExample.O['args'].S['formId'] := '01000800';
+    lExample.O['args'].S['path'] := 'EDID';
+    lExample.O['args'].S['expectedRevision'] := '<session.get_dirty_state.mutationRevision>';
+    lExample.O['args'].S['expectedValue'] := '<elements.get_value.values.editValue>';
+    lExample.O['args'].S['value'] := 'ReplacementEditorId';
+  end else if SameText(lCommand, 'elements.get_value') or
+              SameText(lCommand, 'elements.children') or
+              SameText(lCommand, 'records.get') then begin
+    xeAutomationSchemaLocator(Result);
+    if SameText(lCommand, 'elements.children') then begin
+      xeAutomationSchemaField(Result, 'offset', 'integer:nonnegative-default-0', False);
+      xeAutomationSchemaField(Result, 'limit', 'integer:1..500-default-200', False);
+      Result.S['resultNotes'] := 'Immediate native children are paged; use offset until truncated=false';
+    end else if SameText(lCommand, 'elements.get_value') then
+      Result.S['resultNotes'] := 'Full edit/native value with exact whitespace, bounded to 1048576 characters';
+    Result.S['prerequisites'] := 'Loaded file and record; no mutation consent needed';
+    Result.S['persistence'] := 'read-only';
+  end else if SameText(lCommand, 'session.get_dirty_state') then begin
+    Result.S['prerequisites'] := 'Loaded session';
+    Result.S['persistence'] := 'read-only';
+    Result.S['resultNotes'] := 'mutationRevision is the optimistic edit token';
+  end else if SameText(lCommand, 'elements.edit_capabilities') then begin
+    xeAutomationSchemaLocator(Result);
+    xeAutomationSchemaField(Result, 'targetIndex', 'integer:default-append', False);
+    xeAutomationSchemaField(Result, 'source', 'object:element-locator', False);
+    Result.S['prerequisites'] := 'Loaded element; no mutation consent needed';
+    Result.S['persistence'] := 'read-only';
+    Result.S['resultNotes'] :=
+      'Reports native edit type, bounded choices, resolved reference, templates, operation predicates and mutationRevision';
+  end else if SameText(lCommand, 'elements.add_child') then begin
+    xeAutomationSchemaLocator(Result);
+    xeAutomationSchemaField(Result, 'targetIndex', 'integer:default-append', False);
+    xeAutomationSchemaField(Result, 'templateIndex', 'integer', False);
+    xeAutomationSchemaField(Result, 'templateName', 'string', False);
+    xeAutomationSchemaField(Result, 'expectedRevision', 'string:decimal-uint64', False);
+    xeAutomationSchemaField(Result, 'expectedValue', 'string:exact-edit-value', False);
+    Result.S['prerequisites'] :=
+      'Owned writable container, consent and native CanAssign; inspect assign_templates/edit_capabilities for valid templates';
+    Result.S['persistence'] := 'in-memory-until-session.save-then-terminal-session.flush';
+    Result.A['errors'].Add('stale_revision');
+    Result.A['errors'].Add('stale_value');
+    Result.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(lCommand, 'files.set_header_flags') then begin
+    xeAutomationSchemaField(Result, 'file', 'string', True);
+    xeAutomationSchemaField(Result, 'flags', 'object', True);
+    with Result.O['argumentSchema'].O['properties'].O['flags'].A['allowedBooleanKeys'] do begin
+      Add('esm'); Add('esl'); Add('small'); Add('medium'); Add('localized');
+    end;
+    Result.S['prerequisites'] :=
+      'Loaded writable non-protected plugin and consent; light/medium flags depend on supported game mode';
+    Result.S['persistence'] := 'in-memory-until-session.save-then-terminal-session.flush';
+    Result.S['constraintNotes'] := 'small and esl are aliases and must agree when both supplied';
+    Result.A['errors'].Add('unsupported_game_mode');
+    Result.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(lCommand, 'batch.read') or SameText(lCommand, 'batch.edit') then begin
+    xeAutomationSchemaField(Result, 'items', 'array<object:command,args>', True);
+    if SameText(lCommand, 'batch.read') then
+      Result.O['argumentSchema'].O['properties'].O['items'].I['maxItems'] := 32
+    else
+      Result.O['argumentSchema'].O['properties'].O['items'].I['maxItems'] := 16;
+    if SameText(lCommand, 'batch.edit') then begin
+      xeAutomationSchemaField(Result, 'expectedRevision', 'string:decimal-uint64', True);
+      Result.S['prerequisites'] :=
+        'Consent; each item is elements.set_value with expectedValue; all owned/writable targets preflight before writes';
+      Result.S['persistence'] := 'in-memory-until-session.save-then-terminal-session.flush';
+      Result.S['constraintNotes'] := 'At most one edit per record and 256 KiB encoded request';
+      Result.A['errors'].Add('stale_revision');
+      Result.A['errors'].Add('stale_value');
+    end else begin
+      Result.S['prerequisites'] :=
+        'Read allowlist: records.get, elements.get, elements.get_value, elements.children';
+      Result.S['persistence'] := 'read-only';
+      Result.S['constraintNotes'] := 'Children need explicit limit <=50; response <=1 MiB';
+    end;
+  end else begin
+    Result.B['schemaAvailable'] := False;
+    Result.S['reason'] := 'Detailed schema is not yet authored for this registered command';
+    Result.Remove('argumentSchema');
+  end;
+  if Result.B['schemaAvailable'] and not Result.Contains('example') then begin
+    lExample := Result.O['example'];
+    lExample.S['command'] := lCommand;
+    if Result.O['argumentSchema'].O['properties'].Contains('file') then
+      lExample.O['args'].S['file'] := 'MyPatch.esp';
+    if Result.O['argumentSchema'].O['properties'].Contains('formId') then
+      lExample.O['args'].S['formId'] := '01000800';
+    if SameText(lCommand, 'files.set_header_flags') then
+      lExample.O['args'].O['flags'].B['esl'] := True
+    else if SameText(lCommand, 'elements.add_child') then
+      lExample.O['args'].I['templateIndex'] := 0
+    else if SameText(lCommand, 'batch.read') then begin
+      lExampleItem := lExample.O['args'].A['items'].AddObject;
+      lExampleItem.S['command'] := 'records.get';
+      lExampleItem.O['args'].S['file'] := 'MyPatch.esp';
+      lExampleItem.O['args'].S['formId'] := '01000800';
+    end else if SameText(lCommand, 'batch.edit') then begin
+      lExample.O['args'].S['expectedRevision'] := '<session.get_dirty_state.mutationRevision>';
+      lExampleItem := lExample.O['args'].A['items'].AddObject;
+      lExampleItem.S['command'] := 'elements.set_value';
+      with lExampleItem.O['args'] do begin
+        S['file'] := 'MyPatch.esp'; S['formId'] := '01000800'; S['path'] := 'EDID';
+        S['expectedValue'] := 'OldEditorId'; S['value'] := 'NewEditorId';
+      end;
+    end;
+  end;
+end;
+
 function xeAutomationSystemCapabilities(const aArgs: TJsonObject): TJsonObject;
 var
   lCommands: TJsonArray;
@@ -155,10 +324,9 @@ var
   lReverseNavigation: TJsonObject;
 begin
   Result := TJsonObject.Create;
-  // Contract 0.23 consolidates the additive lifecycle/readback surface for
-  // pending saves, in-band flush, script policy preflight, partial-mutation
-  // reporting, and the newly registered script helpers.
-  Result.S['contractVersion'] := '0.25';
+  // Contract 0.26 adds on-demand discovery and optimistic edit expectations
+  // to the existing lifecycle, query and batch command surface.
+  Result.S['contractVersion'] := '0.26';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin
@@ -197,6 +365,13 @@ begin
   Result.O['supports'].B['pendingSaveReadback'] := True;
   Result.O['supports'].B['sessionFlush'] := True;
   Result.O['supports'].B['sortableContainerNotice'] := True;
+  Result.O['supports'].O['commandSchemas'].S['command'] := 'system.command_schema';
+  Result.O['supports'].O['commandSchemas'].B['onDemand'] := True;
+  Result.O['supports'].O['commandSchemas'].B['partialCoverage'] := True;
+  Result.O['supports'].O['editExpectations'].S['revisionSource'] :=
+    'session.get_dirty_state.mutationRevision';
+  Result.O['supports'].O['editExpectations'].S['valueSource'] :=
+    'elements.get_value.values.editValue';
   // Supports fields are explicit protocol metadata rather than inferred from
   // command names so clients can choose safe patch-building flows up front.
   Result.O['supports'].O['filesCreate'].A['extensions'].Add('.esp');
@@ -637,6 +812,7 @@ initialization
   // startup/capability seams so duplicate registration remains avoidable.
   xeAutomationRegisterCommand('system.ping', xeAutomationSystemPing);
   xeAutomationRegisterCommand('system.describe', xeAutomationSystemDescribe);
+  xeAutomationRegisterCommand('system.command_schema', xeAutomationSystemCommandSchema);
   xeAutomationRegisterCommand('system.capabilities', xeAutomationSystemCapabilities);
 
 end.
