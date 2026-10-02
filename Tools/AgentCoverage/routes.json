@@ -410,10 +410,10 @@
       "scriptSymbols": []
     },
     "delta-patch": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Accept explicit compared/source/target files and native delta options; report changed records, required masters and errors without modal file selection.",
-      "effect": "copies a compared module to an .esu on disk immediately and starts a loader; needs dedicated lifecycle/persistence contract",
+      "status": "partial",
+      "routes": ["patches.delta"],
+      "notes": "Explicit saved baseline, external comparison and new .esu name; bounded header-only dry run, native compare load, deletion markers, selected-baseline cleanup and per-record outcomes. Localized/encoding-sidecar inputs reject; differing master tables conservatively retain records. Native runtime testing pending.",
+      "effect": "apply immediately copies comparison to Data .esu; loaded delta edits require session.save and terminal session.flush",
       "scriptSymbols": []
     },
     "merged-patch": {
@@ -807,6 +807,10 @@
     "mniViewHeaderCopyAsWrapper": "special-copy"
   },
   "commandFamilies": {
+    "patches": {
+      "prerequisites": "Loaded saved numeric baseline, bounded external comparison with earlier loaded dependencies, new output name; apply requires consent/edit mode.",
+      "effect": "header-only dry run or immediate disk copy plus in-memory patch edits -> session.save + terminal session.flush"
+    },
     "formids": {
       "prerequisites": "Loaded editable base records; explicit mappings, collision and master/referrer preflight; apply requires consent.",
       "effect": "dry-run reads or in-memory FormID/override/referrer changes -> session.save + terminal session.flush"
@@ -1126,6 +1130,9 @@
     "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
   },
   "operationOverrides": {
+    "patches.delta": {
+      "effect": "dry run reads headers only; apply immediately creates .esu disk copy, then edits loaded delta -> save + flush"
+    },
     "cleaning.cleanup_injected_references": {
       "effect": "default dry-run plan; apply preserves overrides in injection provider then removes source references in memory -> save both + flush"
     },
