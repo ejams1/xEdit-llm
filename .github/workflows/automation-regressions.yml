@@ -6,12 +6,16 @@ on:
       - 'Core/**'
       - 'xEdit/**'
       - 'Tools/AutomationRegression/**'
+      - 'Tools/AgentCoverage/**'
+      - 'xEdit.dpr'
       - '.github/workflows/automation-regressions.yml'
   push:
     paths:
       - 'Core/**'
       - 'xEdit/**'
       - 'Tools/AutomationRegression/**'
+      - 'Tools/AgentCoverage/**'
+      - 'xEdit.dpr'
       - '.github/workflows/automation-regressions.yml'
 
 permissions:
@@ -27,5 +31,9 @@ jobs:
           python-version: '3.12'
       - name: Check fixture integrity and source safety
         run: python -m unittest discover -s Tools/AutomationRegression -p 'test_*.py' -v
+      - name: Check operation inventory and generator
+        run: |
+          python -m unittest discover -s Tools/AgentCoverage -p test_generate.py -v
+          python Tools/AgentCoverage/generate.py --check
       # Delphi builds and MO2-backed acceptance run on the maintainer's licensed
       # Windows setup. This job deliberately makes no runtime verification claim.

@@ -113,9 +113,11 @@ If you don't have commercial [DevExpress](https://www.devexpress.com/) component
 
 ## Automation Mode (Daemon)
 
-This fork includes an opt-in daemon mode that exposes a JSON-over-named-pipe contract for non-GUI script execution and structured editing operations. Enable it by launching xEdit with `-AutomationPipe:<pipe-name>`. See [docs/notes/automation-contract/ARCHITECTURE.md](docs/notes/automation-contract/ARCHITECTURE.md) for the architectural rationale, [docs/notes/automation-contract/contract-reference.md](docs/notes/automation-contract/contract-reference.md) for the wire contract, and [docs/notes/automation-contract/COMPATIBILITY.md](docs/notes/automation-contract/COMPATIBILITY.md) for the compatibility policy.
+This fork includes an opt-in daemon mode with JSON-over-named-pipe commands for scripts and structured editing. Launch with `-automation-serve`. The daemon derives `\\.\pipe\xedit-<PID>` from its own process ID; there is no caller-supplied pipe-name switch. Loaded-data commands become ready after plugin loading. One-shot `system.ping` does not prove that a daemon is ready.
 
 Destructive operations require `-IKnowWhatImDoing` at xEdit launch time, mirroring the existing convention for `-StripEmptyMasters` and similar destructive switches.
+
+See the [lifecycle example and regression requirements](Tools/AutomationRegression/README.md#daemon-lifecycle) for game/plugin selection, readiness, native CLI relay, save, terminal flush and fresh-process readback. The examples have been checked against startup and command sources. Native execution of the queued fixes remains pending; use the recorded regression runs to establish runtime acceptance.
 
 The [agent operation coverage matrix](AUTOMATION-COVERAGE.md) maps GUI actions, registered commands/jobs, and script-policy entries to agent routes and remaining implementation gaps. It distinguishes source coverage from runtime verification. Regenerate it with `python Tools/AgentCoverage/generate.py`; use `--check` to detect unmapped actions and inventory drift.
 

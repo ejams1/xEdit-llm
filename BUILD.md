@@ -70,11 +70,20 @@ Rebuild when that second command lists something.
 4. Build the program: open `BethWorkBench.groupproj`, set the Build Configuration to `LiteDebug`
    (required when DevExpress is absent), platform `Win64`, then **Build All**.
 
-   A command-line equivalent (untested on this machine; Delphi must be on the path via its `rsvars.bat`):
+   For the automation regression setup, use `LiteDebug`, platform `Win32`, as
+   the active/default project configuration and launch the IDE build in the
+   background (adjust the installed IDE path):
 
+   ```powershell
+   Start-Process 'C:\Program Files (x86)\Embarcadero\Studio\23.0\bin\bds.exe' -WindowStyle Hidden -ArgumentList @('-b', (Resolve-Path xEdit.dproj).Path) -RedirectStandardOutput build.stdout.log -RedirectStandardError build.stderr.log
    ```
-   msbuild xEdit.dproj /p:Config=LiteDebug /p:Platform=Win64 /t:Build
-   ```
+
+   Check the compiler transcript (`xEdit.err` when capture is incomplete) for
+   `Building xEdit.dproj (LiteDebug, Win32)` and fresh
+   `Temp\xEdit\Win32\LiteDebug` output. Preserve transcript, executable hash and
+   source commit with acceptance artifacts. A successful log without a fresh
+   executable is insufficient. No Delphi environment is installed in the
+   current issue-queue workspace, so compilation is pending.
 
    `BethWorkBench.groupproj` also builds `BSArch`, `BSArchPro`, `Sniff` and `xDump`; only `xEdit.dproj` is
    needed for the release archive.
@@ -93,11 +102,12 @@ e5e503da99348401e3593718c49ac83c9368446d9df07ad113137cc411c7ec0f  xEdit.4.1.6-au
 1. **Section comparison.** Hash `.text` and `.rdata` separately from the reference executable and the new
    one (any PE reader works, e.g. Python `pefile`). `.text` is the meaningful one; differences there mean a
    real source or compiler-option difference, while a differing resource/version blob or PE header does not.
-2. **Daemon smoke test.** The fork's automation mode is the part the pipeline actually depends on: launch
-   the new executable as `xEdit.exe -FO4 -AutomationPipe:<pipe-name>`, then drive it through the xEdit MCP
-   and confirm it reports the expected automation contract version (0.23 for r9) and answers `xedit_health`.
-   Finish with an ordinary record read against a real plugin.
-3. Only if both pass, treat the build as a valid replacement.
+2. **Daemon acceptance.** Launch with `-FO4 -automation-serve` using explicit
+   game Data and plugin selection under the intended mod-manager VFS. The pipe
+   is `\\.\pipe\xedit-<PID>`. Follow the [lifecycle example and fixtures](Tools/AutomationRegression/README.md#daemon-lifecycle): inspect capabilities, read loaded files, verify each intended native mutation, save/flush, relaunch under a fresh PID and read persisted state.
+3. Compilation and section comparison support acceptance; they cannot prove
+   command behavior. Treat the build as a replacement only after inspected
+   native readbacks pass. CI fixture checks make no runtime acceptance claim.
 
 ## Package and publish
 

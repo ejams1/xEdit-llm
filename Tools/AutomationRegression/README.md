@@ -123,3 +123,74 @@ failure replay, oversized response replay, response larger than 64 KiB, eviction
 repeated cancel/disconnect handle counts, native commands pumping shutdown,
 client read/write timeout certainty and terminal flush response delivery.
 These native tests and Delphi compilation remain pending.
+
+## Daemon lifecycle
+
+Status: launch flags and request shapes checked against source; native execution
+of queued fixes is **pending testing**. Windows, a licensed Delphi 12 setup with
+README dependencies, a fresh LiteDebug Win32 executable, and an installed game
+under a mod-manager VFS are required. Fixtures redistribute no game data. Use
+isolated enabled mod overlays, explicit load order, output routing and backups.
+Do not use physical game Data as a fixture directory. A release executable does
+not contain these queued source changes unless rebuilt from their exact commit.
+
+A source-backed launch contract, executed through your mod-manager broker, is:
+
+```text
+xEdit.exe -FO4 -automation-serve -IKnowWhatImDoing -D:<absolute-game-Data-with-trailing-backslash> -P:<absolute-fixture-plugins.txt>
+```
+
+`-FO4` selects the game; `-P:` selects the plugin list. Include Fallout4.esm and
+the appropriate synthetic fixture plugins in their dependency order. The current
+local skill's reference MO2 broker appends `-automation-serve` and `-P:` itself;
+use that broker rather than invoking xEdit outside its VFS. Substitute your
+configured broker paths only after validating the actual game/VFS/profile.
+Startup may rebuild caches. Readiness requires a successful relay call to
+`system.ping` **and** the fixture's presence in `files.list`. Check
+`system.describe` for the intended game/Data and `system.capabilities` for the
+available command/limits. Discover the process PID from the broker launch result.
+The daemon serves `\\.\pipe\xedit-<PID>` after loading.
+
+Write a UTF-8 request file, then use the native relay (each call writes one
+response JSON file; inspect `ok` and `error`, not only the relay exit code):
+
+```text
+xEdit.exe -automation-call-pid:<PID> -automation-call-request:<absolute-request.json> -automation-call-response:<absolute-response.json>
+```
+
+Useful request sequence:
+
+```json
+{"command":"system.describe","args":{}}
+{"command":"files.list","args":{}}
+{"command":"elements.get_value","args":{"file":"AutomationStringValues.esp","formId":"<loaded-form-id>","path":"DESC"}}
+{"command":"session.save","args":{"files":["AutomationStringValues.esp"]}}
+{"command":"session.get_dirty_state","args":{}}
+{"command":"session.flush","args":{}}
+```
+
+Verify the intended values before saving. Require `dirty:false` after saving;
+check pending save entries because a clean graph may still await final rename.
+`session.flush` releases the graph, drains pending renames and exits the daemon.
+Require zero `pendingRemainingCount` and successful per-file rename results.
+A flush error may also be terminal. Do not send another loaded-data call to that
+PID. Relaunch through the same broker under a fresh PID and read the actual
+persisted fields; compare them with the intended state and inspect independently
+parsed output where the fixture supports it. Avoid force flush for normal tests.
+
+`lifecycle_fixture.py ready|finish|readback --exe <exe> --pid <pid> --file <plugin>
+--artifacts <phase-folder> --commit <source-commit> --build-log <compiler-log>`
+records executable/transcript hashes and wire artifacts. Readback additionally
+requires `--previous-run <finish-folder/run.json>` and a different PID. This
+runner covers lifecycle evidence; each feature runner asserts its own semantic
+fields. A successful lifecycle smoke test alone does not accept every feature.
+
+`pagination_fixture.py` drains a fresh ITM fixture with two-item pages, compares
+order/completeness against a large page, checks duplicate identities, mutates and
+asserts explicit cursor invalidation, then saves/flushes. Run it after the
+pagination PR is included, separately from ITM-cleaning runs that remove records.
+Also drain forward/reverse references with repeated edges, recursion and empty
+results, and time large filtered traversals. Retain requests, outcomes, source
+commit, build transcript, executable hash, fixture load order, MO2 profile/output
+routing and fresh-process readbacks per test. CI runs Python fixture checks and
+the operation inventory only; it has neither proprietary Delphi nor game assets.
