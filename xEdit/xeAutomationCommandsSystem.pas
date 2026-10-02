@@ -29,6 +29,8 @@ uses
   xeAutomationCommandsSession,
   xeAutomationCommandsSessionNavigation,
   xeAutomationJobs,
+  xeAutomationReplay,
+  xeAutomationWireLimits,
   xeAutomationRegistry;
 
 const
@@ -156,6 +158,29 @@ begin
   Result.S['contractVersion'] := '0.23';
 
   xeAutomationEnsureCapabilityCommandSurface;
+  with Result.O['supports'].O['pipeTransport'] do begin
+    I['maxRequestBytes'] := xeAutomationMaxRequestBytes;
+    I['maxResponseBytes'] := xeAutomationMaxResponseBytes;
+    I['readDeadlineMs'] := xeAutomationReadDeadlineMs;
+    I['writeDeadlineMs'] := xeAutomationWriteDeadlineMs;
+    I['peerCloseDeadlineMs'] := xeAutomationPeerCloseDeadlineMs;
+    I['clientResponseDeadlineMs'] := xeAutomationClientResponseDeadlineMs;
+    B['mainThreadWaitsForPeer'] := False;
+    B['preemptsCommandExecution'] := False;
+    S['framing'] := 'one-json-document-per-message';
+  end;
+  with Result.O['supports'].O['idempotency'] do begin
+    S['sessionId'] := xeAutomationReplaySessionId;
+    B['active'] := xeAutomationReplaySessionId <> '';
+    S['keyField'] := 'idempotencyKey';
+    S['payloadEquality'] := 'exact-utf8-text-including-whitespace-and-correlation';
+    S['eviction'] := 'fifo-completed-requests';
+    I['maxKeyBytes'] := xeAutomationIdempotencyKeyMaxBytes;
+    I['maxEntries'] := xeAutomationReplayMaxEntries;
+    I['maxRetainedBytes'] := xeAutomationReplayMaxBytes;
+    B['guaranteedAfterEviction'] := False;
+    B['survivesSessionExit'] := False;
+  end;
 
   // This contract is intentionally small and mode-agnostic so automation
   // clients can cheaply detect command names and transport support.

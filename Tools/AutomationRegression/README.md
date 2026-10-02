@@ -94,3 +94,32 @@ failure after Add with rollback success/failure; two-file save with the second
 output locked/unwritable; existing WRLD CELL EditorID changes; queued job failure
 after an earlier target is processed. Preserve affected master lists, IDs,
 groups, dirty/pending state, output files and fresh-process readbacks.
+
+## Issues #5/#6/#7: bounded pipe exchanges and replay
+
+Requests and responses have a 4 MiB encoded UTF-8 limit, independent of the
+64 KiB pipe buffers. One WriteFile remains one framed message. Oversized requests
+are rejected before dispatch; oversized outcomes return a bounded size error
+that states whether dispatch occurred. Server read/write deadlines are 15 seconds,
+peer-close is 3 seconds, and the relay's absolute response deadline is 60 seconds.
+The VCL timer only polls overlapped I/O; it never flushes or waits for a peer.
+Native command execution itself remains on the main thread and is not preempted.
+
+An optional top-level `idempotencyKey` (1–128 UTF-8 bytes) retains the final
+response before delivery. Retry the exact original UTF-8 request: correlation,
+whitespace and property order changes conflict. Keys are case sensitive. Replay
+is confined to the active daemon session, with FIFO limits of 128 entries and
+32 MiB encoded request/response retention. Eviction or process exit ends the
+protection. Never retry an uncertain unkeyed mutation automatically. Capabilities
+publish limits, active session identity and replay guarantees.
+
+`pipe_fixture.py --exe <new-xEdit.exe> --pid <MO2-daemon-pid> --artifacts <folder>`
+requires the loaded string fixture. It tests exact and excessive request byte
+limits, stalled/nonreading peers and lost-response create replay, verifies that
+exactly one KYWD exists, then saves/flushes. The raw PowerShell probe bypasses the
+relay's admission check to reach server boundaries. Relaunch and read KYWDs to
+prove persistence. Additional required cases: malformed UTF-8/JSON, partial
+failure replay, oversized response replay, response larger than 64 KiB, eviction,
+repeated cancel/disconnect handle counts, native commands pumping shutdown,
+client read/write timeout certainty and terminal flush response delivery.
+These native tests and Delphi compilation remain pending.

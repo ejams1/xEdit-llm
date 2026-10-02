@@ -1,4 +1,4 @@
-﻿{******************************************************************************
+{******************************************************************************
 
   This Source Code Form is subject to the terms of the Mozilla Public License,
   v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
@@ -36,21 +36,20 @@ uses
   xeAutomationCommandsFiles,
   xeAutomationCommandsRecords,
   xeAutomationCommandsScripts,
+  Generics.Collections,
+  xeAutomationPipeExchange,
+  xeAutomationReplay,
   xeAutomationHostCli,
   xeAutomationTransportPipe;
-
-const
-  // ChildGroup element walks can legitimately return hundreds of flat record
-  // stubs. Keep the message-pipe buffer above those response sizes so large
-  // read-only enumerations do not get misreported as broken-pipe daemon failures.
-  xeAutomationServeBufferSize = 4 * 1024 * 1024;
 
 var
   xeAutomationServeActive: Boolean;
   xeAutomationServeCommandsRegistered: Boolean;
   xeAutomationServeExitRequested: Boolean;
   xeAutomationServePipeNameValue: string;
-  xeAutomationServePipeHandle: THandle = INVALID_HANDLE_VALUE;
+  xeAutomationServeExchange: TxeAutomationPipeExchange;
+  xeAutomationRetiredExchanges: TObjectList<TxeAutomationPipeExchange>;
+  xeAutomationServePolling, xeAutomationClosePosted: Boolean;
 
 function xeAutomationServeLoopPipeName: string;
 begin
@@ -64,143 +63,31 @@ end;
 
 procedure xeAutomationServeLoopRequestExit;
 begin
-  // The current request is allowed to finish; subsequent timer polls are barred
-  // until its response bytes are flushed and WM_CLOSE is posted below.
+  // Exit blocks command admission, while the current response continues through
+  // bounded write/peer-close states after session.flush releases the graph.
   xeAutomationServeExitRequested := True;
 end;
 
-procedure xeAutomationServeLoopResetPipe;
+procedure xeAutomationRetireExchange;
 begin
-  if xeAutomationPipeHandleIsOpen(xeAutomationServePipeHandle) then
-    DisconnectNamedPipe(xeAutomationServePipeHandle);
-  xeAutomationResetPipeHandle(xeAutomationServePipeHandle);
-end;
-
-procedure xeAutomationServeLoopEnsurePipe;
-begin
-  if xeAutomationPipeHandleIsOpen(xeAutomationServePipeHandle) then
+  if not Assigned(xeAutomationServeExchange) then
     Exit;
-
-  xeAutomationServePipeHandle := CreateNamedPipe(
-    PChar(xeAutomationServePipeNameValue),
-    PIPE_ACCESS_DUPLEX,
-    PIPE_TYPE_MESSAGE or PIPE_READMODE_MESSAGE or PIPE_NOWAIT,
-    1,
-    xeAutomationServeBufferSize,
-    xeAutomationServeBufferSize,
-    0,
-    nil
-  );
-  if not xeAutomationPipeHandleIsOpen(xeAutomationServePipeHandle) then
-    RaiseLastOSError;
-end;
-
-function xeAutomationServeLoopTryConnectClient: Boolean;
-var
-  lError: Cardinal;
-begin
-  Result := ConnectNamedPipe(xeAutomationServePipeHandle, nil);
-  if Result then
-    Exit;
-
-  lError := GetLastError;
-  case lError of
-    ERROR_PIPE_CONNECTED:
-      Result := True;
-    ERROR_PIPE_LISTENING:
-      Result := False;
-    ERROR_NO_DATA:
-      begin
-        // A previous client dropped its end before the server disconnected this
-        // pipe instance. Reset now so the next poll can create a fresh listener.
-        xeAutomationServeLoopResetPipe;
-        Result := False;
-      end;
-  else
-    RaiseLastOSError(lError);
+  xeAutomationServeExchange.Close;
+  if xeAutomationServeExchange.Retired then
+    FreeAndNil(xeAutomationServeExchange)
+  else begin
+    xeAutomationRetiredExchanges.Add(xeAutomationServeExchange);
+    xeAutomationServeExchange := nil;
   end;
 end;
 
-procedure xeAutomationServeLoopReadPipeBytes(out aBytes: TBytes);
+procedure xeAutomationCollectRetiredExchanges;
 var
-  lBuffer: TBytes;
-  lBytesRead: Cardinal;
-  lError: Cardinal;
-  lStream: TBytesStream;
+  i: Integer;
 begin
-  SetLength(lBuffer, 4096);
-  lStream := TBytesStream.Create;
-  try
-    repeat
-      if ReadFile(xeAutomationServePipeHandle, lBuffer[0], Length(lBuffer), lBytesRead, nil) then begin
-        if lBytesRead > 0 then
-          lStream.WriteBuffer(lBuffer[0], lBytesRead);
-        Break;
-      end;
-
-      lError := GetLastError;
-      if lError <> ERROR_MORE_DATA then
-        RaiseLastOSError(lError);
-
-      if lBytesRead > 0 then
-        lStream.WriteBuffer(lBuffer[0], lBytesRead);
-    until False;
-
-    aBytes := Copy(lStream.Bytes, 0, lStream.Size);
-  finally
-    lStream.Free;
-  end;
-end;
-
-procedure xeAutomationServeLoopWritePipeBytes(const aBytes: TBytes);
-var
-  lError: Cardinal;
-  lWritten: Cardinal;
-begin
-  if Length(aBytes) = 0 then
-    Exit;
-
-  if not WriteFile(xeAutomationServePipeHandle, aBytes[0], Length(aBytes), lWritten, nil) then begin
-    lError := GetLastError;
-    if lError in [ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED, ERROR_NO_DATA] then begin
-      // A client can disconnect after sending its request but before reading the
-      // response. That should drop only this exchange, not terminate the daemon.
-      xeAutomationServeLoopResetPipe;
-      Exit;
-    end;
-    RaiseLastOSError(lError);
-  end;
-
-  if lWritten <> Cardinal(Length(aBytes)) then begin
-    // External pipe clients can race close/read timing on the nonblocking
-    // message pipe; treat peer loss as connection-local, not daemon-fatal.
-    xeAutomationServeLoopResetPipe;
-    Exit;
-  end;
-end;
-
-function xeAutomationServeLoopTryReadRequest(out aRequestBytes: TBytes): Boolean;
-var
-  lBytesAvailable: Cardinal;
-  lError: Cardinal;
-begin
-  Result := False;
-  SetLength(aRequestBytes, 0);
-
-  if not PeekNamedPipe(xeAutomationServePipeHandle, nil, 0, nil, @lBytesAvailable, nil) then begin
-    lError := GetLastError;
-    if lError in [ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED] then begin
-      xeAutomationServeLoopResetPipe;
-      Exit(False);
-    end;
-    RaiseLastOSError(lError);
-  end;
-
-  if lBytesAvailable = 0 then
-    Exit(False);
-
-  xeAutomationServeLoopReadPipeBytes(aRequestBytes);
-  Result := True;
+  for i := xeAutomationRetiredExchanges.Count - 1 downto 0 do
+    if xeAutomationRetiredExchanges[i].Retired then
+      xeAutomationRetiredExchanges.Delete(i);
 end;
 
 procedure xeAutomationServeLoopStart;
@@ -238,43 +125,68 @@ begin
     xeAutomationServeCommandsRegistered := True;
   end;
   xeAutomationServeExitRequested := False;
+  xeAutomationClosePosted := False;
+  xeAutomationReplayBeginSession;
   xeAutomationServeActive := True;
   xeAutomationServePipeNameValue := xeAutomationPipeNameForPid(GetCurrentProcessId);
-  xeAutomationServeLoopEnsurePipe;
+  xeAutomationServeExchange := TxeAutomationPipeExchange.Create(xeAutomationServePipeNameValue);
 end;
 
 procedure xeAutomationServeLoopStop;
 begin
   xeAutomationServeActive := False;
-  xeAutomationServeLoopResetPipe;
+  xeAutomationRetireExchange;
   xeAutomationServePipeNameValue := '';
+  xeAutomationReplayEndSession;
 end;
 
 procedure xeAutomationServeLoopPoll;
 var
-  lRequestBytes: TBytes;
   lResponseText: string;
+  lExecutingExchange: TxeAutomationPipeExchange;
 begin
-  if not xeAutomationServeActive or xeAutomationServeExitRequested then
+  // Native commands/scripts may pump VCL messages. A timer reentry must never
+  // execute the same completed request again or overwrite pending I/O storage.
+  if not xeAutomationServeActive or xeAutomationServePolling then
     Exit;
-
-  xeAutomationServeLoopEnsurePipe;
-  if not xeAutomationServeLoopTryConnectClient then
-    Exit;
-
-  if not xeAutomationServeLoopTryReadRequest(lRequestBytes) then
-    Exit;
-
+  xeAutomationServePolling := True;
   try
-    // Serve mode reuses the host request executor so CLI, call, and daemon paths
-    // all share one request/response and error-envelope implementation.
-    lResponseText := xeAutomationExecuteRequestText(TEncoding.UTF8.GetString(lRequestBytes));
-    xeAutomationServeLoopWritePipeBytes(TEncoding.UTF8.GetBytes(lResponseText));
-    FlushFileBuffers(xeAutomationServePipeHandle);
-    if xeAutomationServeExitRequested then begin
-      // session.flush promises that its complete response reaches the pipe before
-      // normal VCL shutdown releases Application.Run to the trailing DoRename.
-      // If no main form can receive WM_CLOSE, Terminate still unwinds Run cleanly.
+    xeAutomationCollectRetiredExchanges;
+    if not Assigned(xeAutomationServeExchange) and not xeAutomationServeExitRequested then
+      xeAutomationServeExchange := TxeAutomationPipeExchange.Create(xeAutomationServePipeNameValue);
+    if Assigned(xeAutomationServeExchange) then begin
+      try
+        xeAutomationServeExchange.Poll;
+        if xeAutomationServeExchange.Phase = xpExecute then begin
+          if xeAutomationServeExitRequested then
+            xeAutomationServeExchange.Close
+          else begin
+            lExecutingExchange := xeAutomationServeExchange;
+            try
+              lResponseText := xeAutomationExecuteRequestText(xeAutomationServeExchange.RequestText);
+            except
+              on E: Exception do
+                lResponseText := xeAutomationBuildTransportErrorText('invalid_request', E.Message, False);
+            end;
+            // Dispatch may pump messages and stop the server. The saved pointer
+            // is only an identity token; Stop may already have freed its object.
+            if xeAutomationServeActive and
+               (xeAutomationServeExchange = lExecutingExchange) then
+              xeAutomationServeExchange.Respond(lResponseText);
+          end;
+        end;
+      except
+        // Peer loss or malformed transport affects only this exchange. Host
+        // execution errors are already serialized and replayed before delivery.
+        if Assigned(xeAutomationServeExchange) then
+          xeAutomationServeExchange.Close;
+      end;
+      if Assigned(xeAutomationServeExchange) and (xeAutomationServeExchange.Phase = xpDone) then
+        xeAutomationRetireExchange;
+    end;
+    if xeAutomationServeExitRequested and not Assigned(xeAutomationServeExchange) and
+       not xeAutomationClosePosted then begin
+      xeAutomationClosePosted := True;
       if Assigned(Application.MainForm) then begin
         if not PostMessage(Application.MainForm.Handle, WM_CLOSE, 0, 0) then
           Application.Terminate;
@@ -282,14 +194,18 @@ begin
         Application.Terminate;
     end;
   finally
-    xeAutomationServeLoopResetPipe;
+    xeAutomationServePolling := False;
   end;
 end;
 
 initialization
-  xeAutomationServePipeHandle := INVALID_HANDLE_VALUE;
-  xeAutomationServeExitRequested := False;
-
+  xeAutomationRetiredExchanges := TObjectList<TxeAutomationPipeExchange>.Create(True);
 finalization
   xeAutomationServeLoopStop;
+  xeAutomationCollectRetiredExchanges;
+  // Kernel cancellation need not have retired during process teardown. Keep
+  // remaining I/O-owned buffers alive until the OS ends the process rather than
+  // freeing an OVERLAPPED or buffer that may still be referenced by the kernel.
+  xeAutomationRetiredExchanges.OwnsObjects := False;
+  xeAutomationRetiredExchanges.Free;
 end.

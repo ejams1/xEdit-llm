@@ -98,22 +98,27 @@ class Client:
         artifacts.mkdir(parents=True, exist_ok=True)
 
     def call(self, command, **args):
+        envelope = self.request(json.dumps({"command": command, "args": args}))
+        if not envelope.get("ok"):
+            raise RuntimeError(envelope)
+        return envelope["result"]
+
+    def request(self, text):
+        """Send exact text, including keys/correlation, and retain error envelopes."""
         self.sequence += 1
-        stem = self.artifacts / f"{self.sequence:03d}-{command}"
+        stem = self.artifacts / f"{self.sequence:03d}-exchange"
         request = stem.with_suffix(".request.json")
         response = stem.with_suffix(".response.json")
-        request.write_text(json.dumps({"command": command, "args": args}), encoding="utf-8")
+        request.write_text(text, encoding="utf-8")
         completed = subprocess.run([
             str(self.executable), f"-automation-call-pid:{self.pid}",
             f"-automation-call-request:{request.resolve()}",
             f"-automation-call-response:{response.resolve()}",
-        ], timeout=60, capture_output=True, text=True)
+        ], timeout=85, capture_output=True, text=True)
         if not response.exists():
             raise RuntimeError(f"No response: {completed.returncode}, {completed.stderr}")
         envelope = json.loads(response.read_text(encoding="utf-8-sig"))
-        if not envelope.get("ok"):
-            raise RuntimeError(envelope)
-        return envelope["result"]
+        return envelope
 
     def job(self, kind, dry_run):
         job = self.call("jobs.start", kind=kind, dryRun=dry_run, target={"files": [PLUGIN]})
