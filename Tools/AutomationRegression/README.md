@@ -257,3 +257,29 @@ that test needs a fixture where the first file actually changes. Native work
 within a single file is still atomic. Large single-file validation scans,
 compaction, and cleaning need finer steppers before latency can be guaranteed.
 Compilation and game-backed execution remain pending.
+
+## Issue #17: bounded read and edit batches
+
+`batch.read` accepts 1..32 `items`, each with `command` and `args`. The read
+allowlist is `records.get`, `elements.get`, `elements.get_value`, and
+`elements.children`. Child pages are limited to 50 entries per item; nested
+`fields` and `includeRelations` project each response. The entire reply is
+capped at 1 MiB. A too-large reply fails without changing loaded plugins.
+
+`batch.edit` accepts 1..16 `elements.set_value` items in at most 256 KiB plus the string
+`expectedRevision` from `session.get_dirty_state.mutationRevision`. Each item
+requires `expectedValue` and `value`; all targets must be owned, writable and
+match their expected values before the first write. The batch allows one edit
+per record so a sorted container cannot move a later path. Apply follows input
+order, returns each completed result, and reports the failing index plus a
+native mutation audit if a setter fails after earlier writes. Edits remain in
+memory until `session.save` and terminal `session.flush`.
+
+Generate `AutomationStringValues.esp` with `string_fixture.py generate`, then
+run `batch_fixture.py exercise --exe <exe> --pid <pid> --artifacts <folder>`
+on a fresh MO2-backed daemon. After the save/flush exit, relaunch and run
+`batch_fixture.py verify` with a fresh PID. It checks preflight rejection of
+a stale later item, two-record apply, revision rejection, batched full reads,
+and fresh-process persistence. Test mixed files, different nested child pages,
+oversized values and a native failure injected on the second edit separately.
+Compilation and game-backed execution remain pending.

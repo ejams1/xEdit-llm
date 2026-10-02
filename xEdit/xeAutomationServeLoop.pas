@@ -20,6 +20,7 @@ procedure xeAutomationServeLoopRequestExit;
 implementation
 
 uses
+  xeAutomationCommandsBatch,
   xeAutomationCommandsCleaning,
   xeAutomationCommandsFileHygiene,
   xeAutomationCommandsJobs,
@@ -117,6 +118,7 @@ begin
     xeAutomationRegisterCleaningCommands;
     xeAutomationRegisterRecordsCommands;
     xeAutomationRegisterElementsCommands;
+    xeAutomationRegisterBatchCommands;
     // Scripts run against loaded data and locator resolution, so expose them only
     // after the session/files/records/elements command surface has been wired.
     xeAutomationRegisterScriptsCommands;

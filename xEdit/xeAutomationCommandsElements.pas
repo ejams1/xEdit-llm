@@ -544,6 +544,23 @@ begin
     'container is sorted; index-based locators may have moved after this write';
 end;
 
+procedure xeAutomationAssertElementExpectations(const AArgs: TJsonObject;
+  const AElement: IwbElement);
+begin
+  if AArgs.Contains('expectedRevision') then begin
+    if AArgs.Types['expectedRevision'] <> jdtString then
+      raise xeAutomationInvalidRequest('Automation expectedRevision must be a string');
+    if AArgs.S['expectedRevision'] <> UIntToStr(wbGlobalModifedGeneration) then
+      raise xeAutomationNewError('stale_revision', 'Loaded plugin revision differs from expectedRevision');
+  end;
+  if AArgs.Contains('expectedValue') then begin
+    if AArgs.Types['expectedValue'] <> jdtString then
+      raise xeAutomationInvalidRequest('Automation expectedValue must be a string');
+    if AArgs.S['expectedValue'] <> AElement.EditValue then
+      raise xeAutomationNewError('stale_value', 'Element edit value differs from expectedValue');
+  end;
+end;
+
 function xeAutomationElementsSetValue(const AArgs: TJsonObject): TJsonObject;
 var
   lLocator: TxeAutomationLocator;
@@ -564,6 +581,7 @@ begin
   lLocator := xeAutomationParseLocator(AArgs, True, True);
   lElement := xeAutomationRequireOwnedElement(lLocator, lRecord);
   xeAutomationRequireWritableElementTarget(lElement);
+  xeAutomationAssertElementExpectations(AArgs, lElement);
   lValue := xeAutomationRequireRawStringArg(AArgs, 'value');
 
   lBeforeValue := lElement.EditValue;
@@ -809,6 +827,7 @@ begin
   lLocator := xeAutomationParseLocator(AArgs, True, True);
   lElement := xeAutomationRequireOwnedElement(lLocator, lRecord);
   xeAutomationRequireWritableElementTarget(lElement);
+  xeAutomationAssertElementExpectations(AArgs, lElement);
 
   if not AArgs.Contains('value') then
     raise xeAutomationInvalidRequest('Automation arg "value" is required');
