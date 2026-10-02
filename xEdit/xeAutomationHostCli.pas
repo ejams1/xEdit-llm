@@ -28,6 +28,7 @@ uses
   xeAutomationCommandsSystem,
   xeAutomationErrors,
   xeAutomationReplay,
+  xeAutomationJobs,
   xeAutomationProjection,
   xeAutomationWireLimits,
   xeAutomationRegistry,
@@ -407,6 +408,7 @@ begin
     // Request execution is registry-driven so serve mode can deliberately expand
     // the command surface only after xEdit has loaded the in-memory session.
     xeAutomationValidateProjection(lArgs);
+    xeAutomationAssertJobCommandAllowed(lCommand);
     aDispatched := True;
     lResult := xeAutomationExecuteCommand(lCommand, lArgs);
     xeAutomationProjectResponse(lResult, lArgs);
