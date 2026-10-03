@@ -23,6 +23,7 @@ uses
   xeAutomationErrors,
   xeAutomationJobs,
   xeAutomationMutationPolicy,
+  xeAutomationCommandsSelectiveCleaning,
   xeMainForm;
 
 const
@@ -319,6 +320,7 @@ end;
 
 procedure xeAutomationRegisterCleaningCommands;
 begin
+  xeAutomationRegisterSelectiveCleaningJobs;
   // Capability advertising is registry-derived; the cleaning kinds become visible
   // only after these in-memory, explicit-save-safe handlers are linked.
   xeAutomationRegisterJobKindWithValidator(xeAutomationCleaningQuickCleanKind, xeAutomationQuickCleanJob,

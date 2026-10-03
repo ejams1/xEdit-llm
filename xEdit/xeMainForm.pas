@@ -1297,6 +1297,7 @@ function xeAutomationUndeleteAndDisableRefsInMemory(const AFile: IwbFile; const 
   out APlanned, AApplied, ASkipped, ADeletedNavmesh: Integer): Boolean;
 // Reports and standalone selectors must classify the same native candidates.
 function xeAutomationRecordIsDeletedRefCandidate(const ARecord: IwbMainRecord): Boolean;
+procedure xeAutomationUndeleteAndDisableRefInMemory(const ARecord: IwbMainRecord);
 function xeAutomationIdenticalRecordRemovalReason(const ARecord: IwbMainRecord): string;
 function xeAutomationDeletedRefCanBeCleaned(const ARecord: IwbMainRecord; out ADeletedNavmesh: Boolean): Boolean;
 function xeAutomationSortAndCleanMastersInMemory(const AFile: IwbFile; const AApply: Boolean;
@@ -1310,6 +1311,7 @@ uses
   JsonDataObjects,
   xeAutomationRecordQueries,
   xeAutomationRecordComparison,
+  xeAutomationErrors,
   DDetours,
   {$IFNDEF LiteVersion}
   cxVTEditors,
@@ -1443,16 +1445,55 @@ begin
   Result := AApplied > 0;
 end;
 
+procedure xeAutomationUndeleteAndDisableRefInMemory(const ARecord: IwbMainRecord);
+var
+  lElement: IwbElement;
+  lContainer: IwbContainerElementRef;
+  lPosition: TwbVector;
+  lLinksToRecord: IwbMainRecord;
+  lNavmesh: Boolean;
+begin
+  // Combined and UDR-only cleaning share the native mutation without saving.
+  // Revalidate immediately before changing flags; NAVM always requires repair.
+  if not xeAutomationRecordIsDeletedRefCandidate(ARecord) or
+     not xeAutomationDeletedRefCanBeCleaned(ARecord, lNavmesh) or
+     not ARecord.IsEditable then
+    raise xeAutomationStateConflict('Deleted reference no longer eligible for UDR');
+  // This mirrors the GUI UDR mutation itself while deliberately omitting
+  // selection, messages, dirty-info persistence, save, and auto-close logic.
+  ARecord.IsDeleted := True;
+  ARecord.IsDeleted := False;
+  if not ARecord.IsPersistent then
+    if wbUDRSetZ and ARecord.GetPosition(lPosition) then begin
+      lPosition.z := wbUDRSetZValue;
+      ARecord.SetPosition(lPosition);
+    end;
+  ARecord.RemoveElement('Enable Parent');
+  ARecord.RemoveElement('XTEL');
+  ARecord.IsInitiallyDisabled := True;
+  if wbUDRSetXESP and Supports(ARecord.Add('XESP', True), IwbContainerElementRef, lContainer) then begin
+    lContainer.ElementNativeValues['Reference'] := $14;
+    lContainer.Elements[1].NativeValue := 1;
+  end;
+  if wbUDRSetScale and not Assigned(ARecord.ElementBySignature['XSCL']) then begin
+    lElement := ARecord.Add('XSCL', True);
+    if Assigned(lElement) then
+      lElement.NativeValue := wbUDRSetScaleValue;
+  end;
+  if wbUDRSetMSTT and wbIsFallout3 then begin
+    lElement := ARecord.ElementBySignature['NAME'];
+    if Assigned(lElement) and Supports(lElement.LinksTo, IwbMainRecord, lLinksToRecord) and
+      (lLinksToRecord.Signature = 'MSTT') then
+      lElement.NativeValue := wbUDRSetMSTTValue;
+  end;
+end;
+
 function xeAutomationUndeleteAndDisableRefsInMemory(const AFile: IwbFile; const AApply: Boolean;
   out APlanned, AApplied, ASkipped, ADeletedNavmesh: Integer): Boolean;
 var
   lRecords: TList<IwbMainRecord>;
   lRecord: IwbMainRecord;
-  lElement: IwbElement;
-  lContainer: IwbContainerElementRef;
-  lPosition: TwbVector;
   lDeletedNavmesh: Boolean;
-  lLinksToRecord: IwbMainRecord;
 begin
   APlanned := 0;
   AApplied := 0;
@@ -1475,33 +1516,7 @@ begin
         end;
         Inc(APlanned);
         if AApply then begin
-          // This mirrors the GUI UDR mutation itself while deliberately omitting
-          // selection, messages, dirty-info persistence, save, and auto-close logic.
-          lRecord.IsDeleted := True;
-          lRecord.IsDeleted := False;
-          if not lRecord.IsPersistent then
-            if wbUDRSetZ and lRecord.GetPosition(lPosition) then begin
-              lPosition.z := wbUDRSetZValue;
-              lRecord.SetPosition(lPosition);
-            end;
-          lRecord.RemoveElement('Enable Parent');
-          lRecord.RemoveElement('XTEL');
-          lRecord.IsInitiallyDisabled := True;
-          if wbUDRSetXESP and Supports(lRecord.Add('XESP', True), IwbContainerElementRef, lContainer) then begin
-            lContainer.ElementNativeValues['Reference'] := $14;
-            lContainer.Elements[1].NativeValue := 1;
-          end;
-          if wbUDRSetScale and not Assigned(lRecord.ElementBySignature['XSCL']) then begin
-            lElement := lRecord.Add('XSCL', True);
-            if Assigned(lElement) then
-              lElement.NativeValue := wbUDRSetScaleValue;
-          end;
-          if wbUDRSetMSTT and wbIsFallout3 then begin
-            lElement := lRecord.ElementBySignature['NAME'];
-            if Assigned(lElement) and Supports(lElement.LinksTo, IwbMainRecord, lLinksToRecord) and
-              (lLinksToRecord.Signature = 'MSTT') then
-              lElement.NativeValue := wbUDRSetMSTTValue;
-          end;
+          xeAutomationUndeleteAndDisableRefInMemory(lRecord);
           Inc(AApplied);
         end;
       end;
