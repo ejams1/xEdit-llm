@@ -1,5 +1,50 @@
 # Automation regression fixtures
 
+## Issue #32: ModGroups
+
+`modgroups.list` returns native items/validation, canonical `configFile`, `name`,
+SHA-256 `fileHash` and selection knowledge. Optional `configFile` scopes the
+inventory (including `fileHash:"absent"` for a new discoverable sidecar).
+`modgroups.activate` takes `groups:[{configFile,name}]` and optional
+`enabled:true`. Empty groups deactivate. Activation changes session conflict
+relationships and invalidates conflict/query caches; it never edits plugins or
+persists selection. Duplicate names in different files are distinct identities.
+
+`modgroups.write` takes `configFile`, `name`, `operation:create|update|delete`,
+`expectedFileHash`, default `dryRun:true`, and `items` for create/update. Optional
+`newName` renames; `allowInvalid:true` can intentionally persist a group that
+native load-order/CRC/required/source predicates reject. Names and native flag/
+CRC lines are bounded and INI injection/malformed input rejects. Untargeted
+sections/comments are retained. Writes target only the native global config or
+loaded-module .modgroups sidecars in existing directories, so native reload can
+discover them. Config persistence is immediate per-file atomic replacement and
+independent of plugin save. Hash validation is optimistic, not an OS compare-and-
+swap; use exclusive external-editor ownership during changes.
+
+Call activate with explicit identities before apply/reload: native UI selection
+cannot be inferred safely. `modgroups.reload` and successful config writes resolve
+fresh pointers and restore still-valid identities, returning dropped groups.
+GUI selection/reload/toggle invalidates automation selection knowledge. If reload
+fails after persistence, the response retains `written:true` and partial failure.
+
+`modgroups.refresh_crc` takes the same identity/hash/dry-run inputs and explicit
+`files` item names. `addMissing` and `appendCurrent` default true; only those
+items append native loaded-module CRC history. Forbidden items skip, unsaved/
+missing modules reject, and existing histories remain. Rerun from a fresh process
+after plugin saving to ensure native CRC caching reflects intended disk state.
+Limits: 128 groups/sections, 64 items, 32 selections, 16 CRCs/item, 1 MiB config.
+
+Generate `modgroups_fixture.py generate --overlay <dedicated-MO2-overlay>`, load
+Fallout4.esm + AutomationGroupBase.esm + AutomationGroupLeft.esp +
+AutomationGroupRight.esp and run `exercise` with overlay/exe/PID/artifact inputs.
+The native discoverable config must map to that overlay through MO2. It checks
+create/plan/hash refusal, conflict participant removal/restoration, scoped CRC
+history, rename/delete and section preservation without dirtying plugins.
+Relaunch fresh and run `verify` for persisted config and actual conflict behavior.
+Also test duplicate names/files, missing/optional/forbidden items, both ignore-
+order modes, CRC mismatches, invalid input, external races/write failures and
+game-specific module rules. Delphi/native execution remains pending.
+
 ## Issue #31: localization
 
 `localization.tables` lists all three native resource types for `file` and the

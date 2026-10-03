@@ -29,6 +29,7 @@ uses
   xeAutomationCommandsLOD,
   xeAutomationCommandsReachability,
   xeAutomationCommandsLocalization,
+  xeAutomationCommandsModGroups,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsRecords,
@@ -147,6 +148,8 @@ begin
     xeAutomationRegisterExportCommands;
   if not xeAutomationHasCommand('localization.tables') then
     xeAutomationRegisterLocalizationCommands;
+  if not xeAutomationHasCommand('modgroups.list') then
+    xeAutomationRegisterModGroupCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -515,7 +518,11 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.36';
+  Result.S['contractVersion'] := '0.37';
+  Result.O['supports'].O['modgroups'].S['commands'] := 'modgroups.list/activate/reload/write/refresh_crc';
+  Result.O['supports'].O['modgroups'].S['identity'] := 'native-discoverable absolute configFile plus name';
+  Result.O['supports'].O['modgroups'].S['persistence'] := 'immediate atomic config; session-only explicit selection; no plugin save';
+  Result.O['supports'].O['modgroups'].S['limits'] := '128 groups, 64 items, 32 selections, 16 CRCs per item, 1MiB config';
   Result.O['supports'].O['localization'].S['games'] := 'Skyrim/Fallout4/Fallout76/Starfield';
   Result.O['supports'].O['localization'].S['commands'] := 'localization.tables/get/set/language/convert/save/export_text';
   Result.O['supports'].O['localization'].B['conversionDefaultsDryRun'] := True;
