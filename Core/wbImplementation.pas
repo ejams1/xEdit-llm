@@ -69,6 +69,10 @@ function wbNewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMe
 function wbNewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile; overload;
 procedure wbFileForceClosed;
 
+// Zero disables the automation-only visit limit; GUI behavior stays unbounded.
+var wbAutomationReachabilityBudget: Integer;
+procedure wbAutomationReachRoot(const ARecord: IwbMainRecord);
+
 function StartsWith(const s, t: string): Boolean;
 
 function wbCopyElementToFile(const aSource: IwbElement; aFile: IwbFile; aAsNew, aDeepCopy: Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement;
@@ -2762,6 +2766,19 @@ begin
   end;
 end;
 
+procedure wbChargeReachability;
+begin
+  if wbAutomationReachabilityBudget = 0 then Exit;
+  if wbAutomationReachabilityBudget <= 1 then
+    raise Exception.Create('Native reachability visit budget exceeded');
+  Dec(wbAutomationReachabilityBudget);
+end;
+
+procedure wbAutomationReachRoot(const ARecord: IwbMainRecord);
+begin
+  (ARecord.WinningOverride as IwbElementInternal).Reached;
+end;
+
 procedure TwbFile.BuildReachable;
 var
   Group    : IwbGroupRecord;
@@ -2938,10 +2955,11 @@ begin
           Cnt := Rec as IwbContainerElementRef;
           if Supports(Cnt.RecordBySignature['DATA'], IwbContainerElementRef, Cnt) then begin
             if wbIsStarfield then begin
+              s := '';
               Flg := Cnt.ElementByName['Flags'];
               if Assigned(Flg) then
                 s := Flg.SortKey[False];
-                if (Length(s)>0) and (s[2] = '1') then
+                if (Length(s)>1) and (s[2] = '1') then
                   //Playable
                   (Rec as IwbElementInternal).Reached;
             end else begin
@@ -8203,6 +8221,7 @@ var
   i       : Integer;
   SelfRef : IwbContainerElementRef;
 begin
+  wbChargeReachability;
   Result := False;
 
   if GetDontShow then
@@ -8443,6 +8462,7 @@ var
   i       : Integer;
   SelfRef : IwbContainerElementRef;
 begin
+  wbChargeReachability;
   SelfRef := Self as IwbContainerElementRef;
 //  DoInit; elements that don't exist yet don't have anything to reset...
   inherited;
@@ -13362,6 +13382,7 @@ var
   Master    : IwbMainRecord;
   Keywords  : IwbContainerElementRef;
 begin
+  wbChargeReachability;
   wbTick;
 
   if esReachable in eStates then
@@ -13477,8 +13498,10 @@ begin
       Inc(i);
     end;
   finally
-    if _Collector = @Collector then
+    if _Collector = @Collector then begin
       _Collector := nil;
+      _IgnoreCollector := False;
+    end;
   end;
 end;
 
@@ -13762,8 +13785,9 @@ end;
 
 procedure TwbMainRecord.ResetReachable;
 begin
-  Include(eStates, esNotReachable);
-  Exclude(eStates, esReachable);
+  // Linked fields also hold reachable flags. A repeat analysis must reset those
+  // instantiated children or they suppress traversal on the second pass.
+  inherited;
 end;
 
 function TwbMainRecord.ResolveElementName(aName: string; out aRemainingName: string; aCanCreate: Boolean): IwbElement;
@@ -18102,6 +18126,7 @@ var
   Rec     : IwbMainRecord;
   SelfRef : IwbContainerElementRef;
 begin
+  wbChargeReachability;
   wbTick;
 
   if esReachable in eStates then
@@ -20116,6 +20141,7 @@ function TwbElement.Reached: Boolean;
 var
   MainRecord : IwbMainRecord;
 begin
+  wbChargeReachability;
   Result := not (esReachable in eStates);
 
   if GetDontShow then
@@ -20210,6 +20236,7 @@ end;
 
 procedure TwbElement.ResetReachable;
 begin
+  wbChargeReachability;
   Include(eStates, esNotReachable);
   Exclude(eStates, esReachable);
 end;

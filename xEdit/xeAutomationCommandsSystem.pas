@@ -27,6 +27,7 @@ uses
   xeAutomationCommandsPatches,
   xeAutomationCommandsJobs,
   xeAutomationCommandsLOD,
+  xeAutomationCommandsReachability,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsRecords,
@@ -41,7 +42,7 @@ uses
   xeAutomationRegistry;
 
 const
-  xeAutomationFinalJobKinds: array[0..12] of string = (
+  xeAutomationFinalJobKinds: array[0..13] of string = (
     'files.hygiene.batch',
     'plugin.esl.analyze',
     'plugin.esl.apply',
@@ -54,6 +55,7 @@ const
     'cleaning.quick_auto_clean',
     'cleaning.sort_and_clean_masters',
     'cleaning.cleanup_injected_references',
+    'analysis.reachability',
     'lod.generate'
   );
 
@@ -69,6 +71,7 @@ var
   lCleaningQuickAutoRegistered: Boolean;
   lCleaningMastersRegistered: Boolean;
   lLODRegistered: Boolean;
+  lReachabilityRegistered: Boolean;
 begin
   // Capabilities advertises the full protocol surface even for one-shot probes;
   // register groups lazily here so the registry remains the single source of names.
@@ -91,6 +94,7 @@ begin
   lCleaningQuickAutoRegistered := False;
   lCleaningMastersRegistered := False;
   lLODRegistered := False;
+  lReachabilityRegistered := False;
   for lJobKind in xeAutomationListJobKinds do
     if SameText(lJobKind, 'plugin.esl.analyze') then begin
       lPluginAnalyzeRegistered := True;
@@ -108,6 +112,8 @@ begin
       lCleaningQuickAutoRegistered := True;
     end else if SameText(lJobKind, 'cleaning.sort_and_clean_masters') then begin
       lCleaningMastersRegistered := True;
+    end else if SameText(lJobKind, 'analysis.reachability') then begin
+      lReachabilityRegistered := True;
     end else if SameText(lJobKind, 'lod.generate') then begin
       lLODRegistered := True;
     end;
@@ -123,6 +129,7 @@ begin
   if not (lCleaningQuickRegistered and lCleaningQuickAutoRegistered and lCleaningMastersRegistered) then
     xeAutomationRegisterCleaningCommands;
   if not lLODRegistered then xeAutomationRegisterLODJobs;
+  if not lReachabilityRegistered then xeAutomationRegisterReachabilityJobs;
   if not xeAutomationHasCommand('jobs.start') then
     xeAutomationRegisterJobsCommands;
   if not xeAutomationHasCommand('records.list') then
@@ -505,7 +512,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.34';
+  Result.S['contractVersion'] := '0.35';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin
@@ -988,6 +995,14 @@ begin
   Result.O['supports'].O['stringDecoding'].S['readWriteAsymmetry'] := 'none-for-inline-strings';
   Result.O['supports'].O['stringDecoding'].B['rejectsLossyWrites'] := True;
   Result.O['supports'].O['fullElementValues'].S['command'] := 'elements.get_value';
+  with Result.O['supports'].O['reachability'] do begin
+    S['kind'] := 'analysis.reachability';
+    S['target'] := 'files:1..32 report plugins <=1000 records; roots:0..32 additional record locators';
+    S['scope'] := 'all loaded plugins; native game roots plus optional roots';
+    S['limits'] := '256 loaded files, 1000000 loaded records, 5000000 reset/reach visits per stage; reference indexing is a native blocking unit; cancel between stages';
+    S['validity'] := 'succeeded snapshot only; dry run plans without analysis; incomplete flags unavailable';
+    S['persistence'] := 'derived memory flags only; plugins unchanged';
+  end;
   Result.O['supports'].O['fullElementValues'].I['maxCharacters'] := 1048576;
   Result.O['supports'].O['fullElementValues'].I['maxNativeArrayItems'] := 50000;
   Result.O['supports'].O['fullElementValues'].B['preservesWhitespace'] := True;
