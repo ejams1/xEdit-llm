@@ -21,6 +21,7 @@ implementation
 
 uses
   xeAutomationCommandsBatch,
+  xeAutomationCommandsComparisons,
   xeAutomationCommandsFormIds,
   xeAutomationCommandsPatches,
   xeAutomationCommandsCleaning,
@@ -136,6 +137,7 @@ begin
     xeAutomationRegisterRecordsCommands;
     xeAutomationRegisterElementsCommands;
     xeAutomationRegisterBatchCommands;
+    xeAutomationRegisterComparisonCommands;
     xeAutomationRegisterFormIdCommands;
     xeAutomationRegisterPatchCommands;
     xeAutomationRegisterExportCommands;

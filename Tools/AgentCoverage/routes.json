@@ -31,13 +31,13 @@
     "compare": {
       "status": "partial",
       "routes": [
+        "comparisons.records",
+        "comparisons.load",
         "records.conflict_status",
-        "elements.conflict_status",
-        "records.get",
-        "elements.get"
+        "elements.conflict_status"
       ],
-      "notes": "Inspect loaded overrides. GUI Compare To can load a comparison file; arbitrary selected-record comparison/layout is not reproduced.",
-      "effect": "read-only; no plugin persistence",
+      "notes": "Explicit ordered owned records, common payload path, native alignment and sibling leaf conflicts with independent missing/hidden/ignored cells. Session-only captured-byte read-only comparison load alters override chains; full nonlocalized inputs and preloaded full dependencies only. Bounded scope/output; native testing pending.",
+      "effect": "read-only plugin payload; derived alignment/session graph; no disk copy; restart removes loaded comparison",
       "scriptSymbols": []
     },
     "filter": {
@@ -547,11 +547,13 @@
     "comparison": {
       "status": "partial",
       "routes": [
+        "comparisons.records",
+        "comparisons.load",
         "records.conflict_status",
         "elements.conflict_status"
       ],
-      "notes": "Support comparison-only file loading and arbitrary record alignment without modal selection; report missing rows and scope separately from override conflict_status.",
-      "effect": "session load/read-only comparison",
+      "notes": "Explicit ordered owned records, common payload path, native alignment and sibling leaf conflicts with independent missing/hidden/ignored cells. Session-only captured-byte read-only comparison load alters override chains; full nonlocalized inputs and preloaded full dependencies only. Bounded scope/output; native testing pending.",
+      "effect": "read-only plugin payload; derived alignment/session graph; no disk copy; restart removes loaded comparison",
       "scriptSymbols": []
     },
     "filters": {
@@ -907,6 +909,10 @@
     "selections": {
       "prerequisites": "Non-TES3, translation mode off; bounded loaded file/group selectors; native current-session group labels; writes require consent/writable targets.",
       "effect": "inspection or in-memory recursive structure edits -> explicit save + terminal flush; no unload/disk deletion"
+    },
+    "comparisons": {
+      "prerequisites": "Numeric records, translation off; matching native definitions. Load ordinary full baseline/nonlocalized input; dependencies loaded earlier; apply session consent.",
+      "effect": "read-only payload comparison or session-only native comparison graph load; no plugin save"
     }
   },
   "requiredProfiles": [
@@ -1514,6 +1520,12 @@
     },
     "batch.rows": {
       "effect": "default dry-run preflight; bounded structural in-memory row mutations with partial outcomes -> explicit save + terminal flush"
+    },
+    "comparisons.records": {
+      "effect": "bounded native alignment of explicit ordered columns; exact leaf values and independent cell presence"
+    },
+    "comparisons.load": {
+      "effect": "default dry-run header/dependency plan; consented read-only session load from captured bytes; affects override chains; no disk copy"
     }
   }
 }
