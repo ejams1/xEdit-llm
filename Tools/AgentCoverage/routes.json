@@ -424,9 +424,9 @@
       "scriptSymbols": []
     },
     "seq": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native SEQ generation with game gates, explicit bounded output path, overwrite policy, selected inputs and independently validated output. GUI gate is wbIsSkyrim with a file target; skips load-order zero and emits eligible Start Game Enabled quest IDs.",
+      "status": "direct",
+      "routes": ["exports.seq"],
+      "notes": "Skyrim-family loaded file; native load-order-zero/SGE predicates and FixedFormIDs in native group order. Explicit existing output directory and matching plugin basename, default dry run and overwrite:false, bounded scan/IDs, atomic external write. Empty eligibility leaves old output intact; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": []
     },
@@ -807,6 +807,10 @@
     "mniViewHeaderCopyAsWrapper": "special-copy"
   },
   "commandFamilies": {
+    "exports": {
+      "prerequisites": "Loaded plugin and supported native game predicate; explicit bounded absolute output path, existing directory; apply requires consent.",
+      "effect": "dry-run read or immediate external file output; plugin save is separate"
+    },
     "patches": {
       "prerequisites": "Loaded saved numeric baseline, bounded external comparison with earlier loaded dependencies, new output name; apply requires consent/edit mode.",
       "effect": "header-only dry run or immediate disk copy plus in-memory patch edits -> session.save + terminal session.flush"
@@ -1130,6 +1134,9 @@
     "xEdit/xeWorldspaceCellDetailsForm.dfm": "dialog-control"
   },
   "operationOverrides": {
+    "exports.seq": {
+      "effect": "default dry-run read; apply atomically writes raw fixed-ID u32 SEQ bytes; no plugin mutation; no eligible quests leave existing output intact"
+    },
     "patches.merge": {
       "effect": "default dry-run native list plan; apply adds/cleans masters and copies winning records with merged list deltas in memory -> save + flush"
     },

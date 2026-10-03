@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.32",
+  "contractVersion": "0.33",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -5149,9 +5149,11 @@
         }
       ],
       "profile": "seq",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native SEQ generation with game gates, explicit bounded output path, overwrite policy, selected inputs and independently validated output. GUI gate is wbIsSkyrim with a file target; skips load-order zero and emits eligible Start Game Enabled quest IDs.",
+      "status": "direct",
+      "routes": [
+        "exports.seq"
+      ],
+      "notes": "Skyrim-family loaded file; native load-order-zero/SGE predicates and FixedFormIDs in native group order. Explicit existing output directory and matching plugin basename, default dry run and overwrite:false, bounded scan/IDs, atomic external write. Empty eligibility leaves old output intact; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10757,6 +10759,18 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "exports.seq",
+      "kind": "command",
+      "handler": "xeAutomationExportSeq",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsExports.pas",
+        "line": 149
+      },
+      "prerequisites": "Loaded plugin and supported native game predicate; explicit bounded absolute output path, existing directory; apply requires consent.",
+      "effect": "default dry-run read; apply atomically writes raw fixed-ID u32 SEQ bytes; no plugin mutation; no eligible quests leave existing output intact",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "files.add_required_masters",
       "kind": "command",
       "handler": "xeAutomationFilesAddRequiredMasters",
@@ -11326,7 +11340,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 973
+        "line": 988
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11338,7 +11352,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 972
+        "line": 987
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11350,7 +11364,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 971
+        "line": 986
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11362,7 +11376,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 970
+        "line": 985
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",

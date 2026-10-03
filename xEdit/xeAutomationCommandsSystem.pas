@@ -20,6 +20,7 @@ uses
   xeAutomationCommandsBatch,
   xeAutomationCommandsCleaning,
   xeAutomationCommandsElements,
+  xeAutomationCommandsExports,
   xeAutomationCommandsFileHygiene,
   xeAutomationCommandsFiles,
   xeAutomationCommandsFormIds,
@@ -127,6 +128,8 @@ begin
     xeAutomationRegisterFormIdCommands;
   if not xeAutomationHasCommand('patches.delta') then
     xeAutomationRegisterPatchCommands;
+  if not xeAutomationHasCommand('exports.seq') then
+    xeAutomationRegisterExportCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -283,6 +286,18 @@ begin
       Result.S['persistence'] := 'read-only';
       Result.S['constraintNotes'] := 'Children need explicit limit <=50; response <=1 MiB';
     end;
+  end else if SameText(lCommand, 'exports.seq') then begin
+    xeAutomationSchemaField(Result, 'file', 'string:loaded-plugin', True);
+    xeAutomationSchemaField(Result, 'outputPath', 'string:absolute-existing-directory-matching-plugin-basename-seq', True);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(Result, 'overwrite', 'boolean:default-false', False);
+    Result.S['prerequisites'] := 'Skyrim-family game, loaded plugin; load-order-zero skips; new SGE quests or overrides enabling SGE on non-SGE masters; apply requires consent';
+    Result.S['persistence'] := 'immediate atomic external SEQ output; no plugin mutation; unsaved source changes require separate plugin save';
+    Result.S['constraintNotes'] := '10000 scanned quests, 1000 eligible IDs, absolute path <=240 characters; existing output folder; no eligible IDs leave existing output untouched';
+    Result.S['resultNotes'] := 'Fixed file-local IDs, headerless little-endian u32 bytes, eligible locators, skip counts, written flag and temporary-file failure state';
+    Result.A['errors'].Add('export_capacity');
+    Result.A['errors'].Add('state_conflict');
+    Result.A['errors'].Add('unsupported_game_mode');
   end else if SameText(lCommand, 'patches.merge') then begin
     xeAutomationSchemaField(Result, 'records', 'array<object:file,formId>:1..32', True);
     xeAutomationSchemaField(Result, 'targetFile', 'string:empty-loaded-plugin-last-in-load-order', True);
@@ -483,7 +498,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.32';
+  Result.S['contractVersion'] := '0.33';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin

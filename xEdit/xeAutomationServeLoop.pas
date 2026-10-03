@@ -36,6 +36,7 @@ uses
   Forms,
   SysUtils,
   xeAutomationCommandsElements,
+  xeAutomationCommandsExports,
   xeAutomationCommandsFiles,
   xeAutomationCommandsRecords,
   xeAutomationCommandsScripts,
@@ -123,6 +124,7 @@ begin
     xeAutomationRegisterBatchCommands;
     xeAutomationRegisterFormIdCommands;
     xeAutomationRegisterPatchCommands;
+    xeAutomationRegisterExportCommands;
     // Scripts run against loaded data and locator resolution, so expose them only
     // after the session/files/records/elements command surface has been wired.
     xeAutomationRegisterScriptsCommands;
