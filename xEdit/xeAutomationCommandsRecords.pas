@@ -1289,11 +1289,14 @@ begin
   end;
   lOverwroteExisting := Assigned(lExistingTarget) and lOverwrite;
 
+  // Public deepCopy chooses descendant scope, not native payload assignment.
+  // Native aDeepCopy:false creates a shell or leaves an existing record alone.
+  // Always clone the selected element below; only explicit deepCopy selects its
+  // ChildGroup. Overwrite must not silently expand a shallow selection.
   lNativeDeepCopy := lDeepCopy;
-  if lOverwroteExisting then
-    // wbCopyElementToFile only performs the desired replace/update path for existing
-    // overrides when deep copy is forced, but the response still echoes caller intent.
-    lNativeDeepCopy := True;
+  if wbAllowMakePartial and lSourceRecord.CanBePartial and
+     not lSourceRecord.IsPartialForm and not Assigned(lExistingTarget) then
+    raise xeAutomationMutationNotAllowed('Full record copy requires native partial-form creation disabled');
 
   lCopySource := lSourceRecord;
   if lNativeDeepCopy and Assigned(lSourceRecord.ChildGroup) then
@@ -1340,7 +1343,7 @@ begin
         lWrappedRecord.UpdateRefs;
         lSteps := ['masters-ready', 'wrapped-record-copied'];
       end;
-      lCopiedElement := wbCopyElementToFile(lCopySource, lTargetFile, lAsNew, lNativeDeepCopy,
+      lCopiedElement := wbCopyElementToFile(lCopySource, lTargetFile, lAsNew, True,
         '', '', lEditorIDPrefix, lEditorIDSuffix, lOverwrite);
       lCopiedRecord := xeAutomationIdentifyCopiedMainRecord(lCopiedElement, lCopySource, lSourceRecord, lTargetFile, lAsNew);
       lSteps := ['masters-ready', 'record-copied'];

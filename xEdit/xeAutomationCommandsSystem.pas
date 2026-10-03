@@ -32,6 +32,7 @@ uses
   xeAutomationCommandsModGroups,
   xeAutomationCommandsVWD,
   xeAutomationCommandsReports,
+  xeAutomationCommandsSelections,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsRecords,
@@ -158,6 +159,8 @@ begin
     xeAutomationRegisterVWDCommands;
   if not xeAutomationHasCommand('reports.cleaning') then
     xeAutomationRegisterReportCommands;
+  if not xeAutomationHasCommand('selections.inspect') then
+    xeAutomationRegisterSelectionCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -282,6 +285,26 @@ begin
     Result.A['errors'].Add('stale_revision');
     Result.A['errors'].Add('stale_value');
     Result.A['errors'].Add('mutation_not_allowed');
+  end else if Copy(lCommand, 1, 11) = 'selections.' then begin
+    if SameText(lCommand, 'selections.create_group') then begin
+      xeAutomationSchemaField(Result, 'file', 'string:loaded-plugin', True);
+      xeAutomationSchemaField(Result, 'signature', 'string:enabled-native-top-level-signature', True);
+    end else begin
+      xeAutomationSchemaField(Result, 'selections', 'array<object:kind,file,groupPath>:1..16', True);
+      if SameText(lCommand, 'selections.copy_into') then begin
+        xeAutomationSchemaField(Result, 'targetFile', 'string:later-loaded-writable-plugin', True);
+        xeAutomationSchemaField(Result, 'overwrite', 'boolean:default-false', False);
+        xeAutomationSchemaField(Result, 'addRequiredMasters', 'boolean:default-true', False);
+      end;
+    end;
+    if not SameText(lCommand, 'selections.inspect') then
+      xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    Result.S['prerequisites'] := 'Non-TES3, translation mode off; current native groupPath type/8-hex-label from inspect; copy needs partial creation off and full nondeleted/nonpartial records; writes need consent and native writable targets';
+    Result.S['persistence'] := 'inspect-read-only; edits-in-memory-until-explicit-save-and-terminal-flush; empty-groups-may-be-omitted';
+    Result.S['constraintNotes'] := '128 records including implicit copy owners, 2048 retained nodes and group-path sibling visits, depth 8; duplicate/overlapping selectors and multiple source identity versions reject; file removal/unload/disk delete excluded';
+    Result.A['errors'].Add('selection_capacity');
+    Result.A['errors'].Add('mutation_not_allowed');
+    Result.A['errors'].Add('unsupported_game_mode');
   end else if SameText(lCommand, 'reports.cleaning') then begin
     xeAutomationSchemaField(Result, 'format', 'string:loot|boss', True);
     xeAutomationSchemaField(Result, 'files', 'array<string:loaded-plugin>:1..8', True);
@@ -541,7 +564,12 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.40';
+  Result.S['contractVersion'] := '0.41';
+  Result.O['supports'].O['selections'].S['commands'] := 'selections.inspect,copy_into,remove,create_group';
+  Result.O['supports'].O['selections'].S['scope'] := '1..16 file/group selectors, <=128 records including implicit copy owners, <=2048 structural nodes, depth<=8; native session groupPath type/label';
+  Result.O['supports'].O['selections'].S['copy'] := 'recursive full nondeleted/nonpartial payload overrides, parent-before-child; explicit overwrite/addRequiredMasters; no TES4 header clone; native partial creation off';
+  Result.O['supports'].O['selections'].S['removal'] := 'preflight recursive group descendants; native file removal/unload and disk delete unsupported';
+  Result.O['supports'].O['selections'].S['persistence'] := 'default dryRun:true; in-memory until explicit save/terminal flush; native save may omit empty groups';
   Result.O['supports'].O['selectiveCleaning'].S['kinds'] := 'cleaning.remove_itm,cleaning.undelete_and_disable_refs';
   Result.O['supports'].O['selectiveCleaning'].S['scope'] := 'target.files:1..8 loaded plugins, <=1000 records; non-TES3, translation-mode-off';
   Result.O['supports'].O['selectiveCleaning'].S['semantics'] := 'default dryRun:true; no master cleanup; retain nonempty child-group parents and deleted NAVM; UDR uses reported native session settings';

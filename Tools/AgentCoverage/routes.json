@@ -521,12 +521,16 @@
     "general-structure": {
       "status": "partial",
       "routes": [
+        "files.create",
+        "selections.inspect",
+        "selections.create_group",
+        "selections.copy_into",
+        "selections.remove",
         "records.create",
-        "records.copy_into",
         "records.delete"
       ],
-      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
-      "effect": "plugin/session mutation",
+      "notes": "Bounded file/group selectors, native top-level group creation, recursive override payload copies with owner closure and preflighted recursive group removal. Native files are non-removable; unload requires restart with a new plugin list and no disk deletion. New-ID group copy and direct nested-group creation excluded; native acceptance pending.",
+      "effect": "bounded plugin structure in memory -> explicit save + terminal flush; no physical file removal",
       "scriptSymbols": []
     },
     "batch-rows": {
@@ -898,6 +902,10 @@
     "reports": {
       "prerequisites": "Saved/flushed clean loaded source plugins and masters; supported native game/report format.",
       "effect": "read-only plugin classification; optional immediate external text output"
+    },
+    "selections": {
+      "prerequisites": "Non-TES3, translation mode off; bounded loaded file/group selectors; native current-session group labels; writes require consent/writable targets.",
+      "effect": "inspection or in-memory recursive structure edits -> explicit save + terminal flush; no unload/disk deletion"
     }
   },
   "requiredProfiles": [
@@ -1486,6 +1494,22 @@
     "cleaning.undelete_and_disable_refs": {
       "prerequisites": "1..8 loaded target files, <=1000 records; non-TES3, translation mode off; apply requires consent and writable targets; no duplicate files/options.",
       "effect": "isolated ITM removal or native UDR in memory with record outcomes, partial audit and between-file cancellation -> explicit save + terminal flush"
+    },
+    "selections.inspect": {
+      "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
+      "effect": "read-only structure/identity discovery"
+    },
+    "selections.copy_into": {
+      "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
+      "effect": "default dry-run; explicit in-memory payload/structure writes with mutation audit and partial results; empty groups may be omitted by native save"
+    },
+    "selections.remove": {
+      "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
+      "effect": "default dry-run; explicit in-memory payload/structure writes with mutation audit and partial results; empty groups may be omitted by native save"
+    },
+    "selections.create_group": {
+      "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
+      "effect": "default dry-run; explicit in-memory payload/structure writes with mutation audit and partial results; empty groups may be omitted by native save"
     }
   }
 }

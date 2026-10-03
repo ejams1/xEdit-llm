@@ -1,5 +1,60 @@
 # Automation regression fixtures
 
+## Issue #36: file/group selections
+
+`selections.inspect/copy_into/remove` take 1..16 `selections`, each either
+`{kind:"file",file}` or `{kind:"group",file,groupPath:[{type,label},...]}`.
+Inspection emits ready-to-use group selectors. Labels are eight-hex-digit current
+native `GroupLabel` values, scoped to the current session; re-inspect after master
+edits/reload. Use `expectedRevision` to reject stale mutation requests. Limits:
+128 source/implicit owner records, 2048 retained structural nodes and path sibling
+visits, depth 8. Duplicate/overlapping selectors and differing source versions of
+one FormID reject. TES3 and translation mode reject.
+
+`copy_into` takes later loaded writable `targetFile`, `overwrite:false` and
+`addRequiredMasters:true` defaults. `dryRun` defaults true. File/group selections
+copy all contained owned records recursively as overrides, excluding the TES4
+file header; no new-ID mode is provided. Contextual owner records are planned
+before children: explicitly selected owner versions win; an existing target owner
+is preserved when not selected; otherwise native highest-visible owners enter
+the plan, dependency checks and capacity accounting. Full nondeleted/nonpartial
+payloads require native partial-form creation disabled. Empty groups copy as
+no-op; use `create_group` to create an empty top-level group. All root-copy
+preflights finish before writes; results retain completed/failed identities and
+mutation audit. Native ancestors/group context are recreated, with no header clone.
+
+`remove` accepts group selectors, preflights every descendant and removes the
+native subtree in memory. Native file objects are non-removable: file removal
+refuses without clearing records, unloading modules or deleting disk files.
+Unload by restarting with a different plugin list. `create_group` takes `file`,
+public enabled top-level `signature` and default `dryRun:true`; existing groups
+are no-ops. Native save may omit empty groups; add records before persistence.
+Existing `files.create` provides new plugin creation. All apply operations require
+consent and retain the explicit plugin save/terminal flush boundary; partial
+failure does not roll back completed writes. Group paths may invalidate after edits.
+
+Root `records.copy_into` now always enables native payload assignment; its public
+`deepCopy` flag chooses descendant scope independently. Shallow new copies retain
+fields, and shallow overwrite updates a parent without copying its child group.
+Native partial creation refuses when it would unexpectedly replace a full source
+with a partial shell. Native source partial/deleted semantics remain explicit in
+the root API, outside the selection payload route.
+
+Generate `selection_fixture.py generate --overlay <fresh-MO2-overlay>`, load
+Fallout4.esm + AutomationSelectionScene.esm + AutomationSelectionWhole.esp +
+AutomationSelectionGroup.esp + AutomationSelectionNested.esp +
+AutomationSelectionShallow.esp, then run `exercise` with overlay/exe/PID/artifacts.
+Relaunch fresh and run `verify`. It checks full file/group payloads and identities,
+nested child-only copies with owner closure, parent/child link values, shallow
+parent payload/overwrite with retained edited child, overlap/file-removal/input
+refusal, recursive group removal, top-level creation/idempotence/empty-group
+no-op, unchanged source/disk before save and live plus independent persisted
+identity/EditorID/masters readback. Also run competing explicit/implicit owner
+versions, owner-only additional dependencies, existing protected owners, other
+game definitions, deleted/partial/internal/skipped records, capacity/consent
+refusals, overwrite relocation, and injected partial failures. Delphi/native
+execution remains pending; source fixtures are support checks only.
+
 ## Issue #35: isolated ITM/UDR jobs
 
 Start `jobs.start` with `kind:cleaning.remove_itm` or

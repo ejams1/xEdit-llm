@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.40",
+  "contractVersion": "0.41",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -4302,12 +4302,16 @@
       "profile": "general-structure",
       "status": "partial",
       "routes": [
+        "files.create",
+        "selections.inspect",
+        "selections.create_group",
+        "selections.copy_into",
+        "selections.remove",
         "records.create",
-        "records.copy_into",
         "records.delete"
       ],
-      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
-      "effect": "plugin/session mutation",
+      "notes": "Bounded file/group selectors, native top-level group creation, recursive override payload copies with owner closure and preflighted recursive group removal. Native files are non-removable; unload requires restart with a new plugin list and no disk deletion. New-ID group copy and direct nested-group creation excluded; native acceptance pending.",
+      "effect": "bounded plugin structure in memory -> explicit save + terminal flush; no physical file removal",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -4342,12 +4346,16 @@
       "profile": "general-structure",
       "status": "partial",
       "routes": [
+        "files.create",
+        "selections.inspect",
+        "selections.create_group",
+        "selections.copy_into",
+        "selections.remove",
         "records.create",
-        "records.copy_into",
         "records.delete"
       ],
-      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
-      "effect": "plugin/session mutation",
+      "notes": "Bounded file/group selectors, native top-level group creation, recursive override payload copies with owner closure and preflighted recursive group removal. Native files are non-removable; unload requires restart with a new plugin list and no disk deletion. New-ID group copy and direct nested-group creation excluded; native acceptance pending.",
+      "effect": "bounded plugin structure in memory -> explicit save + terminal flush; no physical file removal",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -4729,12 +4737,16 @@
       "profile": "general-structure",
       "status": "partial",
       "routes": [
+        "files.create",
+        "selections.inspect",
+        "selections.create_group",
+        "selections.copy_into",
+        "selections.remove",
         "records.create",
-        "records.copy_into",
         "records.delete"
       ],
-      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
-      "effect": "plugin/session mutation",
+      "notes": "Bounded file/group selectors, native top-level group creation, recursive override payload copies with owner closure and preflighted recursive group removal. Native files are non-removable; unload requires restart with a new plugin list and no disk deletion. New-ID group copy and direct nested-group creation excluded; native acceptance pending.",
+      "effect": "bounded plugin structure in memory -> explicit save + terminal flush; no physical file removal",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -4777,12 +4789,16 @@
       "profile": "general-structure",
       "status": "partial",
       "routes": [
+        "files.create",
+        "selections.inspect",
+        "selections.create_group",
+        "selections.copy_into",
+        "selections.remove",
         "records.create",
-        "records.copy_into",
         "records.delete"
       ],
-      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
-      "effect": "plugin/session mutation",
+      "notes": "Bounded file/group selectors, native top-level group creation, recursive override payload copies with owner closure and preflighted recursive group removal. Native files are non-removable; unload requires restart with a new plugin list and no disk deletion. New-ID group copy and direct nested-group creation excluded; native acceptance pending.",
+      "effect": "bounded plugin structure in memory -> explicit save + terminal flush; no physical file removal",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -4817,12 +4833,16 @@
       "profile": "general-structure",
       "status": "partial",
       "routes": [
+        "files.create",
+        "selections.inspect",
+        "selections.create_group",
+        "selections.copy_into",
+        "selections.remove",
         "records.create",
-        "records.copy_into",
         "records.delete"
       ],
-      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
-      "effect": "plugin/session mutation",
+      "notes": "Bounded file/group selectors, native top-level group creation, recursive override payload copies with owner closure and preflighted recursive group removal. Native files are non-removable; unload requires restart with a new plugin list and no disk deletion. New-ID group copy and direct nested-group creation excluded; native acceptance pending.",
+      "effect": "bounded plugin structure in memory -> explicit save + terminal flush; no physical file removal",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -4857,12 +4877,16 @@
       "profile": "general-structure",
       "status": "partial",
       "routes": [
+        "files.create",
+        "selections.inspect",
+        "selections.create_group",
+        "selections.copy_into",
+        "selections.remove",
         "records.create",
-        "records.copy_into",
         "records.delete"
       ],
-      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
-      "effect": "plugin/session mutation",
+      "notes": "Bounded file/group selectors, native top-level group creation, recursive override payload copies with owner closure and preflighted recursive group removal. Native files are non-removable; unload requires restart with a new plugin list and no disk deletion. New-ID group copy and direct nested-group creation excluded; native acceptance pending.",
+      "effect": "bounded plugin structure in memory -> explicit save + terminal flush; no physical file removal",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -4897,12 +4921,16 @@
       "profile": "general-structure",
       "status": "partial",
       "routes": [
+        "files.create",
+        "selections.inspect",
+        "selections.create_group",
+        "selections.copy_into",
+        "selections.remove",
         "records.create",
-        "records.copy_into",
         "records.delete"
       ],
-      "notes": "Define explicit file/group operations and multi-target scope beyond record-root commands; preflight ownership/protected targets and distinguish unload from physical removal.",
-      "effect": "plugin/session mutation",
+      "notes": "Bounded file/group selectors, native top-level group creation, recursive override payload copies with owner closure and preflighted recursive group removal. Native files are non-removable; unload requires restart with a new plugin list and no disk deletion. New-ID group copy and direct nested-group creation excluded; native acceptance pending.",
+      "effect": "bounded plugin structure in memory -> explicit save + terminal flush; no physical file removal",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -11409,7 +11437,7 @@
       "handler": "xeAutomationRecordsApplyFilter",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1869
+        "line": 1872
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11421,7 +11449,7 @@
       "handler": "xeAutomationRecordsBaseRecord",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1870
+        "line": 1873
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11433,7 +11461,7 @@
       "handler": "xeAutomationRecordsConflictStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1876
+        "line": 1879
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11445,7 +11473,7 @@
       "handler": "xeAutomationRecordsCopyIdleTree",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1873
+        "line": 1876
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "default dry-run plan; apply creates idle copies, changes models/internal references in memory -> save + flush",
@@ -11457,7 +11485,7 @@
       "handler": "xeAutomationRecordsCopyInto",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1872
+        "line": 1875
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11469,7 +11497,7 @@
       "handler": "xeAutomationRecordsCreate",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1871
+        "line": 1874
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11481,7 +11509,7 @@
       "handler": "xeAutomationRecordsDelete",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1874
+        "line": 1877
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11493,7 +11521,7 @@
       "handler": "xeAutomationRecordsFindByEditorID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1880
+        "line": 1883
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11505,7 +11533,7 @@
       "handler": "xeAutomationRecordsFindByFormID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1879
+        "line": 1882
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11517,7 +11545,7 @@
       "handler": "xeAutomationRecordsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1881
+        "line": 1884
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11529,7 +11557,7 @@
       "handler": "xeAutomationRecordsList",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1868
+        "line": 1871
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11541,7 +11569,7 @@
       "handler": "xeAutomationRecordsMarkDeleted",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1875
+        "line": 1878
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11553,7 +11581,7 @@
       "handler": "xeAutomationRecordsMasterOrSelf",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1882
+        "line": 1885
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11565,7 +11593,7 @@
       "handler": "xeAutomationRecordsReferencedBy",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1878
+        "line": 1881
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11577,7 +11605,7 @@
       "handler": "xeAutomationRecordsReferences",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1877
+        "line": 1880
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11601,7 +11629,7 @@
       "handler": "xeAutomationRecordsWinningOverride",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1883
+        "line": 1886
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11692,6 +11720,54 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "selections.copy_into",
+      "kind": "command",
+      "handler": "CopyInto",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsSelections.pas",
+        "line": 403
+      },
+      "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
+      "effect": "default dry-run; explicit in-memory payload/structure writes with mutation audit and partial results; empty groups may be omitted by native save",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "selections.create_group",
+      "kind": "command",
+      "handler": "CreateGroup",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsSelections.pas",
+        "line": 405
+      },
+      "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
+      "effect": "default dry-run; explicit in-memory payload/structure writes with mutation audit and partial results; empty groups may be omitted by native save",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "selections.inspect",
+      "kind": "command",
+      "handler": "Inspect",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsSelections.pas",
+        "line": 402
+      },
+      "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
+      "effect": "read-only structure/identity discovery",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "selections.remove",
+      "kind": "command",
+      "handler": "Remove",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsSelections.pas",
+        "line": 404
+      },
+      "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
+      "effect": "default dry-run; explicit in-memory payload/structure writes with mutation audit and partial results; empty groups may be omitted by native save",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "session.flush",
       "kind": "command",
       "handler": "xeAutomationSessionFlush",
@@ -11757,7 +11833,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1071
+        "line": 1099
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11769,7 +11845,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1070
+        "line": 1098
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11781,7 +11857,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1069
+        "line": 1097
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11793,7 +11869,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1068
+        "line": 1096
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11817,7 +11893,7 @@
       "handler": "xeAutomationInjectedCleanupJob",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1866
+        "line": 1869
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "default dry-run plan; apply preserves overrides in injection provider then removes source references in memory -> save both + flush",
