@@ -40,6 +40,7 @@ type
     procedure Init;
     function FileStringType(aFileName: string): TwbLStringType;
     function ReadZString(aStream: TMemoryStream): string;
+    function DecodeLossless(const ABytes: TBytes): string;
     function ReadLenZString(aStream: TMemoryStream): string;
     procedure WriteZString(aStream: TMemoryStream; const aString: string);
     procedure WriteLenZString(aStream: TMemoryStream; const aString: string);
@@ -61,6 +62,8 @@ type
     function IndexToID(Index: Integer): Cardinal;
     function IDExists(ID: Cardinal): Boolean;
     function AddString(ID: Cardinal; const S: string): Boolean;
+    procedure RequireLossless(const AValue: string);
+    function PrimaryEncodingName: string;
     function Find(ID: Cardinal; out s: string): Boolean;
     procedure WriteToStream(const aStream: TStream);
     procedure ExportToFile(const aFileName: string);
@@ -110,7 +113,7 @@ var
 implementation
 
 uses
-  WideStrUtils;
+  WideStrUtils, System.Generics.Collections;
 
 constructor TwbLocalizationFile.Create(const aFileName: string);
 var
@@ -118,16 +121,21 @@ var
   fStream: TMemoryStream;
   Buffer: PByte;
 begin
+  fs := nil;
   fFileName := aFileName;
   Init;
   // cache file in mem
   fStream := TMemoryStream.Create;
   try
     fs := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
+    if fs.Size > 67108864 then raise Exception.Create('Localization table exceeds 64 MiB');
+    Buffer := nil;
     GetMem(Buffer, fs.Size);
     try
-      fs.ReadBuffer(Buffer^, fs.Size);
-      fStream.WriteBuffer(Buffer^, fs.Size);
+      if fs.Size > 0 then begin
+        fs.ReadBuffer(Buffer^, fs.Size);
+        fStream.WriteBuffer(Buffer^, fs.Size);
+      end;
       fStream.Position := 0;
       ReadDirectory(fStream);
     finally
@@ -147,7 +155,8 @@ begin
   Init;
   fStream := TMemoryStream.Create;
   try
-    fStream.WriteBuffer(aData[0], length(aData));
+    if Length(aData) > 67108864 then raise Exception.Create('Localization table exceeds 64 MiB');
+    if Length(aData) > 0 then fStream.WriteBuffer(aData[0], length(aData));
     fStream.Position := 0;
     ReadDirectory(fStream);
   finally
@@ -240,6 +249,29 @@ begin
     s := '<Error: Unknown lstring ID ' + IntToHex(ID, 8) + '>';
 end;
 
+function TwbLocalizationFile.DecodeLossless(const ABytes: TBytes): string;
+var
+  Roundtrip: TBytes;
+  Encoding: TEncoding;
+  Fallback: Boolean;
+begin
+  // Some RTL decoders substitute invalid bytes rather than throwing. Verify the
+  // byte roundtrip explicitly before accepting either primary or fallback text.
+  for Fallback := False to True do begin
+    Encoding := fEncoding[Fallback];
+    if not Assigned(Encoding) then Continue;
+    try
+      Result := Encoding.GetString(ABytes);
+      Roundtrip := Encoding.GetBytes(Result);
+      if Length(Roundtrip) = Length(ABytes) then
+        if (Length(ABytes) = 0) or CompareMem(@Roundtrip[0], @ABytes[0], Length(ABytes)) then Exit;
+    except
+      on E: EEncodingError do ;
+    end;
+  end;
+  raise EEncodingError.Create('Localization bytes cannot decode without loss');
+end;
+
 function TwbLocalizationFile.ReadZString(aStream: TMemoryStream): string;
 var
   Position : Integer;
@@ -248,22 +280,18 @@ var
   b: TBytes;
 begin
   Position := aStream.Position;
+  if (Position < 0) or (Position >= aStream.Size) then
+    raise Exception.Create('Localization string offset outside table');
   p := @PByte(aStream.Memory)[Position];
   i := 0;
   j := aStream.Size - Position;
   while (i < j) and (p[i] <> 0) do
     Inc(i);
+  if i >= j then raise Exception.Create('Unterminated localization string');
+  if i > 1048576 then raise Exception.Create('Localization string exceeds 1 MiB');
   if i > 0 then begin
     b := BytesOf(p, i);
-    try
-      Result := fEncoding[False].GetString(b);
-    except
-      on E: EEncodingError do begin
-        if not Assigned(fEncoding[True]) then
-          raise;
-        Result := fEncoding[True].GetString(b);
-      end;
-    end;
+    Result := DecodeLossless(b);
   end else
     Result := '';
   aStream.Position := Position + Succ(i);
@@ -277,21 +305,19 @@ var
   b: TBytes;
 begin
   Position := aStream.Position;
+  if (Position < 0) or (Position >= aStream.Size) then
+    raise Exception.Create('Localization string offset outside table');
   p := @PByte(aStream.Memory)[Position];
+  if aStream.Size - Position < 4 then raise Exception.Create('Truncated localization string length');
   i := PInteger(p)^;
+  if (i < 1) or (i > 1048577) or (i > aStream.Size - Position - 4) then
+    raise Exception.Create('Invalid localization string length');
+  if p[4 + i - 1] <> 0 then raise Exception.Create('Unterminated localization string');
   Inc(PInteger(p), 1);
   Dec(i);
   if i > 0 then begin
     b := BytesOf(p, i);
-    try
-      Result := fEncoding[False].GetString(b);
-    except
-      on E: EEncodingError do begin
-        if not Assigned(fEncoding[True]) then
-          raise;
-        Result := fEncoding[True].GetString(b);
-      end;
-    end;
+    Result := DecodeLossless(b);
   end else
     Result := '';
   aStream.Position := Position + Succ(i) + SizeOf(Integer);
@@ -329,31 +355,53 @@ end;
 
 procedure TwbLocalizationFile.ReadDirectory(aStream: TMemoryStream);
 var
-  i: integer;
-  scount, id, offset: Cardinal;
-  oldPos: int64;
+  i: Integer;
+  scount, dataSize, id, offset: Cardinal;
+  oldPos, dataStart: Int64;
+  ids: TDictionary<Cardinal, Boolean>;
   s: string;
 begin
-  if aStream.Size < 8 then
-    Exit;
-
-  aStream.Read(scount, 4); // number of strings
-  aStream.Position := aStream.Position + 4; // skip dataSize
-  if scount > 0 then
-    for i := 0 to scount - 1 do begin
-      aStream.Read(id, 4); // string ID
-      aStream.Read(offset, 4); // offset of string relative to data (header + dirsize)
+  // Empty in-memory tables are intentional during localization conversion.
+  // Every nonempty resource needs a complete, bounded directory and payload.
+  if aStream.Size = 0 then Exit;
+  if (aStream.Size < 8) or (aStream.Size > 67108864) then
+    raise Exception.Create('Invalid localization table size');
+  aStream.ReadBuffer(scount, 4);
+  aStream.ReadBuffer(dataSize, 4);
+  dataStart := 8 + Int64(scount) * 8;
+  if (scount > 1000000) or (dataStart > aStream.Size) or
+     (dataSize <> aStream.Size - dataStart) then
+    raise Exception.Create('Invalid localization table directory');
+  ids := TDictionary<Cardinal, Boolean>.Create;
+  try
+    for i := 0 to Integer(scount) - 1 do begin
+      aStream.ReadBuffer(id, 4);
+      aStream.ReadBuffer(offset, 4);
+      if (id = High(Cardinal)) or ids.ContainsKey(id) or (offset >= dataSize) then
+        raise Exception.Create('Invalid localization ID/offset');
+      ids.Add(id, True);
       oldPos := aStream.Position;
-      aStream.Position := 8 + scount*8 + offset; // header + dirsize + offset
-      if fFileType = lsString then
-        s := ReadZString(aStream)
-      else
-        s := ReadLenZString(aStream);
-      fStrings.AddObject(s, pointer(id));
-      if Succ(id) > fNextID then
-        fNextID := Succ(id);
+      aStream.Position := dataStart + offset;
+      if fFileType = lsString then s := ReadZString(aStream)
+      else s := ReadLenZString(aStream);
+      fStrings.AddObject(s, Pointer(id));
+      if Succ(id) > fNextID then fNextID := Succ(id);
       aStream.Position := oldPos;
     end;
+  finally ids.Free; end;
+end;
+
+procedure TwbLocalizationFile.RequireLossless(const AValue: string);
+begin
+  // Encoding fallback on read must never silently replace bytes on a later save.
+  if (Length(AValue) > 1048576) or (fEncoding[False].GetByteCount(AValue) > 1048576) or (Pos(#0, AValue) > 0) or
+     (fEncoding[False].GetString(fEncoding[False].GetBytes(AValue)) <> AValue) then
+    raise Exception.Create('Localization value cannot roundtrip through primary encoding');
+end;
+
+function TwbLocalizationFile.PrimaryEncodingName: string;
+begin
+  Result := fEncoding[False].EncodingName;
 end;
 
 procedure TwbLocalizationFile.WriteToStream(const aStream: TStream);
@@ -362,12 +410,15 @@ var
   i: integer;
   c: Cardinal;
 begin
+  if fStrings.Count > 1000000 then raise Exception.Create('Localization table exceeds one million entries');
+  for i := 0 to fStrings.Count - 1 do RequireLossless(fStrings[i]);
   dir := TMemoryStream.Create;
-  data := TMemoryStream.Create;
-  c := fStrings.Count;
-  dir.WriteBuffer(c, SizeOf(c)); // number of strings
-  dir.WriteBuffer(c, SizeOf(c)); // dataSize, will overwrite later
+  data := nil;
   try
+    data := TMemoryStream.Create;
+    c := fStrings.Count;
+    dir.WriteBuffer(c, SizeOf(c)); // number of strings
+    dir.WriteBuffer(c, SizeOf(c)); // dataSize, will overwrite later
     for i := 0 to Pred(fStrings.Count) do begin
       c := Cardinal(fStrings.Objects[i]);
       dir.WriteBuffer(c, SizeOf(c)); // ID
@@ -377,6 +428,8 @@ begin
         WriteZString(data, fStrings[i])
       else
         WriteLenZString(data, fStrings[i]);
+      if dir.Size + data.Size > 67108864 then
+        raise Exception.Create('Localization output exceeds 64 MiB');
     end;
     c := data.Size;
     dir.Position := 4;
@@ -424,6 +477,7 @@ procedure TwbLocalizationFile.Put(Index: Cardinal; const S: string);
 var
   idx: integer;
 begin
+  RequireLossless(S);
   idx := fStrings.IndexOfObject(Pointer(Index));
   if idx >= 0 then
     if fStrings[idx] <> S then begin
@@ -434,8 +488,9 @@ end;
 
 function TwbLocalizationFile.AddString(ID: Cardinal; const S: string): Boolean;
 begin
+  RequireLossless(S);
   Result := false;
-  if ID < NextID then
+  if (ID = High(Cardinal)) or (ID < NextID) then
     Exit;
 
   fStrings.AddObject(S, Pointer(ID));

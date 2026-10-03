@@ -16,6 +16,7 @@ implementation
 
 uses
   xeAutomationRecordQueries,
+  xeAutomationLocalizationState,
   SysUtils,
   JsonDataObjects,
   wbInterface,
@@ -71,7 +72,9 @@ begin
 
   Result.S['mutationRevision'] := UIntToStr(wbGlobalModifedGeneration);
   Result.I['unsavedChangeCount'] := lDirtyFiles.Count;
-  Result.B['dirty'] := lDirtyFiles.Count > 0;
+  xeAutomationWriteLocalizationDirtyState(Result);
+  Result.B['dirty'] := (lDirtyFiles.Count > 0) or (Result.I['dirtyLocalizationTableCount'] > 0);
+  Result.I['unsavedChangeCount'] := lDirtyFiles.Count + Result.I['dirtyLocalizationTableCount'];
 
   xePendingShutdownSnapshot(lPendingShutdownSnapshot);
   for i := Low(lPendingShutdownSnapshot) to High(lPendingShutdownSnapshot) do begin
@@ -219,7 +222,7 @@ begin
     // Refuse to destroy them unless the caller explicitly accepts that loss.
     if lDirtyState.B['dirty'] and not lForce then
       raise xeAutomationStateConflict(
-        'session.flush refuses to discard unsaved changes; call session.save first or pass force:true'
+        'session.flush refuses unsaved plugins/string tables; call session.save and localization.save first or pass force:true'
       );
 
     try

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.35",
+  "contractVersion": "0.36",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -874,10 +874,18 @@
         }
       ],
       "profile": "localization",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -901,10 +909,18 @@
         }
       ],
       "profile": "localization",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -928,10 +944,18 @@
         }
       ],
       "profile": "localization",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -955,10 +979,18 @@
         }
       ],
       "profile": "localization",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -982,10 +1014,18 @@
         }
       ],
       "profile": "localization",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -5372,10 +5412,18 @@
         }
       ],
       "profile": "localization",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -8230,10 +8278,18 @@
         }
       ],
       "profile": "localization",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -10504,10 +10560,18 @@
         }
       ],
       "profile": "localization",
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -11009,6 +11073,90 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "localization.convert",
+      "kind": "command",
+      "handler": "Convert",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsLocalization.pas",
+        "line": 393
+      },
+      "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
+      "effect": "default dry-run; apply rewrites plugin fields/header and tables in memory -> table save + plugin save + flush/restart",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "localization.export_text",
+      "kind": "command",
+      "handler": "ExportText",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsLocalization.pas",
+        "line": 395
+      },
+      "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
+      "effect": "external UTF-8 ID/text export; does not clear table dirtiness",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "localization.get",
+      "kind": "command",
+      "handler": "GetString",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsLocalization.pas",
+        "line": 390
+      },
+      "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
+      "effect": "read complete selected table value",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "localization.language",
+      "kind": "command",
+      "handler": "Language",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsLocalization.pas",
+        "line": 392
+      },
+      "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
+      "effect": "select session language; clear/reload clean resource cache",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "localization.save",
+      "kind": "command",
+      "handler": "SaveTables",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsLocalization.pas",
+        "line": 394
+      },
+      "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
+      "effect": "atomic external binary table writes per file; clears completed table dirtiness; plugin save independent",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "localization.set",
+      "kind": "command",
+      "handler": "SetString",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsLocalization.pas",
+        "line": 391
+      },
+      "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
+      "effect": "edit shared existing ID in table memory -> localization.save",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "localization.tables",
+      "kind": "command",
+      "handler": "Tables",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsLocalization.pas",
+        "line": 389
+      },
+      "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
+      "effect": "read native loaded resource metadata",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "patches.delta",
       "kind": "command",
       "handler": "xeAutomationDeltaPatch",
@@ -11302,7 +11450,7 @@
       "handler": "xeAutomationSessionFlush",
       "source": {
         "file": "xEdit/xeAutomationCommandsSession.pas",
-        "line": 267
+        "line": 270
       },
       "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
       "effect": "drains queued renames, destroys loaded graph and exits; force:true may discard unsaved changes",
@@ -11314,7 +11462,7 @@
       "handler": "xeAutomationSessionGetDirtyState",
       "source": {
         "file": "xEdit/xeAutomationCommandsSession.pas",
-        "line": 264
+        "line": 267
       },
       "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
       "effect": "read-only; no plugin persistence",
@@ -11326,7 +11474,7 @@
       "handler": "xeAutomationSessionGetGuiSnapshot",
       "source": {
         "file": "xEdit/xeAutomationCommandsSession.pas",
-        "line": 265
+        "line": 268
       },
       "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
       "effect": "read-only; no plugin persistence",
@@ -11350,7 +11498,7 @@
       "handler": "xeAutomationSessionSave",
       "source": {
         "file": "xEdit/xeAutomationCommandsSession.pas",
-        "line": 266
+        "line": 269
       },
       "prerequisites": "Loaded session; navigation needs live main form; save/flush require consent and appropriate target/dirty state.",
       "effect": "writes plugins or queues final rename; inspect pending state and flush before durability claim",
@@ -11362,7 +11510,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1019
+        "line": 1028
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11374,7 +11522,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1018
+        "line": 1027
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11386,7 +11534,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1017
+        "line": 1026
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11398,7 +11546,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1016
+        "line": 1025
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",

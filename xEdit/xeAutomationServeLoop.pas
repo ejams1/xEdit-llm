@@ -28,6 +28,7 @@ uses
   xeAutomationCommandsJobs,
   xeAutomationCommandsLOD,
   xeAutomationCommandsReachability,
+  xeAutomationCommandsLocalization,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsSession,
@@ -123,6 +124,7 @@ begin
     xeAutomationRegisterCleaningCommands;
     xeAutomationRegisterLODJobs;
     xeAutomationRegisterReachabilityJobs;
+    xeAutomationRegisterLocalizationCommands;
     xeAutomationRegisterRecordsCommands;
     xeAutomationRegisterElementsCommands;
     xeAutomationRegisterBatchCommands;
