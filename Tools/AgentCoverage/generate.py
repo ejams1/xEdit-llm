@@ -298,7 +298,7 @@ def render(data, config):
            "Structured mutation requires -IKnowWhatImDoing, edit mode and an editable non-protected target. "
            "Game, signature, parent and schema predicates remain native; a source-union row is not an all-games promise. "
            "Use elements.edit_capabilities/assign_templates before structural edits. "
-           "Jobs require jobs.start, then jobs.get; current execution is synchronous and cancellation is queued-only. "
+           "Jobs require jobs.start, then jobs.get; each poll advances one registered target unit, with cancellation between units. Native work within a unit blocks that poll. "
            "Script routes require Agent/ storage, policy admission and budgets, and do not inherit every structured-command guard.", "",
            "Plugin changes stay in memory until session.save. Check both dirty and pendingShutdownCount; "
            "session.flush is terminal and refuses unsaved changes unless force:true accepts loss. "

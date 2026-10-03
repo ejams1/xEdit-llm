@@ -20,7 +20,7 @@ type
 
 procedure xeAutomationRegisterJobKind(const AKind: string; const AHandler: TxeAutomationJobHandler);
 procedure xeAutomationRegisterJobKindWithValidator(const AKind: string; const AHandler: TxeAutomationJobHandler;
-  const AValidator: TxeAutomationJobStartValidator);
+  const AValidator: TxeAutomationJobStartValidator; const AWorkKey: string = 'files');
 procedure xeAutomationAssertJobCommandAllowed(const ACommand: string);
 function xeAutomationListJobKinds: TArray<string>;
 function xeAutomationStartJob(const AKind: string; const ADryRun, ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject): TJsonObject;
@@ -51,6 +51,7 @@ type
   TxeAutomationJobKindRegistration = record
     Handler: TxeAutomationJobHandler;
     Validator: TxeAutomationJobStartValidator;
+    WorkKey: string;
   end;
 
   TxeAutomationJobState = (xajsQueued, xajsRunning, xajsSucceeded, xajsFailed, xajsCancelRequested, xajsCanceled);
@@ -71,6 +72,7 @@ type
     Findings: TJsonArray;
     WorkIndex: Integer;
     TotalWork: Integer;
+    WorkKey: string;
     StartMutation: TxeAutomationMutationSnapshot;
     ExpectedRevision, ExpectedSemanticRevision: UInt64;
     PreflightDone: Boolean;
@@ -174,7 +176,7 @@ begin
 end;
 
 procedure xeAutomationRegisterJobKindWithValidator(const AKind: string; const AHandler: TxeAutomationJobHandler;
-  const AValidator: TxeAutomationJobStartValidator);
+  const AValidator: TxeAutomationJobStartValidator; const AWorkKey: string);
 var
   lKind: string;
   lRegistration: TxeAutomationJobKindRegistration;
@@ -190,6 +192,9 @@ begin
 
   lRegistration.Handler := AHandler;
   lRegistration.Validator := AValidator;
+  if (AWorkKey <> 'files') and (AWorkKey <> 'worldspaces') then
+    raise Exception.Create('Unsupported automation job work key');
+  lRegistration.WorkKey := AWorkKey;
   xeAutomationGetJobKinds.Add(lKind, lRegistration);
 end;
 
@@ -258,9 +263,13 @@ begin
     I['completed'] := AJob.WorkIndex;
     I['total'] := AJob.TotalWork;
     I['remaining'] := AJob.TotalWork - AJob.WorkIndex;
-    S['unit'] := 'target-file';
-    if AJob.WorkIndex < AJob.TotalWork then
-      S['nextFile'] := AJob.Target.A['files'].S[AJob.WorkIndex];
+    if AJob.WorkKey = 'files' then begin
+      S['unit'] := 'target-file';
+      if AJob.WorkIndex < AJob.TotalWork then S['nextFile'] := AJob.Target.A['files'].S[AJob.WorkIndex];
+    end else begin
+      S['unit'] := 'worldspace';
+      if AJob.WorkIndex < AJob.TotalWork then O['nextWorldspace'].Assign(AJob.Target.A['worldspaces'].O[AJob.WorkIndex]);
+    end;
   end;
   if AJob.SummaryData.Count > 0 then
     Result.O['summary'].Assign(AJob.SummaryData);
@@ -339,8 +348,11 @@ begin
   lFailure := TJsonObject.Create;
   lFindings := TJsonArray.Create;
   try
-    lTarget.A['files'].Clear;
-    lTarget.A['files'].Add(AJob.Target.A['files'].S[AJob.WorkIndex]);
+    // Legacy jobs retain file units; native LOD advances an explicit worldspace
+    // locator per poll instead of treating a plugin as an entire generation job.
+    lTarget.A[AJob.WorkKey].Clear;
+    if AJob.WorkKey = 'files' then lTarget.A['files'].Add(AJob.Target.A['files'].S[AJob.WorkIndex])
+    else lTarget.A[AJob.WorkKey].AddObject.Assign(AJob.Target.A[AJob.WorkKey].O[AJob.WorkIndex]);
     ARegistration.Handler(AJob.Id, AJob.DryRun, AJob.DryRunSpecified,
       lTarget, AJob.Options, lFindings, lSummary, lResult, lFailure);
     if (AJob.Findings.Count + lFindings.Count > xeAutomationMaxJobFindings) or
@@ -450,8 +462,8 @@ begin
     end;
     if not xeAutomationGetJobKinds.TryGetValue(AJob.Kind, lRegistration) then
       raise xeAutomationNewError(xeAutomationErrorUnknownJobKind, Format('Automation job kind not registered: %s', [AJob.Kind]));
-    // One target file per poll is the safe yield point shared by current kinds.
-    // Native work inside a file remains atomic and runs on the main thread.
+    // One registered work unit per poll is the safe yield point. Legacy kinds
+    // use files; LOD uses worlds. A native unit runs on the main thread.
     xeAutomationRunNextFile(AJob, lRegistration);
     AJob.ExpectedRevision := wbGlobalModifedGeneration;
     AJob.ExpectedSemanticRevision := xeAutomationQuerySemanticRevision;
@@ -459,7 +471,8 @@ begin
       AJob.State := xajsCanceled
     else if AJob.FailureData.Count > 0 then begin
       AJob.State := xajsFailed;
-      AJob.FailureData.I['completedFiles'] := AJob.WorkIndex;
+      if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
+      else AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex;
       xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
       if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
         AJob.FailureData.B['partial'] := True;
@@ -480,7 +493,8 @@ begin
       AJob.FailureData.S['code'] := E.Code;
       AJob.FailureData.S['message'] := E.Message;
       AJob.FailureData.S['phase'] := 'execution';
-      AJob.FailureData.I['completedFiles'] := AJob.WorkIndex;
+      if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
+      else AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex;
       xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
       if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
         AJob.FailureData.B['partial'] := True;
@@ -496,7 +510,8 @@ begin
       AJob.FailureData.S['code'] := xeAutomationErrorInternalError;
       AJob.FailureData.S['message'] := E.Message;
       AJob.FailureData.S['phase'] := 'execution';
-      AJob.FailureData.I['completedFiles'] := AJob.WorkIndex;
+      if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
+      else AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex;
       xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
       if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
         AJob.FailureData.B['partial'] := True;
@@ -547,7 +562,8 @@ begin
     lJob.DryRunSpecified := ADryRunSpecified;
     xeAutomationCopyJsonObject(ATarget, lJob.Target);
     xeAutomationCopyJsonObject(AOptions, lJob.Options);
-    lJob.TotalWork := lJob.Target.A['files'].Count;
+    lJob.WorkKey := lRegistration.WorkKey;
+    lJob.TotalWork := lJob.Target.A[lJob.WorkKey].Count;
     lJob.StartMutation := xeAutomationCaptureMutationSnapshot;
     lJob.ExpectedRevision := lJob.StartMutation.Generation;
     lJob.ExpectedSemanticRevision := xeAutomationQuerySemanticRevision;
@@ -606,7 +622,8 @@ begin
     lJob.State := xajsCancelRequested;
     if lJob.WorkIndex > 0 then begin
       xeAutomationWriteMutationAudit(lJob.FailureData.O['mutationState'], lJob.StartMutation);
-      lJob.SummaryData.B['partialChanges'] := lJob.FailureData.O['mutationState'].B['mutationsObserved'];
+      lJob.SummaryData.B['partialChanges'] := lJob.FailureData.O['mutationState'].B['mutationsObserved'] or
+        lJob.SummaryData.B['externalOutputWritten'];
     end;
     xeAutomationAdvanceJob(lJob);
   end else
