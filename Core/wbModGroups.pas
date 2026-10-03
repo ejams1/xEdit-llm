@@ -86,6 +86,7 @@ type
     mgValidMsgs     : TwbMessages;
 
     function IsValid: Boolean;
+    procedure LoadCandidate(aLines: TStrings);
     function ToString: string;
     function ToStrings: TArray<string>;
     function GetValidationMessages: TwbMessagePtrs;
@@ -137,6 +138,7 @@ type
 
 function wbModGroupsByName(aValidOnly: Boolean = True): TwbModGroupPtrs;
 procedure wbReloadModGroups;
+var wbModGroupsActivationGeneration: UInt64;
 
 implementation
 
@@ -210,6 +212,8 @@ end;
 procedure wbReloadModGroups;
 
 begin
+  // Reload invalidates native group pointers even if no new selection is made.
+  Inc(wbModGroupsActivationGeneration);
   _ModGroupFilesLoaded := False;
   wbLoadModGroups;
 end;
@@ -287,6 +291,16 @@ begin
 end;
 
 { TwbModGroup }
+
+procedure TwbModGroup.LoadCandidate(aLines: TStrings);
+begin
+  // Detached planning must not share arrays or carry a config pointer that can
+  // let native CRC helpers persist during preflight.
+  mgModGroupsFile := nil;
+  mgFlags := [];
+  mgValidMsgs := nil;
+  mgLoad(aLines);
+end;
 
 function TwbModGroup.GetValidationMessages: TwbMessagePtrs;
 var
@@ -748,6 +762,7 @@ var
   Targets : TwbModuleInfos;
   SourceReported : Boolean;
 begin
+  Inc(wbModGroupsActivationGeneration);
   Result := False;
   Modules := wbModulesByLoadOrder;
   for i := Low(Modules) to High(Modules) do

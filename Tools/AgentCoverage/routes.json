@@ -478,10 +478,16 @@
       "scriptSymbols": []
     },
     "modgroups": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Support create/edit/delete, CRC refresh, reload and enable/disable with explicit file scope and native conflict-group behavior; UI row hiding is separate.",
-      "effect": "external configuration and session conflict state",
+      "status": "partial",
+      "routes": [
+        "modgroups.list",
+        "modgroups.activate",
+        "modgroups.reload",
+        "modgroups.write",
+        "modgroups.refresh_crc"
+      ],
+      "notes": "Native candidate validation, explicit file/name identities, bounded CRUD and scoped CRC history with atomic config persistence; session activation and reload restore fresh valid identities and invalidate conflicts. Selection persistence/GUI row hiding excluded; runtime not verified.",
+      "effect": "immediate external config plus session conflict state; plugins unchanged",
       "scriptSymbols": []
     },
     "vwd-mesh": {
@@ -884,6 +890,10 @@
     "localization": {
       "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
       "effect": "table/plugin memory with separate explicit persistence; language session state; text export external output"
+    },
+    "modgroups": {
+      "prerequisites": "Loaded modules/main form; native discoverable config identity; consent for session/config edits; expected SHA256 file hash for writes.",
+      "effect": "read native validation or immediate external config/session conflict changes; plugin save independent"
     }
   },
   "requiredProfiles": [
@@ -1442,6 +1452,21 @@
     },
     "localization.export_text": {
       "effect": "external UTF-8 ID/text export; does not clear table dirtiness"
+    },
+    "modgroups.list": {
+      "effect": "read native inventory/validation and current disk config hash"
+    },
+    "modgroups.activate": {
+      "effect": "replace session selection/relationships and invalidate conflict/query caches; plugins unchanged"
+    },
+    "modgroups.reload": {
+      "effect": "reload native configs, resolve fresh pointers and restore valid explicit identities"
+    },
+    "modgroups.write": {
+      "effect": "default dry-run candidate validation; apply immediate atomic config create/update/rename/delete and reload; preserve untargeted sections"
+    },
+    "modgroups.refresh_crc": {
+      "effect": "default dry-run; append native CRC only to explicitly selected item histories, atomically persist config and reload"
     }
   }
 }

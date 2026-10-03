@@ -849,6 +849,7 @@ type
 
   public
     function AddRequiredMaster(const aMasterFile: IwbFile; const aTargetFile: IwbFile): Boolean;
+    procedure AutomationSetModGroupsState(aExist, aEnabled: Boolean);
     function AddRequiredMasters(const aSourceElement: IwbElement; const aTargetFile: IwbFile; aAsNew: Boolean; aSilent: Boolean = False): Boolean; overload;
     function AddRequiredMasters(aMasters: TStrings; const aTargetFile: IwbFile; aSilent: Boolean = False): Boolean; overload;
   protected
@@ -9886,6 +9887,19 @@ begin
     PostResetActiveTree;
     InvalidateElementsTreeView(NoNodes);
   end;
+end;
+
+procedure TfrmMain.AutomationSetModGroupsState(aExist, aEnabled: Boolean);
+begin
+  ModGroupsExist := aExist;
+  ModGroupsEnabled := aExist and aEnabled;
+  mniModGroupsEnabled.Checked := ModGroupsEnabled;
+  mniModGroupsDisabled.Checked := not ModGroupsEnabled;
+  // Activation changes native source/target edges. Refresh cached conflict
+  // classifications and displayed rows together, just as the native UI does.
+  ResetAllConflict;
+  PostResetActiveTree;
+  InvalidateElementsTreeView(NoNodes);
 end;
 
 procedure TfrmMain.mniModGroupsClick(Sender: TObject);
