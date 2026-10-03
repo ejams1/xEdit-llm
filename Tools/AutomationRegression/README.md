@@ -1,5 +1,39 @@
 # Automation regression fixtures
 
+## Issue #34: BOSS/LOOT cleaning reports
+
+`reports.cleaning` takes `format:loot|boss`, 1..8 `files`, and optional existing
+absolute `outputDirectory` with `overwrite:false` and `dryRun:true` defaults.
+It scans <=1000 records in clean saved/flushed loaded source files (<=64 MiB
+per source), requires clean saved masters, and retains source deny-write handles
+while verifying disk CRC against the loaded snapshot. Restart after saving or
+external file replacement. Counts and concrete root locators classify native
+removable ITM, editable cleanable UDR, and manual deleted NAVM; skipped identities
+are separate. Equal parents with nonempty child groups are retained. Master
+classification uses clean loaded snapshots; master disk files are not rehashed.
+It shares cleaning eligibility and the header-safe ITM comparison.
+Native formatters supply quoting, tool version, LOOT clean/quickClean/reqManualFix
+text and classic Oblivion BOSS text. TES3 rejects; BOSS additionally requires
+`gmTES4`. GUI historical cleaning entries are excluded.
+
+The plugin scan is read-only. Optional apply writes immediate atomic UTF-8 text
+without BOM to `xedit-cleaning-loot.yaml` or `xedit-cleaning-boss.txt`, requires
+consent and does not save plugins. Output failures retain the previous final file
+and report temporary-file cleanup state. LOOT output is a native metadata fragment
+using standard aliases, not a standalone alias-free YAML document.
+
+Run `report_fixture.py generate --game fo4 --overlay <fresh-MO2-overlay>` and load
+Fallout4.esm + AutomationReportBase.esm + AutomationReportDirty.esp +
+AutomationReportQuick.esp + AutomationReport'Clean.esp in that order. Run
+`exercise --game fo4 --overlay ... --output <fresh-existing-output-dir> --exe ...
+--pid ... --artifacts ...`; relaunch fresh and run `verify` with a new PID. It
+asserts concrete counts/identities, disk CRC, preserved flag-only override,
+manual/quick/clean formatting, exact UTF-8 output, overwrite refusal/replacement,
+unchanged dirty state and refusal after deliberate source editing/saving. Repeat
+with `--game tes4` and Oblivion.esm to test the BOSS path. Also test dirty masters,
+external source replacement, absent consent, unsupported games, limits, Unicode
+names/paths and unwritable/racing outputs. Delphi/native acceptance is pending.
+
 ## Issue #33: automatic VWD from resources
 
 `records.set_vwd_from_mesh` takes `files` (1..8 loaded plugins, <=1000 total

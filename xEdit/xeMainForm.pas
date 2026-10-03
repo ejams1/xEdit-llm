@@ -850,6 +850,7 @@ type
   public
     function AddRequiredMaster(const aMasterFile: IwbFile; const aTargetFile: IwbFile): Boolean;
     procedure AutomationSetModGroupsState(aExist, aEnabled: Boolean);
+    function AutomationCleaningReport(const aInfo: TLOOTPluginInfo; aBOSS: Boolean): string;
     function AddRequiredMasters(const aSourceElement: IwbElement; const aTargetFile: IwbFile; aAsNew: Boolean; aSilent: Boolean = False): Boolean; overload;
     function AddRequiredMasters(aMasters: TStrings; const aTargetFile: IwbFile; aSilent: Boolean = False): Boolean; overload;
   protected
@@ -1294,6 +1295,10 @@ function xeAutomationCleanIdenticalToMasterInMemory(const AFile: IwbFile; const 
   out APlanned, AApplied, ASkipped: Integer): Boolean;
 function xeAutomationUndeleteAndDisableRefsInMemory(const AFile: IwbFile; const AApply: Boolean;
   out APlanned, AApplied, ASkipped, ADeletedNavmesh: Integer): Boolean;
+// Reports and standalone selectors must classify the same native candidates.
+function xeAutomationRecordIsDeletedRefCandidate(const ARecord: IwbMainRecord): Boolean;
+function xeAutomationIdenticalRecordRemovalReason(const ARecord: IwbMainRecord): string;
+function xeAutomationDeletedRefCanBeCleaned(const ARecord: IwbMainRecord; out ADeletedNavmesh: Boolean): Boolean;
 function xeAutomationSortAndCleanMastersInMemory(const AFile: IwbFile; const AApply: Boolean;
   out ASortPlanned, ASortApplied, ASortSkipped, ACleanPlanned, ACleanApplied, ACleanSkipped: Integer): Boolean;
 
@@ -1396,6 +1401,18 @@ begin
   Result := True;
 end;
 
+function xeAutomationIdenticalRecordRemovalReason(const ARecord: IwbMainRecord): string;
+begin
+  Result := '';
+  if not Assigned(ARecord) then Exit('itm-missing-record');
+  // Removing an equal CELL/WRLD can also remove its nonidentical descendants.
+  // The GUI uses leaf/partial-form logic; automation conservatively retains
+  // parents rather than implicitly invoking MakePartialForm.
+  if Assigned(ARecord.ChildGroup) and (ARecord.ChildGroup.ElementCount > 0) then
+    Exit('itm-has-children');
+  if not ARecord.IsRemovable then Exit('itm-not-removable');
+end;
+
 function xeAutomationCleanIdenticalToMasterInMemory(const AFile: IwbFile; const AApply: Boolean;
   out APlanned, AApplied, ASkipped: Integer): Boolean;
 var
@@ -1410,7 +1427,7 @@ begin
     xeAutomationCollectFileMainRecords(AFile, AFile, lRecords);
     for lRecord in lRecords do
       if xeAutomationRecordIsIdenticalToMaster(lRecord) then begin
-        if not lRecord.IsRemovable then begin
+        if xeAutomationIdenticalRecordRemovalReason(lRecord) <> '' then begin
           Inc(ASkipped);
           Continue;
         end;
@@ -12013,6 +12030,14 @@ begin
       wbAppName
     ]);
   end;
+end;
+
+function TfrmMain.AutomationCleaningReport(const aInfo: TLOOTPluginInfo; aBOSS: Boolean): string;
+begin
+  // Reuse exact native quoting, aliases, tool version and game-specific output.
+  // Automation passes a fresh snapshot, never the GUI's cached cleaning history.
+  if aBOSS then Result := BOSSDirtyInfo(aInfo)
+  else Result := LOOTDirtyInfo(aInfo, True);
 end;
 
 procedure TfrmMain.btnCancelClick(Sender: TObject);

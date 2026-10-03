@@ -31,6 +31,7 @@ uses
   xeAutomationCommandsLocalization,
   xeAutomationCommandsModGroups,
   xeAutomationCommandsVWD,
+  xeAutomationCommandsReports,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsRecords,
@@ -153,6 +154,8 @@ begin
     xeAutomationRegisterModGroupCommands;
   if not xeAutomationHasCommand('records.set_vwd_from_mesh') then
     xeAutomationRegisterVWDCommands;
+  if not xeAutomationHasCommand('reports.cleaning') then
+    xeAutomationRegisterReportCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -277,6 +280,21 @@ begin
     Result.A['errors'].Add('stale_revision');
     Result.A['errors'].Add('stale_value');
     Result.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(lCommand, 'reports.cleaning') then begin
+    xeAutomationSchemaField(Result, 'format', 'string:loot|boss', True);
+    xeAutomationSchemaField(Result, 'files', 'array<string:loaded-plugin>:1..8', True);
+    xeAutomationSchemaField(Result, 'outputDirectory', 'string:absolute-existing-directory', False);
+    xeAutomationSchemaField(Result, 'overwrite', 'boolean:default-false', False);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    Result.S['prerequisites'] := 'Clean saved/flushed loaded sources/masters; non-TES3, translation mode off; BOSS only gmTES4; consent for output apply';
+    Result.S['persistence'] := 'read-only-plugin-scan; optional-immediate-atomic-external-UTF8-output';
+    Result.S['constraintNotes'] := '<=1000 records, <=64 MiB/source; source disk CRC matches loaded snapshot; nonempty child-group parents retained; master disk files not rehashed';
+    Result.O['example'].S['format'] := 'loot';
+    Result.O['example'].A['files'].Add('Patch.esp');
+    Result.A['errors'].Add('state_conflict');
+    Result.A['errors'].Add('report_capacity');
+    Result.A['errors'].Add('unsupported_game_mode');
+    Result.A['errors'].Add('external_output_failed');
   end else if SameText(lCommand, 'files.set_header_flags') then begin
     xeAutomationSchemaField(Result, 'file', 'string', True);
     xeAutomationSchemaField(Result, 'flags', 'object', True);
@@ -521,7 +539,11 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.38';
+  Result.S['contractVersion'] := '0.39';
+  Result.O['supports'].O['cleaningReports'].S['command'] := 'reports.cleaning';
+  Result.O['supports'].O['cleaningReports'].S['scope'] := '1..8 saved/flushed source files, <=1000 records, <=64MiB each; clean masters';
+  Result.O['supports'].O['cleaningReports'].S['formats'] := 'native loot; native boss only gmTES4';
+  Result.O['supports'].O['cleaningReports'].S['effect'] := 'read-only current snapshot with concrete identities/CRC; optional atomic UTF-8 outputDirectory, default dryRun';
   Result.O['supports'].O['automaticVWD'].S['command'] := 'records.set_vwd_from_mesh';
   Result.O['supports'].O['automaticVWD'].S['gamePredicate'] := 'wbIsOblivion; translation-mode-off; native exterior and resource existence';
   Result.O['supports'].O['automaticVWD'].S['scope'] := 'files:1..8, <=1000 records, <=128 eligible; optional targetFile copies eligible selected latest identities';

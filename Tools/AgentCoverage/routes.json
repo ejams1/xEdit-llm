@@ -500,13 +500,12 @@
       "scriptSymbols": []
     },
     "dirty-report": {
-      "status": "partial",
+      "status": "direct",
       "routes": [
-        "validation.check_for_itm",
-        "validation.check_for_deleted_refs"
+        "reports.cleaning"
       ],
-      "notes": "Provide native report formatting and structured counts/identities from validation/cleaning results; generic job findings are not the existing report export.",
-      "effect": "read-only report/external output",
+      "notes": "Native LOOT and classic Oblivion BOSS formatting from a bounded clean loaded snapshot, with concrete ITM/UDR/NAV identities and source disk CRC checks. Optional atomic UTF-8 output; GUI historical report entries excluded. Native runtime not verified.",
+      "effect": "read-only plugin scan; optional immediate external report output",
       "scriptSymbols": []
     },
     "standalone-cleaning": {
@@ -896,6 +895,10 @@
     "modgroups": {
       "prerequisites": "Loaded modules/main form; native discoverable config identity; consent for session/config edits; expected SHA256 file hash for writes.",
       "effect": "read native validation or immediate external config/session conflict changes; plugin save independent"
+    },
+    "reports": {
+      "prerequisites": "Saved/flushed clean loaded source plugins and masters; supported native game/report format.",
+      "effect": "read-only plugin classification; optional immediate external text output"
     }
   },
   "requiredProfiles": [
@@ -1472,6 +1475,10 @@
     },
     "records.set_vwd_from_mesh": {
       "effect": "default dry-run resource/target plans; apply flags or override copies in memory -> explicit save + terminal flush; partial outcomes audited"
+    },
+    "reports.cleaning": {
+      "prerequisites": "Non-TES3; 1..8 clean saved/flushed loaded plugins, <=1000 records and <=64 MiB/source; clean saved masters. BOSS requires gmTES4.",
+      "effect": "read-only native classification and formatting; optional outputDirectory writes atomic UTF-8 external file with consent, default dryRun:true"
     }
   }
 }
