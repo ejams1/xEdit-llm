@@ -26,6 +26,7 @@ uses
   xeAutomationCommandsFormIds,
   xeAutomationCommandsPatches,
   xeAutomationCommandsJobs,
+  xeAutomationCommandsLOD,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsRecords,
@@ -40,7 +41,7 @@ uses
   xeAutomationRegistry;
 
 const
-  xeAutomationFinalJobKinds: array[0..11] of string = (
+  xeAutomationFinalJobKinds: array[0..12] of string = (
     'files.hygiene.batch',
     'plugin.esl.analyze',
     'plugin.esl.apply',
@@ -52,7 +53,8 @@ const
     'cleaning.quick_clean',
     'cleaning.quick_auto_clean',
     'cleaning.sort_and_clean_masters',
-    'cleaning.cleanup_injected_references'
+    'cleaning.cleanup_injected_references',
+    'lod.generate'
   );
 
 procedure xeAutomationEnsureCapabilityCommandSurface;
@@ -66,6 +68,7 @@ var
   lCleaningQuickRegistered: Boolean;
   lCleaningQuickAutoRegistered: Boolean;
   lCleaningMastersRegistered: Boolean;
+  lLODRegistered: Boolean;
 begin
   // Capabilities advertises the full protocol surface even for one-shot probes;
   // register groups lazily here so the registry remains the single source of names.
@@ -87,6 +90,7 @@ begin
   lCleaningQuickRegistered := False;
   lCleaningQuickAutoRegistered := False;
   lCleaningMastersRegistered := False;
+  lLODRegistered := False;
   for lJobKind in xeAutomationListJobKinds do
     if SameText(lJobKind, 'plugin.esl.analyze') then begin
       lPluginAnalyzeRegistered := True;
@@ -104,6 +108,8 @@ begin
       lCleaningQuickAutoRegistered := True;
     end else if SameText(lJobKind, 'cleaning.sort_and_clean_masters') then begin
       lCleaningMastersRegistered := True;
+    end else if SameText(lJobKind, 'lod.generate') then begin
+      lLODRegistered := True;
     end;
   if not lPluginAnalyzeRegistered then
     xeAutomationRegisterPluginAnalysisCommands;
@@ -116,6 +122,7 @@ begin
   // registered only after the 6D in-memory/apply-safe implementation is linked.
   if not (lCleaningQuickRegistered and lCleaningQuickAutoRegistered and lCleaningMastersRegistered) then
     xeAutomationRegisterCleaningCommands;
+  if not lLODRegistered then xeAutomationRegisterLODJobs;
   if not xeAutomationHasCommand('jobs.start') then
     xeAutomationRegisterJobsCommands;
   if not xeAutomationHasCommand('records.list') then
@@ -498,7 +505,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.33';
+  Result.S['contractVersion'] := '0.34';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin
@@ -632,6 +639,15 @@ begin
   Result.O['supports'].O['jobs'].A['commands'].Add('jobs.findings');
   Result.O['supports'].O['jobs'].A['commands'].Add('jobs.cancel');
   Result.O['supports'].O['jobs'].A['commands'].Add('jobs.discard');
+  with Result.O['supports'].O['lod'] do begin
+    S['jobKind'] := 'lod.generate';
+    S['target'] := 'worldspaces:1..4 WRLD locators';
+    S['options'] := 'operation:generate|splitAtlas; outputRoot:existing absolute directory; objects/trees booleans; settings object';
+    S['outputPolicy'] := 'fresh per-world directory; immediate external artifacts; no plugin mutation; independent output verification required';
+    S['cancelBoundary'] := 'between worldspaces; current native unit blocks its poll';
+    S['settings'] := 'atlasWidth/atlasHeight:1024,2048,4096,8192; textureSize:256,512,1024; brightness:-30..30; alphaThreshold:0..255; trees3D/noTangents/noVertexColors:boolean; lodLevel:4,8,16; x/y:int16 pair';
+    S['constraints'] := 'FO76/SF reject; SSE/VR object LOD needs LODGen startup; split Skyrim/FO3/FNV only; 100000 native scan elements; no custom extra-options files; isolated scratch and bounded logs/inventory';
+  end;
   // Keep the public job-kind order and membership stable so clients receive a
   // deterministic contract instead of dictionary sort order.
   for lJobKind in xeAutomationFinalJobKinds do

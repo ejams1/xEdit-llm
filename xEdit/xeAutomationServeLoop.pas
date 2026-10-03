@@ -26,6 +26,7 @@ uses
   xeAutomationCommandsCleaning,
   xeAutomationCommandsFileHygiene,
   xeAutomationCommandsJobs,
+  xeAutomationCommandsLOD,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsSession,
@@ -119,6 +120,7 @@ begin
     // 6D cleaning jobs share loaded xEdit state and must be registered before the
     // job facade so jobs.start and capabilities observe the same implemented set.
     xeAutomationRegisterCleaningCommands;
+    xeAutomationRegisterLODJobs;
     xeAutomationRegisterRecordsCommands;
     xeAutomationRegisterElementsCommands;
     xeAutomationRegisterBatchCommands;

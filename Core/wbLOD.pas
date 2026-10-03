@@ -43,6 +43,12 @@ const
   iBillboardFlag = 4096; // mark texture as a tree billboard in atlas images
 
 var
+  // Automation owns these only for a main-thread native work unit and restores
+  // them in finally. GUI callers retain their existing message/log behavior.
+  wbLODStrictAutomation: Boolean = False;
+  wbLODScratchPath: string;
+  wbLODMaxScanElements: Integer = 100000;
+  wbLODInspectedElements: Integer = 0;
   iDefaultAtlasWidth: Integer = 2048;
   iDefaultAtlasHeight: Integer = 2048;
   fDefaultUVRange: Single = 1.5;
@@ -309,6 +315,43 @@ implementation
 uses
   Math;
 
+procedure wbLODSetCaption(const ACaption: string);
+begin
+  if wbLODStrictAutomation then wbProgressCallback(ACaption)
+  else if Assigned(Application.MainForm) then Application.MainForm.Caption := ACaption;
+end;
+
+procedure wbLODProcessMessages;
+begin
+  // Automation yields between explicit worldspace work units. Pumping GUI
+  // messages inside a native unit can reenter unrelated loaded-data workflows.
+  if not wbLODStrictAutomation then Application.ProcessMessages;
+end;
+
+function wbLODIntermediatePath: string;
+begin
+  if wbLODScratchPath <> '' then Result := wbLODScratchPath
+  else Result := wbScriptsPath;
+end;
+
+procedure wbLODChargeScan(const ACount: Integer = 1);
+begin
+  if not wbLODStrictAutomation then Exit;
+  if (ACount < 0) or (ACount > wbLODMaxScanElements - wbLODInspectedElements) then
+    raise Exception.Create('LOD native scan exceeds automation budget');
+  Inc(wbLODInspectedElements, ACount);
+end;
+
+procedure wbLODValidateDDS(const AData: TBytes);
+begin
+  if not wbLODStrictAutomation then Exit;
+  if (Length(AData) < 128) or (Length(AData) > 64 * 1024 * 1024) or
+     (PCardinal(@AData[0])^ <> $20534444) or
+     (PCardinal(@AData[12])^ < 1) or (PCardinal(@AData[12])^ > 8192) or
+     (PCardinal(@AData[16])^ < 1) or (PCardinal(@AData[16])^ > 8192) then
+    raise Exception.Create('LOD DDS exceeds automation bounds');
+end;
+
 function wbLODExtraOptionsFileName(const PluginName, WorldspaceID: string): string;
 begin
   Result := wbAppName + 'LODGen_' + PluginName + '_' + WorldSpaceID + '_Options.txt';
@@ -452,6 +495,9 @@ begin
     LODLevelMin := PInteger(@aData[8])^;
     LODLevelMax := PInteger(@aData[12])^;
   end;
+  if wbLODStrictAutomation and ((Stride < 1) or (Stride > 256) or
+     (LODLevelMin < 1) or (LODLevelMax < LODLevelMin) or (LODLevelMax > 32)) then
+    raise Exception.Create('LOD settings exceed automation bounds');
 end;
 
 { TwbBinPacker }
@@ -560,6 +606,8 @@ end;
 function TwbLodTES5Tree.LoadFromData(aData: TBytes): Boolean;
 begin
   InitImage(Image);
+  wbLODValidateDDS(aData);
+  if Length(aData) = 0 then Exit(False);
   Result := wbLoadImageFromMemory(@aData[0], Length(aData), Image);
 end;
 
@@ -624,13 +672,23 @@ end;
 function TwbLodTES5TreeList.GetAtlasRect(Index: Integer): TAtlasRect;
 begin
   if fAtlas.Format = ifUnknown then
-    Exit;
+    raise Exception.Create('Tree atlas is not loaded');
+  if (Index < 0) or (Index >= TreesListCount) then
+    raise Exception.Create('Tree atlas index is out of range');
 
   with TreesList[Index] do begin
+    if IsNan(UVMinX) or IsNan(UVMinY) or IsNan(UVMaxX) or IsNan(UVMaxY) or
+       IsInfinite(UVMinX) or IsInfinite(UVMinY) or IsInfinite(UVMaxX) or IsInfinite(UVMaxY) or
+       (UVMinX < 0) or (UVMinY < 0) or (UVMaxX > 1) or (UVMaxY > 1) or
+       (UVMinX >= UVMaxX) or (UVMinY >= UVMaxY) then
+      raise Exception.Create('Invalid tree atlas UV rectangle');
     Result.x := Round(fAtlas.Width * UVMinX);
     Result.y := Round(fAtlas.Height * UVMinY);
     Result.w := Round(fAtlas.Width * (UVMaxX - UVMinX));
     Result.h := Round(fAtlas.Height * (UVMaxY - UVMinY));
+    if (Result.w <= 0) or (Result.h <= 0) or
+       (Result.x + Result.w > fAtlas.Width) or (Result.y + Result.h > fAtlas.Height) then
+      raise Exception.Create('Invalid tree atlas pixel rectangle');
   end;
 end;
 
@@ -677,21 +735,27 @@ end;
 
 procedure TwbLodTES5TreeList.LoadFromData(aData: TBytes);
 var
-  TreesNum: integer;
+  TreesNum, i: integer;
 begin
   if Length(aData) < SizeOf(Integer) then begin
+    if wbLODStrictAutomation then raise Exception.Create('Incomplete LST file');
     SetLength(fTreesList, 0);
     Exit;
   end;
 
   TreesNum := PInteger(@aData[0])^;
 
-  if Length(aData) - 4 < SizeOf(TwbLodTES5TreeType) * TreesNum then
+  if (TreesNum < 0) or (TreesNum > 65536) or
+     (Int64(TreesNum) * SizeOf(TwbLodTES5TreeType) > Length(aData) - 4) then
     raise Exception.Create('Invalid LST file');
 
   SetLength(fTreesList, TreesNum);
 
-  Move(aData[4], fTreesList[0], SizeOf(TwbLodTES5TreeType) * TreesNum);
+  if TreesNum > 0 then Move(aData[4], fTreesList[0], SizeOf(TwbLodTES5TreeType) * TreesNum);
+  for i := 0 to TreesNum - 1 do
+    if (fTreesList[i].Index < 0) or (fTreesList[i].Index >= TreesNum) or
+       (wbLODStrictAutomation and (fTreesList[i].Index <> i)) then
+      raise Exception.Create('Invalid LST tree index');
 end;
 
 procedure TwbLodTES5TreeList.SaveToFile(aFileName: string);
@@ -711,7 +775,9 @@ end;
 procedure TwbLodTES5TreeList.LoadAtlas(aData: TBytes);
 begin
   InitImage(fAtlas);
-  LoadImageFromMemory(@aData[0], Length(aData), fAtlas);
+  wbLODValidateDDS(aData);
+  if (Length(aData) = 0) or not LoadImageFromMemory(@aData[0], Length(aData), fAtlas) then
+    raise Exception.Create('Invalid tree atlas image');
 end;
 
 function TwbLodTES5TreeList.SaveAtlas(aFileName: string): Boolean;
@@ -760,7 +826,8 @@ begin
     NewImage(w, h, ifDXT3, img);
     try
       CopyRect(fAtlas, x, y, w, h, img, 0, 0);
-      SaveImageToFile(aFileName, img);
+      if not SaveImageToFile(aFileName, img) then
+        raise Exception.Create('Cannot save split tree billboard: ' + aFileName);
     finally
       FreeImage(img);
     end;
@@ -897,6 +964,7 @@ var
   TypesNum, TreesNum, i, p: integer;
 begin
   if Length(aData) < SizeOf(Integer) then begin
+    if wbLODStrictAutomation then raise Exception.Create('Incomplete tree LOD block file');
     Clear;
     Exit;
   end;
@@ -905,29 +973,38 @@ begin
   TypesNum := PInteger(@aData[p])^;
   Inc(p, SizeOf(Integer));
 
+  // Resource bytes are untrusted counts. Validate before allocation and before
+  // every pointer read; negative/overflowed counts must never reach Move.
+  if (TypesNum < 0) or (TypesNum > 65536) or (Int64(TypesNum) * 8 > Length(aData) - p) then
+    raise Exception.Create(sError);
+
   SetLength(Types, TypesNum);
   SetLength(Refs, TypesNum);
 
   for i := 0 to TypesNum - 1 do begin
-    if p >= Length(aData) then
+    if Length(aData) - p < 8 then
       raise Exception.Create(sError);
 
     // tree type
     Types[i].Index := PInteger(@aData[p])^;
     Inc(p, SizeOf(Integer));
-    if p >= Length(aData) then
+    if Length(aData) - p < 4 then
       raise Exception.Create(sError);
 
     // number of trees
     TreesNum := PInteger(@aData[p])^;
+    wbLODChargeScan(TreesNum);
     Types[i].Count := TreesNum;
     Inc(p, SizeOf(Integer));
-    if p >= Length(aData) then
+    if (TreesNum < 0) or (TreesNum > 1000000) or
+       (Int64(TreesNum) * SizeOf(TwbLodTES5TreeRef) > Length(aData) - p) or
+       (Types[i].Index < 0) or
+       (Assigned(TreeList) and (Types[i].Index >= TreeList.TreesListCount)) then
       raise Exception.Create(sError);
 
     // ref array
     SetLength(Refs[i], TreesNum);
-    Move(aData[p], Refs[i][0], SizeOf(TwbLodTES5TreeRef) * TreesNum);
+    if TreesNum > 0 then Move(aData[p], Refs[i][0], SizeOf(TwbLodTES5TreeRef) * TreesNum);
     Inc(p, SizeOf(TwbLodTES5TreeRef) * TreesNum);
   end;
 end;
@@ -1323,7 +1400,8 @@ begin
 
         try
           GenerateMipMaps(atlas, 0, mipmap);
-          SaveMultiImageToFile(fname, mipmap);
+          if not SaveMultiImageToFile(fname, mipmap) then
+            raise Exception.Create('Cannot save LOD atlas: ' + fname);
         finally
           FreeImagesInArray(mipmap);
         end;
@@ -1362,7 +1440,8 @@ begin
 
         try
           GenerateMipMaps(atlas, 0, mipmap);
-          SaveMultiImageToFile(fname, mipmap);
+          if not SaveMultiImageToFile(fname, mipmap) then
+            raise Exception.Create('Cannot save LOD atlas: ' + fname);
         finally
           FreeImagesInArray(mipmap);
         end;
@@ -1402,7 +1481,8 @@ begin
 
           try
             GenerateMipMaps(atlas, 0, mipmap);
-            SaveMultiImageToFile(fname, mipmap);
+            if not SaveMultiImageToFile(fname, mipmap) then
+              raise Exception.Create('Cannot save LOD atlas: ' + fname);
           finally
             FreeImagesInArray(mipmap);
           end;
@@ -1711,7 +1791,8 @@ begin
 
       try
         GenerateMipMaps(Atlases[i], 0, mipmap);
-        SaveMultiImageToFile(fname, mipmap);
+        if not SaveMultiImageToFile(fname, mipmap) then
+          raise Exception.Create('Cannot save LOD atlas: ' + fname);
       finally
         FreeImagesInArray(mipmap);
       end;
@@ -1722,7 +1803,8 @@ begin
 
       try
         GenerateMipMaps(Atlases_n[i], 0, mipmap);
-        SaveMultiImageToFile(ChangeFileExt(fname, '') + '_n.dds', mipmap);
+        if not SaveMultiImageToFile(ChangeFileExt(fname, '') + '_n.dds', mipmap) then
+          raise Exception.Create('Cannot save LOD normal atlas: ' + fname);
       finally
         FreeImagesInArray(mipmap);
       end;
@@ -1786,8 +1868,8 @@ begin
       Exit;
     end;
 
-    Application.MainForm.Caption := 'Scanning LOD Blocks: ' + aWorldspace.Name + ',  please wait...';
-    Application.ProcessMessages;
+    wbLODSetCaption('Scanning LOD Blocks: ' + aWorldspace.Name + ',  please wait...');
+    wbLODProcessMessages;
 
     // scan BTT files to associate lod trees indexes with TREE FormIDs
     slCont := TwbFastStringList.Create;
@@ -1798,18 +1880,23 @@ begin
         wbContainerHandler.ContainerResourceList(slCont[i], slList, ExtractFilePath(Lst.ListFileName));
       slList.Duplicates := dupIgnore;
       slList.Sorted := True;
+      if wbLODStrictAutomation and (slList.Count > 4096) then
+        raise Exception.Create('Split atlas resource block budget exceeded');
 
       // array of found TREE records indexed by LST index
       SetLength(TreeRecords, Lst.TreesListCount);
 
       // list of loaded plugins by load order
+      FillChar(loFiles, SizeOf(loFiles), 0);
       for i := High(Files) downto Low(Files) do
-        loFiles[Files[i].LoadOrder] := Files[i];
+        if (Files[i].LoadOrder >= Low(loFiles)) and (Files[i].LoadOrder <= High(loFiles)) then
+          loFiles[Files[i].LoadOrder] := Files[i];
 
       if wbIsFallout3 then LodLevel := 8 else LodLevel := 4;
       BTT.Init(Lst, Cell, LodLevel);
       // for each btt file
       for i := 0 to Pred(slList.Count) do begin
+        wbLODChargeScan;
         if not SameText(ExtractFileExt(slList[i]), '.' + wbLODTreeBlockFileExt) then
           Continue;
         Res := wbContainerHandler.OpenResource(slList[i]);
@@ -1822,6 +1909,7 @@ begin
           for r := 0 to BTT.Types[j].Count - 1 do begin
             // a mod the reference is supposed to be from
             k := BTT.Refs[j][r].RefFormID.FileID.FullSlot;
+            if k > High(loFiles) then Continue;
             if not Assigned(loFiles[k]) then
               Continue;
             Ref := loFiles[k].RecordByFormID[loFiles[k].LoadOrderFormIDtoFileFormID(BTT.Refs[j][r].RefFormID, True), False, True];
@@ -1836,6 +1924,8 @@ begin
                   Break;
                 end;
               if not bFound then begin
+                if wbLODStrictAutomation and (Length(TreeRecords[LstIndex]) >= 256) then
+                  raise Exception.Create('Split atlas association budget exceeded');
                 SetLength(TreeRecords[LstIndex], Succ(Length(TreeRecords[LstIndex])));
                 TreeRecords[LstIndex][Pred(Length(TreeRecords[LstIndex]))] := Ref.BaseRecord.MasterOrSelf;
               end;
@@ -1850,7 +1940,9 @@ begin
     SplitPath := wbOutputPath + 'Textures\Terrain\LODGen\AtlasSplit_' + ChangeFileExt(ExtractFileName(Lst.AtlasFileName), '') + '\';
 
     for i := 0 to Pred(Lst.TreesListCount) do with Lst.TreesList[i] do begin
-      for n := Low(TreeRecords[Index]) to High(TreeRecords[Index]) do begin
+      // Unassociated atlas entries still need a fallback export. An empty
+      // association array previously made the fallback branch unreachable.
+      for n := 0 to Max(High(TreeRecords[Index]), 0) do begin
         if Length(TreeRecords[Index]) > 0 then
           TreeFileName := Format('%s\%s_%s.dds', [
             TreeRecords[Index][n]._File.FileName,
@@ -1880,7 +1972,7 @@ begin
      wbProgressCallback('[Split atlas] Done.');
   finally
     Lst.Free;
-    Application.MainForm.Caption := Application.Title;
+    wbLODSetCaption(Application.Title);
   end;
 end;
 
@@ -1896,11 +1988,13 @@ var
   Container  : IwbContainerElementRef;
   i          : Integer;
 begin
+  Inc(TotalCount);
+  wbLODChargeScan;
   if StartTick + 500 < GetTickCount then begin
-    Application.MainForm.Caption := 'Scanning References: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(TotalCount) +
+    wbLODSetCaption('Scanning References: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(TotalCount) +
       ' References Found: ' + IntToStr(Count) +
-      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-    Application.ProcessMessages;
+      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+    wbLODProcessMessages;
     StartTick := GetTickCount;
   end;
 
@@ -1927,9 +2021,9 @@ var
   TotalCount : Integer;
   i, j       : Integer;
 begin
-  Application.MainForm.Caption := 'Scanning References: ' + aWorldspace.Name + ' Processed Records: 0 '+
-    'References Found: 0 Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-  Application.ProcessMessages;
+  wbLODSetCaption('Scanning References: ' + aWorldspace.Name + ' Processed Records: 0 '+
+    'References Found: 0 Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+  wbLODProcessMessages;
   StartTick := GetTickCount;
 
   Master := aWorldspace.MasterOrSelf;
@@ -1945,16 +2039,16 @@ begin
 
   {only keep the newest version of each}
   if Length(REFRs) > 1 then begin
-    Application.MainForm.Caption := 'Sorting References: ' + aWorldspace.Name +
-      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-    Application.ProcessMessages;
+    wbLODSetCaption('Sorting References: ' + aWorldspace.Name +
+      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+    wbLODProcessMessages;
 
     wbMergeSortPtr(@REFRs[0], Length(REFRs), CompareElementsFormIDAndLoadOrder);
 
-    Application.MainForm.Caption := 'Removing duplicates: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
+    wbLODSetCaption('Removing duplicates: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
       ' Unique References Found: ' + IntToStr(0) +
-      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-    Application.ProcessMessages;
+      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+    wbLODProcessMessages;
     StartTick := GetTickCount;
 
     j := 0;
@@ -1967,10 +2061,10 @@ begin
       if wbForceTerminate then
         Abort;
       if StartTick + 500 < GetTickCount then begin
-        Application.MainForm.Caption := 'Removing duplicates: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
+        wbLODSetCaption('Removing duplicates: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
           ' Unique References Found: ' + IntToStr(j) +
-          ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-        Application.ProcessMessages;
+          ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+        wbLODProcessMessages;
         StartTick := GetTickCount;
       end;
     end;
@@ -2093,10 +2187,10 @@ begin
     MinY := MaxSingle;
     MaxY := -MaxSingle;
 
-    Application.MainForm.Caption := 'Filtering VWD References: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
+    wbLODSetCaption('Filtering VWD References: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
       ' Matching Records: ' + IntToStr(0) +
-      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-    Application.ProcessMessages;
+      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+    wbLODProcessMessages;
     StartTick := GetTickCount;
 
     SetLength(RefInfos, Length(REFRs));
@@ -2163,10 +2257,10 @@ begin
         if wbForceTerminate then
           Abort;
         if StartTick + 500 < GetTickCount then begin
-          Application.MainForm.Caption := 'Filtering VWD References: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
+          wbLODSetCaption('Filtering VWD References: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
             ' Matching Records: ' + IntToStr(Succ(j)) +
-            ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-          Application.ProcessMessages;
+            ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+          wbLODProcessMessages;
           StartTick := GetTickCount;
         end;
 
@@ -2190,6 +2284,9 @@ begin
     if MaxY < 0 then
       Dec(MaxCell.y);
 
+    if wbLODStrictAutomation and
+       (Int64(Succ(MaxCell.x - MinCell.x)) * Succ(MaxCell.y - MinCell.y) > 65536) then
+      raise Exception.Create('TES4 LOD cell grid exceeds automation bounds');
     SetLength(Cells, Succ(-(MinCell.x-MaxCell.x)), Succ(-(MinCell.y-MaxCell.y)));
 
     if wbForceTerminate then
@@ -2201,9 +2298,9 @@ begin
   ForceDirectories(LODPath);
 
   i := 0;
-  Application.MainForm.Caption := 'Deleting old .lod files: ' + aWorldspace.Name + ' Processed Files: ' + IntToStr(i) +
-    ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-  Application.ProcessMessages;
+  wbLODSetCaption('Deleting old .lod files: ' + aWorldspace.Name + ' Processed Files: ' + IntToStr(i) +
+    ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+  wbLODProcessMessages;
   StartTick := GetTickCount;
 
   if wbForceTerminate then
@@ -2215,9 +2312,9 @@ begin
       Inc(i);
 
       if StartTick + 500 < GetTickCount then begin
-        Application.MainForm.Caption := 'Deleting old .lod files: ' + aWorldspace.Name + ' Processed Files: ' + IntToStr(i) +
-          ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-        Application.ProcessMessages;
+        wbLODSetCaption('Deleting old .lod files: ' + aWorldspace.Name + ' Processed Files: ' + IntToStr(i) +
+          ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+        wbLODProcessMessages;
         StartTick := GetTickCount;
       end;
 
@@ -2232,9 +2329,9 @@ begin
   if Rule > rClear then begin
     CmpStream := TwbWriteCachedFileStream.Create(LODPath + aWorldspace.EditorID + '.cmp', fmCreate);
     try
-      Application.MainForm.Caption := 'Assigning References to Cells: ' + aWorldspace.Name + ' Processed References: ' + IntToStr(0) +
-        ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-      Application.ProcessMessages;
+      wbLODSetCaption('Assigning References to Cells: ' + aWorldspace.Name + ' Processed References: ' + IntToStr(0) +
+        ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+      wbLODProcessMessages;
       StartTick := GetTickCount;
 
       for i := Low(RefInfos) to High(RefInfos) do
@@ -2247,16 +2344,16 @@ begin
           if wbForceTerminate then
             Abort;
           if StartTick + 500 < GetTickCount then begin
-            Application.MainForm.Caption := 'Assigning References to Cells: ' + aWorldspace.Name + ' Processed References: ' + IntToStr(i) +
-              ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-            Application.ProcessMessages;
+            wbLODSetCaption('Assigning References to Cells: ' + aWorldspace.Name + ' Processed References: ' + IntToStr(i) +
+              ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+            wbLODProcessMessages;
             StartTick := GetTickCount;
           end;
         end;
 
-      Application.MainForm.Caption := 'Writing .lod files: ' + aWorldspace.Name + ' Processed Cells: ' + IntToStr(0) +
-        ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-      Application.ProcessMessages;
+      wbLODSetCaption('Writing .lod files: ' + aWorldspace.Name + ' Processed Cells: ' + IntToStr(0) +
+        ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+      wbLODProcessMessages;
       StartTick := GetTickCount;
 
       for i := Low(Cells) to High(Cells) do
@@ -2333,9 +2430,9 @@ begin
           end;
 
           if StartTick + 500 < GetTickCount then begin
-            Application.MainForm.Caption := 'Writing .lod files: ' + aWorldspace.Name + ' Processed Cells: ' + IntToStr(i * Length(Cells[i]) + j) +
-              ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-            Application.ProcessMessages;
+            wbLODSetCaption('Writing .lod files: ' + aWorldspace.Name + ' Processed Cells: ' + IntToStr(i * Length(Cells[i]) + j) +
+              ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+            wbLODProcessMessages;
             StartTick := GetTickCount;
           end;
         end;
@@ -2447,9 +2544,9 @@ var
                     sl.AddObject(Reference.MasterOrSelf.LoadOrderFormID.ToString(False), Pointer(Reference.MasterOrSelf));
                 end;
           if StartTick + 500 < GetTickCount then begin
-            Application.MainForm.Caption := 'Gathering Large References: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
-              ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-            Application.ProcessMessages;
+            wbLODSetCaption('Gathering Large References: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
+              ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+            wbLODProcessMessages;
             StartTick := GetTickCount;
           end;
         end;
@@ -2521,9 +2618,9 @@ begin
 
   // Trees LOD, only if not generated as 3D objects LOD
   if (lodTrees in LODTypes) and not bTrees3D then begin
-    Application.MainForm.Caption := 'Building Trees LOD blocks: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
-      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-    Application.ProcessMessages;
+    wbLODSetCaption('Building Trees LOD blocks: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
+      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+    wbLODProcessMessages;
     StartTick := GetTickCount;
 
     TreesCount := 0;
@@ -2543,6 +2640,8 @@ begin
         for j := Low(Sigs) to High(Sigs) do begin
           Group := Files[i].GroupBySignature[Sigs[j]];
           if Assigned(Group) then
+          begin
+          wbLODChargeScan(Group.ElementCount);
           for k := 0 to Pred(Group.ElementCount) do
             if Supports(Group.Elements[k], IwbMainRecord, TreeRec) and
                TreeRec.IsMaster and
@@ -2554,6 +2653,7 @@ begin
               else
                 slLog.Add('<Note: ' + TreeRec.Name + ' LOD not found ' + PTree^.Billboard + '>');
             end;
+          end;
         end;
     end;
 
@@ -2660,16 +2760,16 @@ begin
         if wbForceTerminate then
           Abort;
         if StartTick + 500 < GetTickCount then begin
-          Application.MainForm.Caption := 'Building Trees LOD blocks: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
-            ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-          Application.ProcessMessages;
+          wbLODSetCaption('Building Trees LOD blocks: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
+            ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+          wbLODProcessMessages;
           StartTick := GetTickCount;
         end;
       end;
 
       slLog.Sort;
       wbProgressCallback(Trim(slLog.Text));
-      Application.ProcessMessages;
+      wbLODProcessMessages;
 
       if not Lst.BuildAtlas(StrToIntDef(Settings.ReadString('Worldspace', 'AtlasSizeMax', ''), 8192)) then begin
         // will return false without exception only if atlas is empty, skip this silenty
@@ -2683,9 +2783,9 @@ begin
       else begin
         LODPath := wbOutputPath; // -O switch override
 
-        Application.MainForm.Caption := 'Deleting old LOD files: ' + aWorldspace.Name +
-          ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-        Application.ProcessMessages;
+        wbLODSetCaption('Deleting old LOD files: ' + aWorldspace.Name +
+          ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+        wbLODProcessMessages;
         StartTick := GetTickCount;
 
         if wbForceTerminate then
@@ -2695,9 +2795,9 @@ begin
           repeat
             DeleteFile(ExtractFilePath(LODPath + Lst.AtlasFileName) + F.Name);
             if StartTick + 500 < GetTickCount then begin
-              Application.MainForm.Caption := 'Deleting old LOD files: ' + aWorldspace.Name +
-                ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-              Application.ProcessMessages;
+              wbLODSetCaption('Deleting old LOD files: ' + aWorldspace.Name +
+                ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+              wbLODProcessMessages;
               StartTick := GetTickCount;
             end;
             if wbForceTerminate then
@@ -2708,8 +2808,8 @@ begin
         end;
 
         if Length(LOD4) > 0 then begin
-          Application.MainForm.Caption := 'Saving Trees LOD files: ' + aWorldspace.Name;
-          Application.ProcessMessages;
+          wbLODSetCaption('Saving Trees LOD files: ' + aWorldspace.Name);
+          wbLODProcessMessages;
 
           i := Settings.ReadInteger(Section, 'TreesBrightness', 0);
           Lst.ChangeAtlasBrightness(i);
@@ -2726,21 +2826,23 @@ begin
         if TreesDupCount <> 0 then
           wbProgressCallback('<Warning: ' + IntToStr(TreesDupCount) + ' duplicate FormID numbers of trees references were detected, excluded from LOD>');
       end;
-    except on E: Exception do
+    except on E: Exception do begin
+      if wbLODStrictAutomation then raise;
       wbProgressCallback('[' + aWorldspace.EditorID + '] Trees LOD generation error: ' + E.Message);
+      end;
     end;
     finally
       Lst.Free;
       slLog.Free;
-      Application.MainForm.Caption := Application.Title;
+      wbLODSetCaption(Application.Title);
     end;
   end;
 
   // Objects LOD
   if lodObjects in LODTypes then begin
-    Application.MainForm.Caption := 'Building Objects LOD: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
-      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-    Application.ProcessMessages;
+    wbLODSetCaption('Building Objects LOD: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
+      ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+    wbLODProcessMessages;
     StartTick := GetTickCount;
 
     slCache := TStringList.Create;
@@ -2982,9 +3084,9 @@ begin
         if wbForceTerminate then
           Abort;
         if StartTick + 500 < GetTickCount then begin
-          Application.MainForm.Caption := 'Building Objects LOD: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
-            ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-          Application.ProcessMessages;
+          wbLODSetCaption('Building Objects LOD: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
+            ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+          wbLODProcessMessages;
           StartTick := GetTickCount;
         end;
       end;
@@ -3002,7 +3104,7 @@ begin
           else if wbIsFallout3 then
             AtlasName := wbOutputPath + 'textures\landscape\lod\' + aWorldspace.EditorID  + '\Blocks\' + aWorldspace.EditorID + '.Buildings.dds';
           // atlas map name
-          AtlasMapName := wbScriptsPath + 'LODGenAtlasMap.txt';
+          AtlasMapName := wbLODIntermediatePath + 'LODGenAtlasMap.txt';
           // textures list file name
           //if wbGameMode in [ gmSSE ] then
           //  TexturesListFile := wbScriptsPath + 'LODGenTexturesList.txt';
@@ -3014,7 +3116,7 @@ begin
         else
           // use vanilla atlas if build atlas is not selected
           if wbIsSkyrim then begin
-            AtlasMapName := wbScriptsPath + wbAppName + '-AtlasMap-' + aWorldspace.EditorID + '.txt';
+            AtlasMapName := wbLODIntermediatePath + wbAppName + '-AtlasMap-' + aWorldspace.EditorID + '.txt';
             UVRange := 10000;
           end;
 
@@ -3092,7 +3194,7 @@ begin
                   '-1' // float vertexcolor range
                 );
               end;
-            s := wbScriptsPath + 'LODGenFlatTextures.txt';
+            s := wbLODIntermediatePath + 'LODGenFlatTextures.txt';
             sl.SaveToFile(s);
             slExport.Add('FlatTextures=' + s);
           finally
@@ -3105,7 +3207,9 @@ begin
           ChangeFileExt(ExtractFileName(aWorldspace.MasterOrSelf._File.FileName), ''),
           aWorldspace.EditorID
         );
-        if FileExists(s) then begin
+        // Extra options can override PathOutput after its generated setting.
+        // Automation accepts only its typed options and confines external writes.
+        if FileExists(s) and not wbLODStrictAutomation then begin
           sl := TStringList.Create;
           try
             sl.LoadFromFile(s);
@@ -3121,7 +3225,7 @@ begin
         slExport.AddStrings(slRefs);
 
         // saving export file
-        s := wbScriptsPath + 'LODGen.txt';
+        s := wbLODIntermediatePath + 'LODGen.txt';
         wbProgressCallback('[' + aWorldspace.EditorID + '] Saving LODGen data: ' + s);
         slExport.SaveToFile(s);
 
@@ -3130,14 +3234,14 @@ begin
           {if wbGameMode in [ gmSSE ] then begin
             // use LODGen.exe to build texture list, output file defined by TexturesListFile= in export file
             wbProgressCallback('[' + aWorldspace.EditorID + '] Gathering list of textures for atlas');
-            Application.ProcessMessages;
+            wbLODProcessMessages;
             s := Format('"%s" "%s"', [wbScriptsPath + sLODGenName, s]);
             // this overwrites GameMode set in export file
             s := s + ' --GameMode textureslist';
 
-            Application.MainForm.Caption := 'Running LODGen, press ESC to abort';
+            wbLODSetCaption('Running LODGen, press ESC to abort');
             wbProgressCallback('[' + aWorldspace.EditorID + '] Running ' + s);
-            Application.ProcessMessages;
+            wbLODProcessMessages;
 
             // execute LODGen.exe to generate texture list
             ErrCode := ExecuteCaptureConsoleOutput(s);
@@ -3163,7 +3267,7 @@ begin
             end;
 
             wbProgressCallback('[' + aWorldspace.EditorID + '] Building LOD textures atlas: ' + AtlasName);
-            Application.ProcessMessages;
+            wbLODProcessMessages;
 
             wbBuildAtlasFromTexturesList(
               slLODTextures,
@@ -3178,7 +3282,7 @@ begin
           end;
         end;
 
-        s := wbScriptsPath + 'LODGen.txt';
+        s := wbLODIntermediatePath + 'LODGen.txt';
         s := Format('"%s" "%s"', [wbScriptsPath + sLODGenName, s]);
         s := s + ' --dontFixTangents';
         s := s + ' --removeUnseenFaces';
@@ -3199,9 +3303,9 @@ begin
             s := s + ' --y ' + Settings.ReadString(Section, 'LODY', '');
         end;
 
-        Application.MainForm.Caption := 'Running LODGen, press ESC to abort';
+        wbLODSetCaption('Running LODGen, press ESC to abort');
         wbProgressCallback('[' + aWorldspace.EditorID + '] Running ' + s);
-        Application.ProcessMessages;
+        wbLODProcessMessages;
 
         ErrCode := ExecuteCaptureConsoleOutput(s);
         if ErrCode <> 0 then
@@ -3209,7 +3313,7 @@ begin
 
         // disable traditional Trees LOD if trees are generated as objects
         if bTrees3D and (ErrCode = 0) then begin
-          s := wbDataPath + lst.ListFileName;
+          s := wbOutputPath + lst.ListFileName;
           if FileExists(s) then DeleteFile(s);
           if wbContainerHandler.ResourceExists(lst.ListFileName) then begin
             ForceDirectories(ExtractFilePath(s));
@@ -3231,8 +3335,10 @@ begin
           wbProgressCallback('');
         end;
       end;
-    except on E: Exception do
+    except on E: Exception do begin
+      if wbLODStrictAutomation then raise;
       wbProgressCallback('[' + aWorldspace.EditorID + '] Objects LOD generation error: ' + E.Message);
+      end;
     end;
     finally
       slCache.Free;
@@ -3243,7 +3349,7 @@ begin
       slLargeReferences.Free;
       slExport.Free;
       Lst.Free;
-      Application.MainForm.Caption := Application.Title;
+      wbLODSetCaption(Application.Title);
     end;
   end;
 end;
@@ -3281,6 +3387,7 @@ var
       bInitiallyDisabled: Boolean;
     begin
       // skip deleted references
+      wbLODChargeScan;
       if e.Flags.IsDeleted then
         Exit;
 
@@ -3344,6 +3451,9 @@ var
     iMaxPlacement := -1;
     if StatRec.Signature = 'SCOL' then
       if StatRec.ElementExists['Parts'] and Supports(StatRec.ElementByName['Parts'], IwbContainer, Entries) then begin
+        if wbLODStrictAutomation and ((Entries.ElementCount > 128) or
+           (iPart < 0) or (iPart >= Entries.ElementCount)) then
+          raise Exception.Create('SCOL part count/index exceeds automation bounds');
         // get current part
         Entry := Entries[iPart] as IwbContainer;
         // process the next part
@@ -3355,6 +3465,9 @@ var
           Exit;
         StatRec := StatRec.WinningOverride;
         if Entry.ElementExists['DATA - Placements'] and Supports(Entry.ElementByName['DATA - Placements'], IwbContainer, Entries) then begin
+          if wbLODStrictAutomation and ((Entries.ElementCount > 128) or
+             (iPlacement < 0) or (iPlacement >= Entries.ElementCount)) then
+            raise Exception.Create('SCOL placement count/index exceeds automation bounds');
           iMaxPlacement := Pred(Entries.ElementCount);
           // get current placement
           Entry := Entries.Elements[iPlacement] as IwbContainer;
@@ -3509,9 +3622,9 @@ var
       if wbForceTerminate then
         Abort;
       if StartTick + 500 < GetTickCount then begin
-        Application.MainForm.Caption := 'Building Objects LOD: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
-          ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-        Application.ProcessMessages;
+        wbLODSetCaption('Building Objects LOD: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(i) +
+          ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+        wbLODProcessMessages;
         StartTick := GetTickCount;
       end;
 
@@ -3540,9 +3653,9 @@ begin
     Exit;
 
   wbProgressCallback('[' + aWorldspace.EditorID + '] Generating LOD');
-  Application.MainForm.Caption := 'Building Objects LOD: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
-    ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
-  Application.ProcessMessages;
+  wbLODSetCaption('Building Objects LOD: ' + aWorldspace.Name + ' Processed Records: ' + IntToStr(0) +
+    ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime));
+  wbLODProcessMessages;
   StartTick := GetTickCount;
 
   slCache := TStringList.Create;
@@ -3588,7 +3701,7 @@ begin
         // atlas file name
         AtlasName := wbOutputPath + 'textures\terrain\' + aWorldspace.EditorID  + '\Objects\' + aWorldspace.EditorID + 'Objects.dds';
         // atlas map name
-        AtlasMapName := wbScriptsPath + 'LODGenAtlasMap.txt';
+        AtlasMapName := wbLODIntermediatePath + 'LODGenAtlasMap.txt';
         // make sure atlas folder exists
         if not DirectoryExists(ExtractFilePath(AtlasName)) then
           if not ForceDirectories(ExtractFilePath(AtlasName)) then
@@ -3596,7 +3709,7 @@ begin
       end
       else begin
         // use vanilla atlas if build atlas is not selected
-        AtlasMapName := wbScriptsPath + wbAppName + '-AtlasMap-' + aWorldspace.EditorID + '.txt';
+        AtlasMapName := wbLODIntermediatePath + wbAppName + '-AtlasMap-' + aWorldspace.EditorID + '.txt';
         UVRange := 10000;
       end;
 
@@ -3642,7 +3755,8 @@ begin
         ChangeFileExt(ExtractFileName(aWorldspace.MasterOrSelf._File.FileName), ''),
         aWorldspace.EditorID
       );
-      if FileExists(s) then begin
+      // Keep arbitrary trailing option files out of confined automation output.
+      if FileExists(s) and not wbLODStrictAutomation then begin
         sl := TStringList.Create;
         try
           sl.LoadFromFile(s);
@@ -3658,7 +3772,7 @@ begin
       slExport.AddStrings(slRefs);
 
       // saving export file
-      s := wbScriptsPath + 'LODGen.txt';
+      s := wbLODIntermediatePath + 'LODGen.txt';
       wbProgressCallback('[' + aWorldspace.EditorID + '] Saving LODGen data: ' + s);
       slExport.SaveToFile(s);
 
@@ -3680,15 +3794,20 @@ begin
               wbContainerHandler.ContainerResourceList(slCont[i], slList, 'materials\lod\');
             slList.Duplicates := dupIgnore;
             slList.Sorted := True;
+            if wbLODStrictAutomation and (slList.Count > 100000) then
+              raise Exception.Create('LOD material resource budget exceeded');
 
             i := -1;
             while i < Pred(slBGSM.Count) do begin
               inc(i);
+              wbLODChargeScan;
               // replace wildcard swaps with matching files
               if Pos('*', slBGSM[i]) > 0 then begin
-                for j := 0 to Pred(slList.Count) do
+                for j := 0 to Pred(slList.Count) do begin
+                  wbLODChargeScan;
                   if MatchesMask(slList[j], slBGSM[i]) then
                     slBGSM.Add(slList[j]);
+                end;
                 Continue;
               end;
               // textures from LOD material swaps
@@ -3716,7 +3835,7 @@ begin
 
         if slLODTextures.Count > 1 then begin
           wbProgressCallback('[' + aWorldspace.EditorID + '] Building LOD textures atlas: ' + AtlasName);
-          Application.ProcessMessages;
+          wbLODProcessMessages;
           wbBuildAtlasFromTexturesList(
             slLODTextures,
             Settings.ReadInteger(Section, 'AtlasTextureSize', 512),
@@ -3730,7 +3849,7 @@ begin
         end;
       end;
 
-      s := wbScriptsPath + 'LODGen.txt';
+      s := wbLODIntermediatePath + 'LODGen.txt';
       s := Format('"%s" "%s"', [wbScriptsPath + sLODGenName, s]);
       if bChunk then begin
         if Settings.ReadString(Section, 'LODLevel', '') <> '' then
@@ -3741,17 +3860,19 @@ begin
           s := s + ' --y ' + Settings.ReadString(Section, 'LODY', '');
       end;
 
-      Application.MainForm.Caption := 'Running LODGen, press ESC to abort';
+      wbLODSetCaption('Running LODGen, press ESC to abort');
       wbProgressCallback('[' + aWorldspace.EditorID + '] Running ' + s);
-      Application.ProcessMessages;
+      wbLODProcessMessages;
 
       ErrCode := ExecuteCaptureConsoleOutput(s);
       if ErrCode <> 0 then
         raise Exception.Create('LODGen process error, exit code ' + IntToHex(ErrCode, 8));
       wbProgressCallback('[' + aWorldspace.EditorID + '] Objects LOD Done.');
 
-    except on E: Exception do
+    except on E: Exception do begin
+      if wbLODStrictAutomation then raise;
       wbProgressCallback('[' + aWorldspace.EditorID + '] Objects LOD generation error: ' + E.Message);
+      end;
     end;
 
   finally
@@ -3761,7 +3882,7 @@ begin
     slLODTextures.Free;
     slBGSM.Free;
     slExport.Free;
-    Application.MainForm.Caption := Application.Title;
+    wbLODSetCaption(Application.Title);
   end;
 end;
 

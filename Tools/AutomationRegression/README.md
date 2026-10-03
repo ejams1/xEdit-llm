@@ -515,3 +515,53 @@ skips, preserved old output and unchanged plugin dirty state. Before acceptance,
 also test unsupported modes, absent DNAM, disabled overrides, Unicode paths,
 capacity refusals and unwritable/racing output destinations. Delphi compilation
 and game-backed execution remain pending.
+
+## Issue #29: native LOD jobs
+
+Start `jobs.start` with `kind:"lod.generate"`, `target.worldspaces` containing
+1..4 WRLD root locators, `dryRun` (default true), and options `outputRoot` (existing
+absolute directory <=160 characters), `operation:"generate"|"splitAtlas"`, and
+`objects`/`trees` booleans. Defaults select objects and, where supported, traditional
+trees. Each `jobs.get` advances one worldspace; `jobs.cancel` works between worlds.
+A native unit blocks that poll and cannot be canceled through the same pipe while
+it runs. Completed output remains on cancellation/failure.
+
+Generation supports native TES4, Skyrim, FO3/FNV and FO4 routes. FO76/Starfield
+reject. SSE/VR/EnderalSE objects require `-lodgen` startup; serve startup now keeps
+those definitions while suppressing the automatic modal generator. Traditional
+tree LOD and split support Skyrim/FO3/FNV. Inherited-parent LOD worlds, missing or
+out-of-range LOD settings and unsafe EDIDs reject before writing. Output always
+uses a fresh per-world directory, so existing outputs are refused; choose another
+root to regenerate. Native plugins stay unchanged and need no export save/flush.
+
+`options.settings` accepts object-atlas width/height (1024,2048,4096,8192), object
+texture size (256,512,1024), tree brightness (-30..30), object alpha threshold
+(0..255), trees3D/noTangents/noVertexColors booleans, and object lodLevel (4,8,16)
+with optional paired int16 x/y chunk coordinates. FO3/FNV retain native forced
+atlas/UV/vertex-color settings. FO4 explicitly uses native 4096/DXT5/BC5/UV1.1
+defaults; settings live in memory and do not rewrite the user's INI. Terrain and
+all GUI/external option presets are outside this initial route.
+
+Native stages now rethrow in automation mode, separate scratch from tools/input,
+route the 3D-tree disabling LST into the output root, check image-save failures,
+and bound relevant reference/billboard/split/material/SCOL work. Split validates
+LST/BTT counts, canonical indexes, rectangles and DDS dimensions. Native process
+command storage handles long command lines and initializes cancellation status.
+Logs and inventories are bounded. Results distinguish planned, failed, no-output
+and generated-needs-independent-verification; native return alone is not proof of
+valid LOD. `system.capabilities.supports.lod` describes the arguments/limits.
+
+Generate `lod_fixture.py generate --overlay <MO2-mod-folder>` for Skyrim, load
+Skyrim.esm followed by AutomationLODScene.esp, and run `exercise` with overlay,
+exe, PID and artifacts arguments. Independent `verify` decodes LST/BTT dimensions,
+reference identity/position/scale, DDS dimensions/red pixels and split sidecars.
+The scene covers tree generation, BTT-associated split exports, unassociated
+fallback exports, malformed/permuted/duplicate indexes, empty worlds, dry run,
+existing-output refusal and cancellation after one world. No plugin writes occur.
+
+Before acceptance, compile LiteDebug and run this fixture through MO2, then add/run
+TES4/FO3/FNV/FO4 object scenes with actual LODGen tools and independently decoded
+NIF output. Verify tool failure, SSE LODGen serve startup, level-only/chunk options,
+SCOL/material/billboard limits, unsupported games, unwritable/racing output roots,
+resource corruption and restoration of every native global. Delphi compilation
+and all game/tool-backed execution remain pending.
