@@ -78,6 +78,11 @@ function StartsWith(const s, t: string): Boolean;
 function wbCopyElementToFile(const aSource: IwbElement; aFile: IwbFile; aAsNew, aDeepCopy: Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement;
 function wbCopyElementToRecord(const aSource: IwbElement; aMainRecord: IwbMainRecord; aAsNew, aDeepCopy: Boolean): IwbElement;
 
+// Automation must distinguish logged assignment errors from successful native
+// bulk assignments returning nil. Scope exception propagation to this call tree.
+function wbAutomationAssign(const ATarget: IwbElement; const AIndex: Integer;
+  const ASource: IwbElement): IwbElement;
+
 function wbFindWinningMainRecordByEditorID(const aSignature: TwbSignature; const aEditorID: string): IwbMainRecord;
 function wbFormListToArray(const aFormList: IwbMainRecord; const aSignatures: string): TDynMainRecords;
 
@@ -138,6 +143,7 @@ begin
 end;
 
 threadvar
+  wbAutomationStrictAssignDepth: Integer;
   wbKeepAliveContext : PwbKeepAliveContext;
 
   wbKeepAliveCount   : Integer;
@@ -18895,6 +18901,17 @@ Skip:
   Include(eStates, esConstructionComplete);
 end;
 
+function wbAutomationAssign(const ATarget: IwbElement; const AIndex: Integer;
+  const ASource: IwbElement): IwbElement;
+begin
+  Inc(wbAutomationStrictAssignDepth);
+  try
+    Result := ATarget.Assign(AIndex, ASource, False);
+  finally
+    Dec(wbAutomationStrictAssignDepth);
+  end;
+end;
+
 function TwbElement.Assign(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement;
 {$IFDEF USE_CODESITE}
 var
@@ -18938,6 +18955,10 @@ begin
           lSourceName := aElement.FullPath;
         var lTargetName := GetFullPath;
         wbProgress('Error assigning to [%s] from [%s]: [%s] %s', [lTargetName, lSourceName, E.ClassName, E.Message]);
+        // Recursive member assignments inherit strict propagation so an inner
+        // failure cannot turn an incomplete automation replacement into success.
+        if wbAutomationStrictAssignDepth > 0 then
+          raise;
         Result := nil;
       end;
     end;

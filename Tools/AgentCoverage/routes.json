@@ -536,10 +536,11 @@
     "batch-rows": {
       "status": "partial",
       "routes": [
+        "batch.rows",
         "elements.copy_child_to",
         "elements.remove_child"
       ],
-      "notes": "Provide replacement vs append semantics, multiple-row selection and per-target outcomes with native schema preflight. Coordinate with batch work #17.",
+      "notes": "Explicit bounded multi-row replace/append/remove, pinned disjoint owned targets, revision/schema/master preflight, per-item outcomes, reference refresh and partial mutation audit. Existing payload rows/array containers only; union variant switching, contextual missing-ancestor insertion and implicit source-absence mirror deletion excluded. Native acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
@@ -1510,6 +1511,9 @@
     "selections.create_group": {
       "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",
       "effect": "default dry-run; explicit in-memory payload/structure writes with mutation audit and partial results; empty groups may be omitted by native save"
+    },
+    "batch.rows": {
+      "effect": "default dry-run preflight; bounded structural in-memory row mutations with partial outcomes -> explicit save + terminal flush"
     }
   }
 }
