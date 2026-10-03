@@ -46,7 +46,7 @@ uses
   xeAutomationRegistry;
 
 const
-  xeAutomationFinalJobKinds: array[0..13] of string = (
+  xeAutomationFinalJobKinds: array[0..15] of string = (
     'files.hygiene.batch',
     'plugin.esl.analyze',
     'plugin.esl.apply',
@@ -55,6 +55,8 @@ const
     'validation.check_for_itm',
     'validation.check_for_deleted_refs',
     'validation.circular_leveled_lists',
+    'cleaning.remove_itm',
+    'cleaning.undelete_and_disable_refs',
     'cleaning.quick_clean',
     'cleaning.quick_auto_clean',
     'cleaning.sort_and_clean_masters',
@@ -539,7 +541,11 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.39';
+  Result.S['contractVersion'] := '0.40';
+  Result.O['supports'].O['selectiveCleaning'].S['kinds'] := 'cleaning.remove_itm,cleaning.undelete_and_disable_refs';
+  Result.O['supports'].O['selectiveCleaning'].S['scope'] := 'target.files:1..8 loaded plugins, <=1000 records; non-TES3, translation-mode-off';
+  Result.O['supports'].O['selectiveCleaning'].S['semantics'] := 'default dryRun:true; no master cleanup; retain nonempty child-group parents and deleted NAVM; UDR uses reported native session settings';
+  Result.O['supports'].O['selectiveCleaning'].S['persistence'] := 'record outcomes and partial failures; in-memory until save/terminal flush; between-file cancellation';
   Result.O['supports'].O['cleaningReports'].S['command'] := 'reports.cleaning';
   Result.O['supports'].O['cleaningReports'].S['scope'] := '1..8 saved/flushed source files, <=1000 records, <=64MiB each; clean masters';
   Result.O['supports'].O['cleaningReports'].S['formats'] := 'native loot; native boss only gmTES4';

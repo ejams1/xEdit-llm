@@ -1,5 +1,38 @@
 # Automation regression fixtures
 
+## Issue #35: isolated ITM/UDR jobs
+
+Start `jobs.start` with `kind:cleaning.remove_itm` or
+`kind:cleaning.undelete_and_disable_refs` and `target.files` (1..8 loaded plugins,
+<=1000 total records). `dryRun` defaults true. Duplicate targets, unknown options,
+TES3 and translation mode reject; apply preflights every writable target before
+any file changes. One target file advances per `jobs.get`; cancel between files.
+There is no master sorting/cleanup or plugin save inside either selector.
+
+Both operations use shared native eligibility. ITM retains header flag changes,
+injected masters and equal parents with nonempty child groups; partial-form
+conversion is excluded. UDR refuses deleted NAVM, injected/missing base records
+and FNV LOD TREE cases. It shares the native mutation with combined cleaning:
+undelete/initially-disable and native session Z, XESP, scale and MSTT settings,
+which each file result reports. Results contain root identities, plans, skips,
+completed writes, failure locator and mutation audit. Partial writes remain in
+memory with no rollback; explicitly save changed files, flush and relaunch.
+
+Generate `selective_cleaning_fixture.py generate --overlay <fresh-MO2-overlay>`;
+load Fallout4.esm + AutomationReportBase.esm + AutomationSelectiveITM.esp +
+AutomationSelectiveUDR.esp + AutomationReport'Clean.esp. Run `exercise` with
+`--overlay`, `--exe`, `--pid`, `--artifacts`; relaunch fresh and run `verify`.
+It independently checks ITM-only versus UDR-only effects, flag-only retention,
+child parent/reference retention, deleted NAVM refusal, dry-run parity, repeat
+no-op, invalid/protected later targets, duplicate/shape refusal, two-file dry-run aggregation, cancellation after one apply,
+native Z/XESP/scale readback,
+unchanged master lists, explicit persistence and raw saved flags. Also run
+TES4/Skyrim/FO3/FNV/FO76/Starfield supported definitions, native setting variants,
+partial forms, injected/missing bases, FNV LOD TREE and injected partial-write
+failures. Before the consent-enabled exercise, a separate daemon started without
+`-IKnowWhatImDoing` can run `no-consent` with the same fixture to check both
+apply refusals and allowed dry-runs. Delphi/native execution is pending.
+
 ## Issue #34: BOSS/LOOT cleaning reports
 
 `reports.cleaning` takes `format:loot|boss`, 1..8 `files`, and optional existing

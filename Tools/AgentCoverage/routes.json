@@ -509,13 +509,12 @@
       "scriptSymbols": []
     },
     "standalone-cleaning": {
-      "status": "partial",
+      "status": "direct",
       "routes": [
-        "cleaning.quick_clean",
-        "validation.check_for_itm",
-        "validation.check_for_deleted_refs"
+        "cleaning.remove_itm",
+        "cleaning.undelete_and_disable_refs"
       ],
-      "notes": "Offer distinct apply selectors/jobs preserving native eligibility and deleted-navmesh refusal. Current quick_clean combines operations. Depends on correctness fix #1.",
+      "notes": "Distinct bounded default-dry-run jobs with native eligibility and concrete outcomes; ITM retains parents with children, UDR skips deleted NAVM, injected/missing bases and FNV LOD TREE. No implicit master cleanup; native session UDR settings reported. Native runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
@@ -1479,6 +1478,14 @@
     "reports.cleaning": {
       "prerequisites": "Non-TES3; 1..8 clean saved/flushed loaded plugins, <=1000 records and <=64 MiB/source; clean saved masters. BOSS requires gmTES4.",
       "effect": "read-only native classification and formatting; optional outputDirectory writes atomic UTF-8 external file with consent, default dryRun:true"
+    },
+    "cleaning.remove_itm": {
+      "prerequisites": "1..8 loaded target files, <=1000 records; non-TES3, translation mode off; apply requires consent and writable targets; no duplicate files/options.",
+      "effect": "isolated ITM removal or native UDR in memory with record outcomes, partial audit and between-file cancellation -> explicit save + terminal flush"
+    },
+    "cleaning.undelete_and_disable_refs": {
+      "prerequisites": "1..8 loaded target files, <=1000 records; non-TES3, translation mode off; apply requires consent and writable targets; no duplicate files/options.",
+      "effect": "isolated ITM removal or native UDR in memory with record outcomes, partial audit and between-file cancellation -> explicit save + terminal flush"
     }
   }
 }
