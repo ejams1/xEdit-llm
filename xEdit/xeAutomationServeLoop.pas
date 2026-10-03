@@ -31,6 +31,7 @@ uses
   xeAutomationCommandsLocalization,
   xeAutomationCommandsModGroups,
   xeAutomationCommandsVWD,
+  xeAutomationCommandsReports,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsSession,
@@ -129,6 +130,7 @@ begin
     xeAutomationRegisterLocalizationCommands;
     xeAutomationRegisterModGroupCommands;
     xeAutomationRegisterVWDCommands;
+    xeAutomationRegisterReportCommands;
     xeAutomationRegisterRecordsCommands;
     xeAutomationRegisterElementsCommands;
     xeAutomationRegisterBatchCommands;
