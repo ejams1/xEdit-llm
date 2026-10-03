@@ -1,5 +1,68 @@
 # Automation regression fixtures
 
+## Issue #37: multiple structural rows
+
+`batch.rows` accepts `items` (1..16), mandatory `expectedRevision` from
+`session.get_dirty_state.mutationRevision`, `dryRun` (default true), and
+`addRequiredMasters` (default false). Every item has `mode`, an owned `target`
+child locator (`file`, `formId`, `path`), and for copying an owned `source`
+child locator. Modes are explicit:
+
+- `replace`: replace an existing payload row with a source of the same native
+  definition/type, including replacing a whole array. Union variant switching
+  and copying a single member into a whole-array replacement are refused.
+- `append`: copy one entry into an existing native array, including packed KWDA
+  subrecord arrays. Content-sorted arrays use native ordering.
+- `remove`: remove the addressed existing child; omit `source`.
+
+All target/schema/removal/missing-master predicates finish before any write.
+Requests are bounded to 256KiB, 2048 total visited source/target elements and
+depth16. Targets must be distinct and have no ancestor overlaps; a source record
+cannot also be a target in the batch. Multiple siblings in one record are allowed
+and native interfaces are pinned so sorting/removal cannot redirect stale indexes.
+Record roots/headers, deleted/partial forms, TES3 and translation mode refuse.
+There is no missing-ancestor creation or implicit source-absence mirror deletion:
+create ancestors explicitly with existing element commands, then enumerate fresh
+rows. The coverage profile retains this contextual-copy limitation.
+
+Apply requires consent and only changes plugin memory. Results contain an outcome
+for every item (`planned`, `applied`, `failed`, `not-attempted`), `completed`,
+`complete`, required masters, mutation audit, and optional partial failure. A
+failed item may have changed memory or added masters; no rollback is promised.
+Inspect `complete`, not only envelope `ok`. Native assignment errors propagate
+through the scoped `wbAutomationAssign` helper, including nested member failures;
+successful bulk assignment returning nil is handled separately. Affected records
+refresh references. Paths/result locators may move during subsequent items;
+re-enumerate after the whole batch. Persistence requires explicit `session.save`
+and terminal `session.flush`.
+
+Generate `python Tools/AutomationRegression/row_fixture.py generate --overlay
+<fresh-dedicated-MO2-overlay>` and launch through MO2 using its `plugins.txt`:
+Fallout4.esm, AutomationRowDependencies.esm, AutomationRowSource.esm,
+AutomationRowTargets.esp. Run `exercise --overlay ... --exe <fresh-built-tool>
+--pid <daemon-pid> --artifacts <run-dir>`, then restart fresh and run `verify`
+with new PID/artifacts. The fixture checks four text replacements across two
+records, exact whitespace, whole-array replacement plus missing-master refusal/
+addition, two removals despite index shifts, append vs replacement, sorted KWDA
+key replacements/removal/append and count updates, actual reference owners,
+unchanged identities/unselected fields/source bytes, stale revision, later
+protected/missing/invalid targets, overlap/source-target/17-item refusal, and
+unchanged disk before save. A MESG flag callback detaches a later planned TNAM:
+the earlier flag change is retained, the detached row fails and the final row is
+not attempted; an explicit fresh batch recovers. Fresh verification decodes text,
+reference master slots, keyword count and retained MISC data. Save can defer final
+path replacement until terminal flush; the fresh phase always checks disk bytes.
+
+Use a separate untouched overlay/session without mutation consent for
+`no-consent`: dry-run must work and apply must refuse without changes. Before
+acceptance also run unsupported game/translation and deleted/partial cases,
+union/different-definition refusals, visit/depth/request limits, later-load
+dependencies, and injected nested native assignment failures. For partial errors
+inspect failed `rowApplied`, retained earlier edits/added masters and untouched
+later items; verify strict assignment scope restores after exceptions. Delphi
+compilation and all native/MO2 execution remain pending; Python checks only
+validate fixture/support assets.
+
 ## Issue #36: file/group selections
 
 `selections.inspect/copy_into/remove` take 1..16 `selections`, each either

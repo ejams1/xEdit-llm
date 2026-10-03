@@ -332,6 +332,30 @@ begin
     Result.S['constraintNotes'] := 'small and esl are aliases and must agree when both supplied';
     Result.A['errors'].Add('unsupported_game_mode');
     Result.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(lCommand, 'batch.rows') then begin
+    xeAutomationSchemaField(Result, 'items', 'array<object:mode,target,source?>', True);
+    Result.O['argumentSchema'].O['properties'].O['items'].I['minItems'] := 1;
+    Result.O['argumentSchema'].O['properties'].O['items'].I['maxItems'] := 16;
+    with Result.O['argumentSchema'].O['properties'].O['items'].O['itemSchema'] do begin
+      S['type'] := 'object'; A['required'].Add('mode'); A['required'].Add('target');
+      O['properties'].O['mode'].S['type'] := 'string';
+      O['properties'].O['mode'].A['enum'].Add('replace');
+      O['properties'].O['mode'].A['enum'].Add('append');
+      O['properties'].O['mode'].A['enum'].Add('remove');
+      O['properties'].O['target'].S['type'] := 'object:owned-child-locator:file,formId,path';
+      O['properties'].O['source'].S['type'] := 'object:owned-child-locator:required-for-replace-append-forbidden-for-remove';
+    end;
+    xeAutomationSchemaField(Result, 'expectedRevision', 'string:decimal-uint64', True);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(Result, 'addRequiredMasters', 'boolean:default-false', False);
+    Result.S['prerequisites'] := 'Non-TES3, translation off; owned full nondeleted records, writable targets; native CanAssign/IsRemovable; consent for apply';
+    Result.S['persistence'] := 'in-memory-until-session.save-then-terminal-session.flush';
+    Result.S['constraintNotes'] := 'replace existing payload row with matching definition/type; append one entry to an existing array; remove existing child. 256KiB request, 2048 scope visits, depth16, disjoint targets, sources never target records; no missing-ancestor creation or implicit mirror deletion';
+    Result.S['resultNotes'] := 'planned/applied/failed/not-attempted per item; complete may be false on partial native failure; resultLocator is transient: re-enumerate rows after the entire batch';
+    Result.A['errors'].Add('stale_revision');
+    Result.A['errors'].Add('unsupported_game_mode');
+    Result.A['errors'].Add('mutation_not_allowed');
+    Result.A['errors'].Add('state_conflict');
   end else if SameText(lCommand, 'batch.read') or SameText(lCommand, 'batch.edit') then begin
     xeAutomationSchemaField(Result, 'items', 'array<object:command,args>', True);
     if SameText(lCommand, 'batch.read') then
@@ -510,6 +534,17 @@ begin
       lExampleItem.S['command'] := 'records.get';
       lExampleItem.O['args'].S['file'] := 'MyPatch.esp';
       lExampleItem.O['args'].S['formId'] := '01000800';
+    end else if SameText(lCommand, 'batch.rows') then begin
+      lExample.O['args'].S['expectedRevision'] := '<session.get_dirty_state.mutationRevision>';
+      lExample.O['args'].B['dryRun'] := True;
+      lExampleItem := lExample.O['args'].A['items'].AddObject;
+      lExampleItem.S['mode'] := 'replace';
+      with lExampleItem.O['source'] do begin
+        S['file'] := 'Source.esm'; S['formId'] := '01000800'; S['path'] := 'DESC';
+      end;
+      with lExampleItem.O['target'] do begin
+        S['file'] := 'MyPatch.esp'; S['formId'] := '02000800'; S['path'] := 'DESC';
+      end;
     end else if SameText(lCommand, 'batch.edit') then begin
       lExample.O['args'].S['expectedRevision'] := '<session.get_dirty_state.mutationRevision>';
       lExampleItem := lExample.O['args'].A['items'].AddObject;
@@ -564,7 +599,13 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.41';
+  Result.S['contractVersion'] := '0.42';
+  Result.O['supports'].O['rowBatch'].S['command'] := 'batch.rows';
+  Result.O['supports'].O['rowBatch'].S['modes'] := 'replace,append,remove; explicit owned source/target payload locators';
+  Result.O['supports'].O['rowBatch'].S['scope'] := '1..16 items, multiple disjoint rows per record; 2048 visits, depth16, 256KiB request';
+  Result.O['supports'].O['rowBatch'].S['preflight'] := 'matching expectedRevision, native schema/removal gates, missing masters; pinned identities, immutable source records';
+  Result.O['supports'].O['rowBatch'].S['persistence'] := 'default dryRun:true; per-item partial outcomes; explicit save and terminal flush';
+  Result.O['supports'].O['rowBatch'].S['excluded'] := 'record/header writes, deleted/partial forms, union variant switching, missing ancestor creation, automatic source-absence deletion';
   Result.O['supports'].O['selections'].S['commands'] := 'selections.inspect,copy_into,remove,create_group';
   Result.O['supports'].O['selections'].S['scope'] := '1..16 file/group selectors, <=128 records including implicit copy owners, <=2048 structural nodes, depth<=8; native session groupPath type/label';
   Result.O['supports'].O['selections'].S['copy'] := 'recursive full nondeleted/nonpartial payload overrides, parent-before-child; explicit overwrite/addRequiredMasters; no TES4 header clone; native partial creation off';
