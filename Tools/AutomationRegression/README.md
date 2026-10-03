@@ -489,3 +489,29 @@ reorder skips. Also test TES4/FNV-specific families, different declared-master
 baselines, single/no-difference overrides, capacity/target refusals, unsupported
 modern modes and native partial failures before acceptance. Delphi compilation
 and game-backed execution remain pending.
+
+## Issue #28: SEQ export
+
+`exports.seq` takes `file` and an absolute `outputPath` in an existing directory.
+The output basename must match the plugin with `.seq` extension. `dryRun` defaults
+true and `overwrite` defaults false. The Skyrim family gate and native eligibility
+are preserved: skip load-order zero; select direct QUST records with SGE set and
+no master or a master with SGE clear. Native FixedFormIDs and record order are
+preserved, including the native absence of a separate Deleted exclusion.
+
+Output is headerless little-endian u32 IDs, bounded to 1000 eligible quests after
+scanning at most 10000. Apply stages/flushed bytes and atomically renames with the
+requested overwrite policy. Failures report remaining temporary state. No eligible
+quests leave existing output intact. Plugin data is unchanged; generation reads
+loaded memory, so unsaved source edits need a separate plugin save if intended.
+
+Generate `seq_fixture.py generate --overlay <MO2-mod-folder>` for Skyrim. Load
+Skyrim.esm, AutomationSeqDummy.esm, AutomationSeqBase.esm, AutomationSeqPatch.esp
+in that order: the dummy ensures load-order and file-local IDs differ. Run
+`exercise` with the overlay/exe/PID/artifact arguments, then `verify` independently
+without a running daemon. It decodes exact bytes, tests master SGE transitions,
+new/non-SGE/deleted quests, overwrite refusal/replacement, empty and load-order-zero
+skips, preserved old output and unchanged plugin dirty state. Before acceptance,
+also test unsupported modes, absent DNAM, disabled overrides, Unicode paths,
+capacity refusals and unwritable/racing output destinations. Delphi compilation
+and game-backed execution remain pending.
