@@ -866,6 +866,7 @@ type
     procedure JumpTo(aInterface: IInterface; aBackward: Boolean);
     function AutomationGetActiveRecord: IwbMainRecord;
     function AutomationGetFocusedRecord: IwbMainRecord;
+    procedure AutomationSetReachableBuilt(const AComplete: Boolean);
     function FindNodeForElement(const aElement: IwbElement): PVirtualNode;
     function FindNodeOrAncestorForElement(const aElement: IwbElement): PVirtualNode;
     function FindNodeForElementIn(aParent: PVirtualNode; const aElement: IwbElement): PVirtualNode;
@@ -10230,6 +10231,12 @@ begin
   finally
     NewMasters.Free;
   end;
+end;
+
+procedure TfrmMain.AutomationSetReachableBuilt(const AComplete: Boolean);
+begin
+  // Derived flags are usable by GUI filters only after a complete global pass.
+  ReachableBuild := AComplete;
 end;
 
 procedure TfrmMain.mniNavBuildReachableClick(Sender: TObject);

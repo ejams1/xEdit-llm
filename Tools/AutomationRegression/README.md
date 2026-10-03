@@ -565,3 +565,11 @@ NIF output. Verify tool failure, SSE LODGen serve startup, level-only/chunk opti
 SCOL/material/billboard limits, unsupported games, unwritable/racing output roots,
 resource corruption and restoration of every native global. Delphi compilation
 and all game/tool-backed execution remain pending.
+
+### Global native reachability (#30)
+
+`analysis.reachability` is a staged job. `target.files` contains 1..32 loaded report plugins with <=1000 total records; `target.roots` optionally contains <=32 additional record-root locators. Native roots are always included. Every loaded plugin participates in the reference -> global reset -> native root pass, before optional roots and report stages. TES3 rejects; other games use native record definitions/rules. Loaded graph limit: 256 files/1000000 records; native reset/reach visit limit: 5000000 per stage. One stage/file per poll; a native unit blocks its current poll.
+
+Default dry run returns the stage plan without changing flags. Explicit `dryRun:false` changes derived memory flags only, with cache writes suppressed and no plugin save. Findings classify the native aggregate override-chain identity; they are historical results valid only when the containing job succeeds. Canceled/failed passes cannot be used as unreachable classifications. Rerun after graph edits or a fresh session; GUI ReachableBuild is enabled only after the complete stage.
+
+Generate `reachability_fixture.py generate --overlay <dedicated-MO2-overlay>`, load Fallout4.esm + AutomationReachBase.esm + AutomationReachRoot.esp, then run `exercise --overlay ... --exe <canonical-built-tool> --pid <broker-pid> --artifacts <artifact-dir>`. It checks a later plugin's native DFOB root reaching an earlier FLST cycle, an isolated cycle remaining unreachable, repeated builds, temporary explicit roots and their removal, cancellation and unchanged dirty state. Native NoReach fields, winner-link edits, malformed scopes, capacity failures and other supported game definitions also require final testing. Python fixture checks are not native acceptance.
