@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.42",
+  "contractVersion": "0.43",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -3028,11 +3028,13 @@
       "profile": "comparison",
       "status": "partial",
       "routes": [
+        "comparisons.records",
+        "comparisons.load",
         "records.conflict_status",
         "elements.conflict_status"
       ],
-      "notes": "Support comparison-only file loading and arbitrary record alignment without modal selection; report missing rows and scope separately from override conflict_status.",
-      "effect": "session load/read-only comparison",
+      "notes": "Explicit ordered owned records, common payload path, native alignment and sibling leaf conflicts with independent missing/hidden/ignored cells. Session-only captured-byte read-only comparison load alters override chains; full nonlocalized inputs and preloaded full dependencies only. Bounded scope/output; native testing pending.",
+      "effect": "read-only plugin payload; derived alignment/session graph; no disk copy; restart removes loaded comparison",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -3113,11 +3115,13 @@
       "profile": "comparison",
       "status": "partial",
       "routes": [
+        "comparisons.records",
+        "comparisons.load",
         "records.conflict_status",
         "elements.conflict_status"
       ],
-      "notes": "Support comparison-only file loading and arbitrary record alignment without modal selection; report missing rows and scope separately from override conflict_status.",
-      "effect": "session load/read-only comparison",
+      "notes": "Explicit ordered owned records, common payload path, native alignment and sibling leaf conflicts with independent missing/hidden/ignored cells. Session-only captured-byte read-only comparison load alters override chains; full nonlocalized inputs and preloaded full dependencies only. Bounded scope/output; native testing pending.",
+      "effect": "read-only plugin payload; derived alignment/session graph; no disk copy; restart removes loaded comparison",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -6252,11 +6256,13 @@
       "profile": "comparison",
       "status": "partial",
       "routes": [
+        "comparisons.records",
+        "comparisons.load",
         "records.conflict_status",
         "elements.conflict_status"
       ],
-      "notes": "Support comparison-only file loading and arbitrary record alignment without modal selection; report missing rows and scope separately from override conflict_status.",
-      "effect": "session load/read-only comparison",
+      "notes": "Explicit ordered owned records, common payload path, native alignment and sibling leaf conflicts with independent missing/hidden/ignored cells. Session-only captured-byte read-only comparison load alters override chains; full nonlocalized inputs and preloaded full dependencies only. Bounded scope/output; native testing pending.",
+      "effect": "read-only plugin payload; derived alignment/session graph; no disk copy; restart removes loaded comparison",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -7117,11 +7123,13 @@
       "profile": "comparison",
       "status": "partial",
       "routes": [
+        "comparisons.records",
+        "comparisons.load",
         "records.conflict_status",
         "elements.conflict_status"
       ],
-      "notes": "Support comparison-only file loading and arbitrary record alignment without modal selection; report missing rows and scope separately from override conflict_status.",
-      "effect": "session load/read-only comparison",
+      "notes": "Explicit ordered owned records, common payload path, native alignment and sibling leaf conflicts with independent missing/hidden/ignored cells. Session-only captured-byte read-only comparison load alters override chains; full nonlocalized inputs and preloaded full dependencies only. Bounded scope/output; native testing pending.",
+      "effect": "read-only plugin payload; derived alignment/session graph; no disk copy; restart removes loaded comparison",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -7825,11 +7833,13 @@
       "profile": "comparison",
       "status": "partial",
       "routes": [
+        "comparisons.records",
+        "comparisons.load",
         "records.conflict_status",
         "elements.conflict_status"
       ],
-      "notes": "Support comparison-only file loading and arbitrary record alignment without modal selection; report missing rows and scope separately from override conflict_status.",
-      "effect": "session load/read-only comparison",
+      "notes": "Explicit ordered owned records, common payload path, native alignment and sibling leaf conflicts with independent missing/hidden/ignored cells. Session-only captured-byte read-only comparison load alters override chains; full nonlocalized inputs and preloaded full dependencies only. Bounded scope/output; native testing pending.",
+      "effect": "read-only plugin payload; derived alignment/session graph; no disk copy; restart removes loaded comparison",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -10835,6 +10845,30 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "comparisons.load",
+      "kind": "command",
+      "handler": "LoadComparison",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsComparisons.pas",
+        "line": 390
+      },
+      "prerequisites": "Numeric records, translation off; matching native definitions. Load ordinary full baseline/nonlocalized input; dependencies loaded earlier; apply session consent.",
+      "effect": "default dry-run header/dependency plan; consented read-only session load from captured bytes; affects override chains; no disk copy",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "comparisons.records",
+      "kind": "command",
+      "handler": "CompareRecords",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsComparisons.pas",
+        "line": 389
+      },
+      "prerequisites": "Numeric records, translation off; matching native definitions. Load ordinary full baseline/nonlocalized input; dependencies loaded earlier; apply session consent.",
+      "effect": "bounded native alignment of explicit ordered columns; exact leaf values and independent cell presence",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "elements.add_child",
       "kind": "command",
       "handler": "xeAutomationElementsAddChild",
@@ -11848,7 +11882,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1140
+        "line": 1162
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11860,7 +11894,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1139
+        "line": 1161
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11872,7 +11906,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1138
+        "line": 1160
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11884,7 +11918,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1137
+        "line": 1159
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",

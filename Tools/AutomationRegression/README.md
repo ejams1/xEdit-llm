@@ -883,3 +883,36 @@ and all game/tool-backed execution remain pending.
 Default dry run returns the stage plan without changing flags. Explicit `dryRun:false` changes derived memory flags only, with cache writes suppressed and no plugin save. Findings classify the native aggregate override-chain identity; they are historical results valid only when the containing job succeeds. Canceled/failed passes cannot be used as unreachable classifications. Rerun after graph edits or a fresh session; GUI ReachableBuild is enabled only after the complete stage.
 
 Generate `reachability_fixture.py generate --overlay <dedicated-MO2-overlay>`, load Fallout4.esm + AutomationReachBase.esm + AutomationReachRoot.esp, then run `exercise --overlay ... --exe <canonical-built-tool> --pid <broker-pid> --artifacts <artifact-dir>`. It checks a later plugin's native DFOB root reaching an earlier FLST cycle, an isolated cycle remaining unreachable, repeated builds, temporary explicit roots and their removal, cancellation and unchanged dirty state. Native NoReach fields, winner-link edits, malformed scopes, capacity failures and other supported game definitions also require final testing. Python fixture checks are not native acceptance.
+
+
+### Explicit comparisons (#38)
+
+`comparisons.records` takes 2..8 owned root locators in exact column order,
+including different records from one file; native definitions must match.
+Optional common `path` selects one scope, including a missing cell. Default
+scope excludes record headers and child groups. Native alignment emits independent
+present/visible/ignored flags and exact leaf values; leaf sibling conflict labels
+are separate from override-chain status. Limits: 2048 source visits/depth16,
+256 output rows/depth8 and 1MiB response. Truncation reports `complete:false`.
+
+`comparisons.load` defaults to dry run. Supply `sourceFile`, absolute `inputPath`
+and a new simple `.esp` `fileName`; explicit `dryRun:false` requires session consent.
+Captured bytes are loaded with native CompareTo in memory without a disk copy.
+Full nonlocalized plugins only, optional ESM header flag only, <=64MiB/1000 actual
+records; all ordinary full dependencies must already be loaded before baseline.
+Encoding sidecars and extended header subrecords reject; at most four comparisons.
+Loaded records are read-only, participate in native override/injection chains,
+and last until restart. Native load failures report unknown partial graph state;
+restart before retry. Plugin save/flush cannot persist the comparison.
+
+Generate a fresh `row_fixture.py` MO2 overlay and load Fallout4.esm plus its three
+plugins. Copy AutomationRowSource.esm to an external test directory, then run
+`comparison_fixture.py --overlay <overlay> --input-path <external-copy.esm>
+--exe <canonical-built-tool> --pid <broker-pid> --artifacts <artifact-dir>`.
+It checks ordered/reversed same-file columns, exact whitespace, missing TNAM,
+row truncation, incompatible/duplicate roots, dry-run, read-only loaded copy,
+mutation rejection and unchanged source bytes/revision. Native acceptance also
+requires hidden/ignored/partial rows, sorted KWDA alignment/links, all capacity
+limits, dependency/name/encoding/mode failures, comparison save refusal, Data
+file inventory unchanged and before/after override conflict participants.
+Delphi compilation and native execution remain pending.

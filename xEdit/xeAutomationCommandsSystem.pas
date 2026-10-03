@@ -18,6 +18,7 @@ uses
   JsonDataObjects,
   wbInterface,
   xeAutomationCommandsBatch,
+  xeAutomationCommandsComparisons,
   xeAutomationCommandsCleaning,
   xeAutomationCommandsElements,
   xeAutomationCommandsExports,
@@ -143,6 +144,8 @@ begin
     xeAutomationRegisterRecordsCommands;
   if not xeAutomationHasCommand('elements.get') then
     xeAutomationRegisterElementsCommands;
+  if not xeAutomationHasCommand('comparisons.records') then
+    xeAutomationRegisterComparisonCommands;
   if not xeAutomationHasCommand('batch.read') then
     xeAutomationRegisterBatchCommands;
   if not xeAutomationHasCommand('formids.remap') then
@@ -332,6 +335,18 @@ begin
     Result.S['constraintNotes'] := 'small and esl are aliases and must agree when both supplied';
     Result.A['errors'].Add('unsupported_game_mode');
     Result.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(lCommand, 'comparisons.records') then begin
+    xeAutomationSchemaField(Result, 'records', 'array<object:file,formId>:2..8', True);
+    xeAutomationSchemaField(Result, 'path', 'string:common-native-element-path', False);
+    xeAutomationSchemaField(Result, 'rowLimit', 'integer:1..256-default-256', False);
+    xeAutomationSchemaField(Result, 'depth', 'integer:0..8-default-8', False);
+    Result.S['effect'] := 'read-only plugin payload; derived native alignment; explicit column order';
+  end else if SameText(lCommand, 'comparisons.load') then begin
+    xeAutomationSchemaField(Result, 'sourceFile', 'string:ordinary-full-loaded-baseline', True);
+    xeAutomationSchemaField(Result, 'inputPath', 'string:absolute-existing-plugin', True);
+    xeAutomationSchemaField(Result, 'fileName', 'string:new-simple-esp-session-name', True);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
+    Result.S['effect'] := 'session-only native comparison load; no disk copy; changes override graph';
   end else if SameText(lCommand, 'batch.rows') then begin
     xeAutomationSchemaField(Result, 'items', 'array<object:mode,target,source?>', True);
     Result.O['argumentSchema'].O['properties'].O['items'].I['minItems'] := 1;
@@ -599,7 +614,14 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.42';
+  Result.S['contractVersion'] := '0.43';
+  with Result.O['supports'].O['comparisons'] do begin
+    S['recordsCommand'] := 'comparisons.records'; S['loadCommand'] := 'comparisons.load';
+    S['scope'] := 'explicit ordered columns, common payload path, native sibling leaf classification';
+    S['limits'] := '2..8 columns; 2048 source visits/depth16; 256 rows/depth8; 1MiB response; load64MiB/1000records/4comparisons';
+    S['loadPolicy'] := 'full nonlocalized input; all full dependencies loaded before baseline; consent for session graph; restart to unload';
+    B['nativeAcceptancePending'] := True;
+  end;
   Result.O['supports'].O['rowBatch'].S['command'] := 'batch.rows';
   Result.O['supports'].O['rowBatch'].S['modes'] := 'replace,append,remove; explicit owned source/target payload locators';
   Result.O['supports'].O['rowBatch'].S['scope'] := '1..16 items, multiple disjoint rows per record; 2048 visits, depth16, 256KiB request';
