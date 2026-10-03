@@ -30,6 +30,7 @@ uses
   xeAutomationCommandsReachability,
   xeAutomationCommandsLocalization,
   xeAutomationCommandsModGroups,
+  xeAutomationCommandsVWD,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsRecords,
@@ -150,6 +151,8 @@ begin
     xeAutomationRegisterLocalizationCommands;
   if not xeAutomationHasCommand('modgroups.list') then
     xeAutomationRegisterModGroupCommands;
+  if not xeAutomationHasCommand('records.set_vwd_from_mesh') then
+    xeAutomationRegisterVWDCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -518,7 +521,12 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.37';
+  Result.S['contractVersion'] := '0.38';
+  Result.O['supports'].O['automaticVWD'].S['command'] := 'records.set_vwd_from_mesh';
+  Result.O['supports'].O['automaticVWD'].S['gamePredicate'] := 'wbIsOblivion; translation-mode-off; native exterior and resource existence';
+  Result.O['supports'].O['automaticVWD'].S['scope'] := 'files:1..8, <=1000 records, <=128 eligible; optional targetFile copies eligible selected latest identities';
+  Result.O['supports'].O['automaticVWD'].B['defaultsDryRun'] := True;
+  Result.O['supports'].O['automaticVWD'].S['existingTargetPolicy'] := 'refuse existing overrides';
   Result.O['supports'].O['modgroups'].S['commands'] := 'modgroups.list/activate/reload/write/refresh_crc';
   Result.O['supports'].O['modgroups'].S['identity'] := 'native-discoverable absolute configFile plus name';
   Result.O['supports'].O['modgroups'].S['persistence'] := 'immediate atomic config; session-only explicit selection; no plugin save';

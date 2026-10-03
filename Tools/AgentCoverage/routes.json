@@ -491,10 +491,12 @@
       "scriptSymbols": []
     },
     "vwd-mesh": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap native resource-based eligibility and override-target behavior; plain flag setters do not reproduce mesh discovery and filtering.",
-      "effect": "plugin mutation -> save + flush",
+      "status": "partial",
+      "routes": [
+        "records.set_vwd_from_mesh"
+      ],
+      "notes": "Bounded native Oblivion exterior/resource predicate; in-place edits or latest-selected override copies into explicit later target. All target/master plans preflight; existing target overrides refuse. Native resource cache applies; runtime not verified.",
+      "effect": "flags/copies/masters in memory -> save + terminal flush",
       "scriptSymbols": []
     },
     "dirty-report": {
@@ -1467,6 +1469,9 @@
     },
     "modgroups.refresh_crc": {
       "effect": "default dry-run; append native CRC only to explicitly selected item histories, atomically persist config and reload"
+    },
+    "records.set_vwd_from_mesh": {
+      "effect": "default dry-run resource/target plans; apply flags or override copies in memory -> explicit save + terminal flush; partial outcomes audited"
     }
   }
 }

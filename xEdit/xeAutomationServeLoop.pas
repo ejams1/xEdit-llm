@@ -30,6 +30,7 @@ uses
   xeAutomationCommandsReachability,
   xeAutomationCommandsLocalization,
   xeAutomationCommandsModGroups,
+  xeAutomationCommandsVWD,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsSession,
@@ -127,6 +128,7 @@ begin
     xeAutomationRegisterReachabilityJobs;
     xeAutomationRegisterLocalizationCommands;
     xeAutomationRegisterModGroupCommands;
+    xeAutomationRegisterVWDCommands;
     xeAutomationRegisterRecordsCommands;
     xeAutomationRegisterElementsCommands;
     xeAutomationRegisterBatchCommands;
