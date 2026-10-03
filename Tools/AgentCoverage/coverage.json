@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.37",
+  "contractVersion": "0.38",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -4034,10 +4034,12 @@
         }
       ],
       "profile": "vwd-mesh",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap native resource-based eligibility and override-target behavior; plain flag setters do not reproduce mesh discovery and filtering.",
-      "effect": "plugin mutation -> save + flush",
+      "status": "partial",
+      "routes": [
+        "records.set_vwd_from_mesh"
+      ],
+      "notes": "Bounded native Oblivion exterior/resource predicate; in-place edits or latest-selected override copies into explicit later target. All target/master plans preflight; existing target overrides refuse. Native resource cache applies; runtime not verified.",
+      "effect": "flags/copies/masters in memory -> save + terminal flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -4070,10 +4072,12 @@
         }
       ],
       "profile": "vwd-mesh",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap native resource-based eligibility and override-target behavior; plain flag setters do not reproduce mesh discovery and filtering.",
-      "effect": "plugin mutation -> save + flush",
+      "status": "partial",
+      "routes": [
+        "records.set_vwd_from_mesh"
+      ],
+      "notes": "Bounded native Oblivion exterior/resource predicate; in-place edits or latest-selected override copies into explicit later target. All target/master plans preflight; existing target overrides refuse. Native resource cache applies; runtime not verified.",
+      "effect": "flags/copies/masters in memory -> save + terminal flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -11583,6 +11587,18 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "records.set_vwd_from_mesh",
+      "kind": "command",
+      "handler": "SetFromMesh",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsVWD.pas",
+        "line": 162
+      },
+      "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
+      "effect": "default dry-run resource/target plans; apply flags or override copies in memory -> explicit save + terminal flush; partial outcomes audited",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "records.winning_override",
       "kind": "command",
       "handler": "xeAutomationRecordsWinningOverride",
@@ -11732,7 +11748,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1035
+        "line": 1043
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11744,7 +11760,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1034
+        "line": 1042
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11756,7 +11772,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1033
+        "line": 1041
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11768,7 +11784,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1032
+        "line": 1040
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",

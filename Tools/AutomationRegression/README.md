@@ -1,5 +1,35 @@
 # Automation regression fixtures
 
+## Issue #33: automatic VWD from resources
+
+`records.set_vwd_from_mesh` takes `files` (1..8 loaded plugins, <=1000 total
+records) and optional `targetFile`. `dryRun` defaults true. The native Oblivion
+predicate includes TES4/TES4R; other games and translation mode reject. Plans
+select at most 128 exterior REFRs whose flag is clear and whose NAME base record
+has a native distant-mesh resource. In-place edits require writable owned records.
+Target mode chooses the latest selected version per FormID, skips native source
+errors, preflights every copy/master dependency and copies an override before
+setting VWD. Target must load after every eligible source; existing target
+overrides refuse. Source selection does not silently expand to global winners.
+
+Results contain eligibility, reasons, plans, completed target locators/copy
+outcomes and mutation audit. Apply remains in memory until explicit plugin save
+and terminal flush. Native partial failures retain earlier copies/flags without
+rollback. Resource existence is cached per base record: prepare the VFS resources
+before launch/first scan. This tests existence; it does not certify mesh geometry.
+
+Generate `vwd_fixture.py generate --overlay <dedicated-MO2-overlay>` for classic
+Oblivion. Load Oblivion.esm + AutomationVWDScene.esp + AutomationVWDOutput.esp.
+Run `exercise` with overlay/exe/PID/artifact inputs; relaunch and run `verify`.
+The fixture checks exterior eligibility, missing resources, interior/already-VWD
+skips, target-only copy, repeated target refusal, in-place edits, explicit saves,
+and independently decoded persisted REFR flags. Fresh-process live readback also
+checks the output override identity, VWD flag, required Scene master and resolved
+NAME link. Also test TES4R, TREE billboards,
+multiple selected overrides, persistent world cells, protected/earlier targets,
+missing masters, corrupt links, resource cache behavior, capacity gates and
+partial copy failures. Delphi/native execution remains pending.
+
 ## Issue #32: ModGroups
 
 `modgroups.list` returns native items/validation, canonical `configFile`, `name`,
