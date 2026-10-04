@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.49",
+  "contractVersion": "0.50",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -4427,11 +4427,13 @@
         }
       ],
       "profile": "modified",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.mark_modified",
+        "files.mark_without_onam",
+        "records.apply_filter"
       ],
-      "notes": "Verify explicit MarkModifiedRecursive recipe and without-ONAM selection; report actual changed targets and preserve native game-specific rules.",
+      "notes": "Bounded explicit owned record roots marked recursively with all descendants preflighted; filter hits compose via expectedRevision. Explicit files without native HasONAM get header-only marks. Called/modified-before-after/generation change and partial audit are separate; save explicit. Runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "MarkModifiedRecursive"
@@ -5548,11 +5550,13 @@
         }
       ],
       "profile": "modified",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.mark_modified",
+        "files.mark_without_onam",
+        "records.apply_filter"
       ],
-      "notes": "Verify explicit MarkModifiedRecursive recipe and without-ONAM selection; report actual changed targets and preserve native game-specific rules.",
+      "notes": "Bounded explicit owned record roots marked recursively with all descendants preflighted; filter hits compose via expectedRevision. Explicit files without native HasONAM get header-only marks. Called/modified-before-after/generation change and partial audit are separate; save explicit. Runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "MarkModifiedRecursive"
@@ -8235,11 +8239,13 @@
         }
       ],
       "profile": "modified",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.mark_modified",
+        "files.mark_without_onam",
+        "records.apply_filter"
       ],
-      "notes": "Verify explicit MarkModifiedRecursive recipe and without-ONAM selection; report actual changed targets and preserve native game-specific rules.",
+      "notes": "Bounded explicit owned record roots marked recursively with all descendants preflighted; filter hits compose via expectedRevision. Explicit files without native HasONAM get header-only marks. Called/modified-before-after/generation change and partial audit are separate; save explicit. Runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "MarkModifiedRecursive"
@@ -11166,7 +11172,7 @@
       "handler": "xeAutomationFilesAddMasters",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 599
+        "line": 643
       },
       "prerequisites": "consented writable numeric plugin; all requested masters loaded earlier; no comparison files; native capacity/module gates",
       "effect": "default dry-run; in-memory master header addition/native remap -> explicit save + terminal flush",
@@ -11178,7 +11184,7 @@
       "handler": "xeAutomationFilesAddRequiredMasters",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 598
+        "line": 642
       },
       "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11202,7 +11208,7 @@
       "handler": "xeAutomationFilesCreate",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 597
+        "line": 641
       },
       "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11214,7 +11220,7 @@
       "handler": "xeAutomationFilesGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 596
+        "line": 640
       },
       "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
       "effect": "read-only; no plugin persistence",
@@ -11250,10 +11256,22 @@
       "handler": "xeAutomationFilesList",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 595
+        "line": 639
       },
       "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
       "effect": "read-only; no plugin persistence",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "files.mark_without_onam",
+      "kind": "command",
+      "handler": "xeAutomationFilesMarkWithoutOnam",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsFiles.pas",
+        "line": 644
+      },
+      "prerequisites": "<=32 explicit writable nontranslation plugins; consent; optional expectedRevision",
+      "effect": "default dry-run or native HasONAM-filtered header serialization markers -> explicit save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -11598,7 +11616,7 @@
       "handler": "xeAutomationRecordsApplyFilter",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1929
+        "line": 2001
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11610,7 +11628,7 @@
       "handler": "xeAutomationRecordsBaseRecord",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1931
+        "line": 2004
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11622,7 +11640,7 @@
       "handler": "xeAutomationRecordsConflictStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1937
+        "line": 2010
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11634,7 +11652,7 @@
       "handler": "xeAutomationRecordsCopyIdleTree",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1934
+        "line": 2007
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "default dry-run plan; apply creates idle copies, changes models/internal references in memory -> save + flush",
@@ -11646,7 +11664,7 @@
       "handler": "xeAutomationRecordsCopyInto",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1933
+        "line": 2006
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11658,7 +11676,7 @@
       "handler": "xeAutomationRecordsCreate",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1932
+        "line": 2005
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11670,7 +11688,7 @@
       "handler": "xeAutomationRecordsDelete",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1935
+        "line": 2008
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11682,7 +11700,7 @@
       "handler": "xeAutomationRecordsFilterOptions",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1930
+        "line": 2002
       },
       "prerequisites": "registered command; reports native game/domain gates",
       "effect": "read-only predicate/preset/exclusion discovery; no persistence",
@@ -11694,7 +11712,7 @@
       "handler": "xeAutomationRecordsFindByEditorID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1941
+        "line": 2014
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11706,7 +11724,7 @@
       "handler": "xeAutomationRecordsFindByFormID",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1940
+        "line": 2013
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11718,7 +11736,7 @@
       "handler": "xeAutomationRecordsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1942
+        "line": 2015
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11730,7 +11748,7 @@
       "handler": "xeAutomationRecordsList",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1928
+        "line": 2000
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11742,10 +11760,22 @@
       "handler": "xeAutomationRecordsMarkDeleted",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1936
+        "line": 2009
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "records.mark_modified",
+      "kind": "command",
+      "handler": "xeAutomationRecordsMarkModified",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsRecords.pas",
+        "line": 2003
+      },
+      "prerequisites": "consented owned writable nontranslation roots; <=32 nonoverlapping targets; <=50000 elements/32 depth; optional selection revision",
+      "effect": "default dry-run or recursive native serialization markers in memory -> explicit save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -11754,7 +11784,7 @@
       "handler": "xeAutomationRecordsMasterOrSelf",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1943
+        "line": 2016
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11766,7 +11796,7 @@
       "handler": "xeAutomationRecordsReferencedBy",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1939
+        "line": 2012
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11778,7 +11808,7 @@
       "handler": "xeAutomationRecordsReferences",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1938
+        "line": 2011
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -11814,7 +11844,7 @@
       "handler": "xeAutomationRecordsWinningOverride",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1944
+        "line": 2017
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "read-only; no plugin persistence",
@@ -12114,7 +12144,7 @@
       "handler": "xeAutomationInjectedCleanupJob",
       "source": {
         "file": "xEdit/xeAutomationCommandsRecords.pas",
-        "line": 1926
+        "line": 1998
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "default dry-run plan; apply preserves overrides in injection provider then removes source references in memory -> save both + flush",

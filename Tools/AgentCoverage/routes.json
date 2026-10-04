@@ -622,11 +622,13 @@
       "scriptSymbols": []
     },
     "modified": {
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.mark_modified",
+        "files.mark_without_onam",
+        "records.apply_filter"
       ],
-      "notes": "Verify explicit MarkModifiedRecursive recipe and without-ONAM selection; report actual changed targets and preserve native game-specific rules.",
+      "notes": "Bounded explicit owned record roots marked recursively with all descendants preflighted; filter hits compose via expectedRevision. Explicit files without native HasONAM get header-only marks. Called/modified-before-after/generation change and partial audit are separate; save explicit. Runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "MarkModifiedRecursive"
@@ -1582,6 +1584,14 @@
     },
     "logs.analyze": {
       "effect": "read-only native log record attribution; no plugin save"
+    },
+    "records.mark_modified": {
+      "effect": "default dry-run or recursive native serialization markers in memory -> explicit save + flush",
+      "prerequisites": "consented owned writable nontranslation roots; <=32 nonoverlapping targets; <=50000 elements/32 depth; optional selection revision"
+    },
+    "files.mark_without_onam": {
+      "effect": "default dry-run or native HasONAM-filtered header serialization markers -> explicit save + flush",
+      "prerequisites": "<=32 explicit writable nontranslation plugins; consent; optional expectedRevision"
     }
   }
 }

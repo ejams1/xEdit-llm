@@ -24,6 +24,7 @@ implementation
 uses
   Classes,
   SysUtils,
+  System.Generics.Collections,
   wbImplementation,
   wbLoadOrder,
   xeAutomationErrors,
@@ -1919,6 +1920,77 @@ begin
   Result := xeAutomationNewRecordResponseWithParents(lRecord, xeAutomationReadIncludeParentsArg(AArgs));
 end;
 
+function xeAutomationRecordsMarkModified(const Args: TJsonObject): TJsonObject;
+var Targets: TList<IwbMainRecord>; R: IwbMainRecord; Locator: TxeAutomationLocator;
+  Row: TJsonObject; i, Visits, BeforeGeneration: Integer; Dry, Specified: Boolean;
+  Denied: string; Snapshot: TxeAutomationMutationSnapshot;
+  PreviousProgress: TwbProgressCallback;
+  procedure CheckTree(const E: IwbElement; const Root: IwbMainRecord; Depth: Integer);
+  var C: IwbContainerElementRef; M: IwbMainRecord; j: Integer;
+  begin
+    Inc(Visits);
+    if (Visits > 50000) or (Depth > 32) then raise xeAutomationNewError('mark_capacity', 'Recursive mark scope exceeds 50000 elements/32 levels');
+    if not E._File.Equals(Root._File) then raise xeAutomationInvalidTarget('Mark descendants must be owned by the target plugin');
+    if Supports(E, IwbMainRecord, M) then begin
+      if not M.Equals(Root) and Targets.Contains(M) then raise xeAutomationInvalidRequest('Recursive mark targets overlap');
+      xeAutomationRequireWritableRootRecordTarget(M);
+      if Assigned(M.ChildGroup) then CheckTree(M.ChildGroup, Root, Depth+1);
+    end;
+    if Supports(E, IwbContainerElementRef, C) then
+      for j := 0 to C.ElementCount - 1 do CheckTree(C.Elements[j], Root, Depth+1);
+  end;
+begin
+  if wbTranslationMode then raise xeAutomationMutationNotAllowed('Recursive mark is unavailable in translation mode');
+  if not Args.Contains('records') or (Args.Types['records'] <> jdtArray) or
+    (Args.A['records'].Count < 1) or (Args.A['records'].Count > 32) then
+    raise xeAutomationInvalidRequest('records must contain 1..32 owned record roots; resolve filter hits first');
+  Dry := xeAutomationReadBooleanArg(Args, 'dryRun', Specified); if not Specified then Dry := True;
+  if not Dry and not xeAutomationMutationPolicyConsentSatisfied(Denied) then
+    Exit(xeAutomationErrorsBuildConsentRequired('records.mark_modified', 'plugin-mutation', Denied));
+  if Args.Contains('expectedRevision') and (xeAutomationRequireStringArg(Args, 'expectedRevision') <> UIntToStr(wbGlobalModifedGeneration)) then
+    raise xeAutomationNewError('stale_revision', 'Filter selection revision changed; reselect targets');
+  Targets := TList<IwbMainRecord>.Create; Result := TJsonObject.Create;
+  try
+    try
+      for i := 0 to Args.A['records'].Count - 1 do begin
+        if Args.A['records'].Types[i] <> jdtObject then raise xeAutomationInvalidRequest('Record targets must be locator objects');
+        Locator := xeAutomationParseLocator(Args.A['records'].O[i], True, False);
+        if Locator.Path <> '' then raise xeAutomationInvalidRequest('Mark targets must be record roots');
+        R := xeAutomationRequireOwnedMainRecord(Locator); xeAutomationRequireWritableRootRecordTarget(R);
+        if Targets.Contains(R) then raise xeAutomationInvalidRequest('Duplicate mark target'); Targets.Add(R);
+      end;
+      Visits := 0; for R in Targets do CheckTree(R, R, 0);
+      Result.B['dryRun'] := Dry; Result.I['preflightElements'] := Visits;
+      Result.S['persistence'] := 'native recursive serialization markers in memory; explicit save + terminal flush';
+      Result.S['selection'] := 'explicit roots; compose records.apply_filter then send hit locators and expectedRevision';
+      Snapshot := xeAutomationCaptureMutationSnapshot;
+      PreviousProgress := _wbProgressCallback; _wbProgressCallback := nil;
+      try
+        for i := 0 to Targets.Count - 1 do begin
+          R := Targets[i]; Row := Result.A['records'].AddObject;
+          Row.S['file'] := R._File.FileName; Row.S['formId'] := R.LoadOrderFormID.ToString(False);
+          Row.B['modifiedBefore'] := R.Modified; Row.S['outcome'] := 'planned';
+          BeforeGeneration := R.ElementGeneration;
+          if not Dry then begin
+            try R.MarkModifiedRecursive(AllElementTypes); Row.S['outcome'] := 'called';
+            except on E: Exception do begin
+              Row.S['outcome'] := 'failed'; Result.O['failure'].S['code'] := 'mark_modified_failed';
+              Result.O['failure'].S['message'] := E.Message; Result.O['failure'].I['index'] := i;
+            end; end;
+          end;
+          Row.B['modifiedAfter'] := R.Modified; Row.B['generationChanged'] := R.ElementGeneration <> BeforeGeneration;
+          Result.B['requiresSave'] := Result.B['requiresSave'] or (not Dry and R.Modified);
+          if Result.Contains('failure') then Break;
+        end;
+      finally _wbProgressCallback := PreviousProgress; end;
+      xeAutomationWriteMutationAudit(Result.O['mutationState'], Snapshot);
+      Result.B['changed'] := Result.O['mutationState'].B['mutationsObserved'];
+      Result.B['complete'] := not Result.Contains('failure'); Result.B['partial'] := not Result.B['complete'] and Result.B['changed'];
+      if Result.B['changed'] then xeAutomationInvalidateRecordQueries;
+    except Result.Free; raise; end;
+  finally Targets.Free; end;
+end;
+
 procedure xeAutomationRegisterRecordsCommands;
 begin
   // Cleanup shares native copy/dependency planning with records.copy_into;
@@ -1928,6 +2000,7 @@ begin
   xeAutomationRegisterCommand('records.list', xeAutomationRecordsList);
   xeAutomationRegisterCommand('records.apply_filter', xeAutomationRecordsApplyFilter);
   xeAutomationRegisterCommand('records.filter_options', xeAutomationRecordsFilterOptions);
+  xeAutomationRegisterCommand('records.mark_modified', xeAutomationRecordsMarkModified);
   xeAutomationRegisterCommand('records.base_record', xeAutomationRecordsBaseRecord);
   xeAutomationRegisterCommand('records.create', xeAutomationRecordsCreate);
   xeAutomationRegisterCommand('records.copy_into', xeAutomationRecordsCopyInto);
