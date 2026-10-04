@@ -644,7 +644,64 @@ recursive child-overrides, duplicate forward/reverse links, missing/rebuilt
 reference index, regex pathological patterns and projection of nested element
 wrappers in the MO2 test pass. Compilation and these native cases are pending.
 
-## Issue #14: retained validation steps (contract 0.57)
+## Issue #14: retained combined cleaning steps (contract 0.58)
+
+`cleaning.quick_clean`, `cleaning.quick_auto_clean` and
+`cleaning.sort_and_clean_masters` now retain their current operation between
+`jobs.get` calls. Collection and processing use at most 128 actions per poll;
+apply uses at most 16 native record mutations per poll. The 20ms budget is soft:
+native initialization, comparisons, mutations and mutation audits remain
+indivisible. Native `SortMasters` and `CleanMasters` occupy separate polls so
+cancellation after sort does not enter clean. Either call can still take a long
+time internally; this does not complete all responsiveness acceptance for #14.
+
+Combined cleaning preserves the existing full-file scope, without adopting the
+selective jobs' 1000-record or validation traversal-depth limits. An explicit
+stack collects owned main records in native preorder before the ITM phase.
+Parents are therefore classified before children, preserving the native
+`itm-has-children` removal guard. The UDR phase collects a fresh preorder list
+after ITM finishes. Each processed record releases its retained reference.
+The queue can grow with the current file, as the original full-file collection
+did; progress exposes its size rather than promising fixed memory usage.
+
+`progress.detail` reports phase, visited elements, collected/processed/retained
+records, retained depth, native mutation count and last copied record locator.
+`result.files` retains a separate row per operation, with incremental counts,
+mutation audit and `complete:false` until aggregate findings are admitted.
+`workComplete` distinguishes finished native work from report admission. Master
+rows expose separate sort/clean outcomes, including `not_started` after early
+cancellation. Findings remain aggregate stage findings, allowing files larger
+than the selective jobs' limit without creating one finding per record.
+Cancellation preserves completed stages, current partial counts, dirty state
+and admitted findings; it releases native references and does not roll back
+changes or save. Native UDR settings are captured per stage and rechecked before
+each write. A failed native call may have made changes even when its applied
+counter was not incremented; consult the mutation audit and failure details.
+
+Compile LiteDebug with licensed Delphi, enable all six generated plugins in a
+fresh FO4 MO2 overlay and launch a fresh consent-enabled daemon:
+
+```powershell
+python Tools/AutomationRegression/combined_step_fixture.py generate --overlay <new-MO2-mod-folder>
+python Tools/AutomationRegression/combined_step_fixture.py exercise --overlay <new-MO2-mod-folder> --exe <trusted-exe> --pid <daemon-pid> --artifacts <new-capture-folder>
+# Relaunch a fresh daemon after save/flush exits the exercise process:
+python Tools/AutomationRegression/combined_step_fixture.py verify --overlay <new-MO2-mod-folder> --exe <trusted-exe> --pid <fresh-daemon-pid> --artifacts <new-readback-folder>
+```
+
+The fixture has 1400 keyword overrides, 600 deleted references and a deleted
+NAVM control. A CELL with a lower-FormID identical child detects accidental
+FormID-sorted traversal: the child is removed while its parent must remain.
+The runner cancels during read-only collection, after 1..16 ITM writes, during
+UDR collection after ITM findings, and between sort/clean master phases. It
+checks partial counters against loaded records, terminal ownership release,
+write blocking, full dry runs, completion, aggregate finding counts, unused
+master removal, unchanged disk bytes before explicit save/flush and independent
+fresh-process saved IDs/flags. `combined-steps.json` retains poll timings including
+client/IPC overhead; it does not assert a hard latency bound. Python fixture
+integrity/assertion tests are available locally. Delphi compilation and native
+exercise/readback are pending.
+
+## Issue #14: retained validation steps (contract 0.58)
 
 `validation.check_for_errors`, `validation.check_for_itm` and
 `validation.check_for_deleted_refs` retain a preorder traversal cursor within a
@@ -705,7 +762,8 @@ disposable loaded plugins.
 
 Python integrity/runner tests pass independently of xEdit. Delphi compilation
 and the above game-backed phases have **not** run locally. Issue #14 remains
-open: cleaning, compaction, reference construction, reachability
+open: indivisible native master cleaning, other cleaning/hygiene operations,
+compaction, reference construction, reachability
 and LOD still contain larger native units, and no hard latency guarantee is made.
 
 ## Issue #25: injected-reference cleanup

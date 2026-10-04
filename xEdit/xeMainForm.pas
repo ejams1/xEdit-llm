@@ -1305,6 +1305,8 @@ function xeAutomationRecordIsDeletedRefCandidate(const ARecord: IwbMainRecord): 
 procedure xeAutomationUndeleteAndDisableRefInMemory(const ARecord: IwbMainRecord);
 function xeAutomationIdenticalRecordRemovalReason(const ARecord: IwbMainRecord): string;
 function xeAutomationDeletedRefCanBeCleaned(const ARecord: IwbMainRecord; out ADeletedNavmesh: Boolean): Boolean;
+function xeAutomationMasterHygieneInMemory(const AFile: IwbFile; const AApply, ASort: Boolean;
+  out APlanned, AApplied, ASkipped: Integer): Boolean;
 function xeAutomationSortAndCleanMastersInMemory(const AFile: IwbFile; const AApply: Boolean;
   out ASortPlanned, ASortApplied, ASortSkipped, ACleanPlanned, ACleanApplied, ACleanSkipped: Integer): Boolean;
 
@@ -1532,68 +1534,56 @@ begin
   Result := AApplied > 0;
 end;
 
-function xeAutomationSortAndCleanMastersInMemory(const AFile: IwbFile; const AApply: Boolean;
-  out ASortPlanned, ASortApplied, ASortSkipped, ACleanPlanned, ACleanApplied, ACleanSkipped: Integer): Boolean;
+function xeAutomationMasterHygieneInMemory(const AFile: IwbFile; const AApply, ASort: Boolean;
+  out APlanned, AApplied, ASkipped: Integer): Boolean;
 var
-  lBefore: TStringList;
-  lAfterSort: TStringList;
-  lAfterClean: TStringList;
+  lBefore, lAfter: TStringList;
   i: Integer;
+  lEqual: Boolean;
 
   procedure CaptureMasterList(const AList: TStringList);
   var
     j: Integer;
   begin
-    AList.Clear;
     for j := 0 to Pred(AFile.MasterCount[True]) do
       AList.Add(AFile.Masters[j, True].FileName);
   end;
-
-  function MasterListsEqual(const ALeft, ARight: TStringList): Boolean;
-  var
-    j: Integer;
-  begin
-    Result := ALeft.Count = ARight.Count;
-    if not Result then
-      Exit;
-    for j := 0 to Pred(ALeft.Count) do
-      if not SameText(ALeft[j], ARight[j]) then
-        Exit(False);
-  end;
 begin
-  ASortPlanned := 1;
-  ASortApplied := 0;
-  ASortSkipped := 0;
-  ACleanPlanned := 1;
-  ACleanApplied := 0;
-  ACleanSkipped := 0;
-  if not AApply then
-    Exit(False);
-
+  APlanned := 1;
+  AApplied := 0;
+  ASkipped := 0;
+  if not AApply then Exit(False);
   lBefore := TStringList.Create;
-  lAfterSort := TStringList.Create;
-  lAfterClean := TStringList.Create;
+  lAfter := TStringList.Create;
   try
     CaptureMasterList(lBefore);
-    AFile.SortMasters;
-    CaptureMasterList(lAfterSort);
-    if MasterListsEqual(lBefore, lAfterSort) then
-      ASortSkipped := 1
-    else
-      ASortApplied := 1;
-
-    AFile.CleanMasters;
-    CaptureMasterList(lAfterClean);
-    if MasterListsEqual(lAfterSort, lAfterClean) then
-      ACleanSkipped := 1
-    else
-      ACleanApplied := 1;
-    Result := (ASortApplied + ACleanApplied) > 0;
+    if ASort then AFile.SortMasters else AFile.CleanMasters;
+    CaptureMasterList(lAfter);
+    lEqual := lBefore.Count = lAfter.Count;
+    if lEqual then
+      for i := 0 to Pred(lBefore.Count) do
+        if not SameText(lBefore[i], lAfter[i]) then begin
+          lEqual := False;
+          Break;
+        end;
+    if lEqual then ASkipped := 1 else AApplied := 1;
+    Result := AApplied > 0;
   finally
-    lAfterClean.Free;
-    lAfterSort.Free;
+    lAfter.Free;
     lBefore.Free;
   end;
+end;
+
+function xeAutomationSortAndCleanMastersInMemory(const AFile: IwbFile; const AApply: Boolean;
+  out ASortPlanned, ASortApplied, ASortSkipped, ACleanPlanned, ACleanApplied, ACleanSkipped: Integer): Boolean;
+begin
+  // Compatibility seam shares each native operation with the retained job.
+  // Initialize every output before sort can fail, as the original seam did.
+  ASortPlanned := 1; ASortApplied := 0; ASortSkipped := 0;
+  ACleanPlanned := 1; ACleanApplied := 0; ACleanSkipped := 0;
+  xeAutomationMasterHygieneInMemory(AFile, AApply, True, ASortPlanned, ASortApplied, ASortSkipped);
+  xeAutomationMasterHygieneInMemory(AFile, AApply, False, ACleanPlanned, ACleanApplied, ACleanSkipped);
+  Result := (ASortApplied + ACleanApplied) > 0;
 end;
 
 function wbFormatElapsedTime(aElapsed: double): string;

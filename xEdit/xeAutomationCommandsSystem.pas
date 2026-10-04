@@ -593,7 +593,8 @@ begin
         ATarget.S['constraintNotes'] := 'Retained root/graph/report/unwind steps; <=128 actions and soft 20ms checkpoint per poll; graph depth <=1024, visited winning records <=100000 per file; same-signature winning edges, LVLI/LVLC/LVLN/LVSP roots; no shared native tags; native calls indivisible; partial canceled/failed findings';
     end else if SameText(AKind, 'cleaning.quick_clean') or SameText(AKind, 'cleaning.quick_auto_clean') or
                 SameText(AKind, 'cleaning.sort_and_clean_masters') then begin
-      xeAutomationSchemaEffects(ATarget, 'Writable selected files and native game/cleaning predicates; consent for apply', 'native cleaning/master hygiene in memory; explicit save/flush; one native file may still block a poll');
+      xeAutomationSchemaEffects(ATarget, 'Writable selected files and native game/cleaning predicates; consent for apply', 'retained full-file native cleaning/master hygiene in memory; explicit save/flush; partial operations retained on cancel/failure');
+      ATarget.S['constraintNotes'] := 'Preorder collection before each ITM/UDR phase; full-file scope without selective record/depth caps; <=128 actions and <=16 native mutations per poll, soft 20ms checkpoints; native calls indivisible; sort and clean masters in separate polls; aggregate stage findings';
     end else begin
       ATarget.B['jobSchemaAvailable'] := False;
       ATarget.S['constraintNotes'] := 'Registered future kind has no authored target/options descriptor yet';
@@ -1170,7 +1171,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.57';
+  Result.S['contractVersion'] := '0.58';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1356,7 +1357,7 @@ begin
     I['workLimit'] := xeAutomationJobStepWorkLimit;
     I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
     I['depthLimit'] := xeAutomationJobStepDepthLimit;
-    S['depthLimitAppliesTo'] := 'element traversal for errors/ITM/deleted refs; circular graph uses kindLimits';
+    S['depthLimitAppliesTo'] := 'validation errors/ITM/deleted refs only; circular graph uses kindLimits; combined cleaning preserves uncapped native file scope';
     with O['kindLimits'].O['validation.circular_leveled_lists'] do begin
       I['depthLimit'] := xeAutomationCircularDepthLimit;
       I['visitedLimit'] := xeAutomationCircularVisitedLimit;
@@ -1366,6 +1367,18 @@ begin
       I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
     with O['kindLimits'].O['cleaning.undelete_and_disable_refs'] do
       I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
+    with O['kindLimits'].O['cleaning.quick_clean'] do begin
+      I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
+      S['scope'] := 'full current file; preorder roots retained during each ITM/UDR stage';
+    end;
+    with O['kindLimits'].O['cleaning.quick_auto_clean'] do begin
+      I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
+      S['scope'] := 'full current file; separate sort/clean master polls, then preorder ITM/UDR stages';
+    end;
+    with O['kindLimits'].O['cleaning.sort_and_clean_masters'] do begin
+      I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
+      S['scope'] := 'separate indivisible native sort/clean master calls';
+    end;
     B['nativeCallsPreemptible'] := False;
     S['progress'] := 'progress.detail describes the retained current/last file; completed counts fully finished targets only';
     S['findings'] := 'findingsComplete only on success; canceled/failed jobs retain partial rows/findings; capacity failures keep admitted findings';
