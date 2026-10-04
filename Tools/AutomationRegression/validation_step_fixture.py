@@ -42,7 +42,7 @@ def validate_progress(state):
     assert progress["remaining"] == progress["total"] - progress["completed"], state
     detail = progress["detail"]
     assert 0 <= detail["lastWorkUnits"] <= detail["workLimit"] == 128, state
-    assert 0 <= detail["retainedDepth"] <= 64, state
+    assert 0 <= detail["retainedDepth"] <= detail.get("depthLimit", 64), state
     assert detail["softBudgetMs"] == 20 and not detail["nativeCallsPreemptible"], state
     assert state["findingsComplete"] == (state["state"] == "succeeded"), state
     if state["state"] in ("succeeded", "failed", "canceled"):

@@ -587,7 +587,9 @@ begin
       xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:always-normalized-true', False);
       xeAutomationSchemaEffects(ATarget, 'Loaded scope and native check predicates; circular leveled-list check excludes TES3; no mutation consent needed', 'validation only; findings/derived native traversal state; plugins unchanged');
       if not SameText(AKind, 'validation.circular_leveled_lists') then
-        ATarget.S['constraintNotes'] := 'Retained within-file traversal; <=128 traversal actions and soft 20ms checkpoint per poll, depth <=64; native calls indivisible; findings <=5000/1MiB; canceled/failed findings incomplete';
+        ATarget.S['constraintNotes'] := 'Retained within-file traversal; <=128 traversal actions and soft 20ms checkpoint per poll, depth <=64; native calls indivisible; findings <=5000/1MiB; canceled/failed findings incomplete'
+      else
+        ATarget.S['constraintNotes'] := 'Retained root/graph/report/unwind steps; <=128 actions and soft 20ms checkpoint per poll; graph depth <=1024, visited winning records <=100000 per file; same-signature winning edges, LVLI/LVLC/LVLN/LVSP roots; no shared native tags; native calls indivisible; partial canceled/failed findings';
     end else if SameText(AKind, 'cleaning.quick_clean') or SameText(AKind, 'cleaning.quick_auto_clean') or
                 SameText(AKind, 'cleaning.sort_and_clean_masters') then begin
       xeAutomationSchemaEffects(ATarget, 'Writable selected files and native game/cleaning predicates; consent for apply', 'native cleaning/master hygiene in memory; explicit save/flush; one native file may still block a poll');
@@ -1167,7 +1169,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.55';
+  Result.S['contractVersion'] := '0.56';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1352,6 +1354,12 @@ begin
     I['workLimit'] := xeAutomationJobStepWorkLimit;
     I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
     I['depthLimit'] := xeAutomationJobStepDepthLimit;
+    S['depthLimitAppliesTo'] := 'element traversal for errors/ITM/deleted refs; circular graph uses kindLimits';
+    with O['kindLimits'].O['validation.circular_leveled_lists'] do begin
+      I['depthLimit'] := xeAutomationCircularDepthLimit;
+      I['visitedLimit'] := xeAutomationCircularVisitedLimit;
+      B['usesSharedNativeTags'] := False;
+    end;
     B['nativeCallsPreemptible'] := False;
     S['progress'] := 'progress.detail describes the retained current/last file; completed counts fully traversed files only';
     S['findings'] := 'findingsComplete only on success; canceled/failed jobs retain partial rows/findings; capacity failures keep admitted findings';

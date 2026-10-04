@@ -358,7 +358,7 @@
       "routes": [
         "validation.circular_leveled_lists"
       ],
-      "notes": "Native circular checker scans winning LVLI/LVLC/LVLN/LVSP roots, returns structured cycle-name paths and file progress. TES3 is unsupported; game-backed verification remains pending.",
+      "notes": "Cooperative circular graph checker shares native edge selection with the GUI, scans winning LVLI/LVLC/LVLN/LVSP roots and reports bounded cycle-name/locator paths and partial progress. Uses local visited/active state without shared tags. TES3 is unsupported; native build/game verification remains pending.",
       "effect": "read-only",
       "scriptSymbols": []
     },
@@ -917,7 +917,7 @@
       "effect": "list/read pure; script storage writes immediate; run may mutate plugins -> save + flush"
     },
     "jobs": {
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref/circular validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "validation/analysis/dry-run reads; cleaning/hygiene/ESL apply mutates plugins -> save + flush"
     },
     "localization": {
@@ -1481,7 +1481,7 @@
       "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence"
     },
     "validation.circular_leveled_lists": {
-      "effect": "read-only native cycle validation; transient tags reset; no plugin persistence"
+      "effect": "read-only cooperative native-edge cycle validation; local graph state, no shared tags; partial rows/findings on cancel/failure; no plugin persistence"
     },
     "elements.get_value": {
       "effect": "read-only; full edit/native values; no plugin persistence"

@@ -118,6 +118,13 @@ type
     rllcMainRecord : IwbMainRecord;
   end;
 
+// Shared native edge selection for recursive GUI and cooperative automation checks.
+function wbLeveledListEntryReferencePath(const aSignature: TwbSignature): string;
+function wbLeveledListEntries(const aMainRecord: IwbMainRecord; out aEntries: IwbContainerElementRef): Boolean;
+function wbLeveledListEntryTarget(const aMainRecord: IwbMainRecord;
+  const aEntries: IwbContainerElementRef; const aIndex: Integer;
+  const aRefPath: string; out aTarget: IwbMainRecord): Boolean;
+
 procedure wbLeveledListCheckCircular(const aMainRecord: IwbMainRecord; aStack: PnxLeveledListCheckCircularStack);
 
 function wbExtractNameFromPath(aPathName: String): String;
@@ -268,16 +275,54 @@ begin
     SetLength(Result, Length(Result) - Length(csDotGhost));
 end;
 
+function wbLeveledListEntryReferencePath(const aSignature: TwbSignature): string;
+begin
+  Result := '';
+  if aSignature = 'LVLB' then Result := 'Base Form';
+  if aSignature = 'LVLC' then Result := 'Creature';
+  if aSignature = 'LVLI' then Result := 'Item';
+  if aSignature = 'LVLN' then Result := 'NPC';
+  if aSignature = 'LVLP' then Result := 'Pack In';
+  if aSignature = 'LVPC' then Result := 'Perk Card';
+  if aSignature = 'LVSC' then Result := 'Space Cell';
+  if aSignature = 'LVSP' then Result := 'Spell';
+  if not wbIsOblivion then Result := 'LVLO\' + Result;
+end;
+
+function wbLeveledListEntries(const aMainRecord: IwbMainRecord; out aEntries: IwbContainerElementRef): Boolean;
+var
+  Container: IwbContainerElementRef;
+begin
+  aEntries := nil;
+  Result := False;
+  if Supports(aMainRecord, IwbContainerElementRef, Container) then
+    Result := Supports(Container.ElementByName['Leveled List Entries'], IwbContainerElementRef, aEntries);
+end;
+
+function wbLeveledListEntryTarget(const aMainRecord: IwbMainRecord;
+  const aEntries: IwbContainerElementRef; const aIndex: Integer;
+  const aRefPath: string; out aTarget: IwbMainRecord): Boolean;
+var
+  Entry: IwbContainerElementRef;
+  Reference: IwbElement;
+  MainRecord: IwbMainRecord;
+begin
+  aTarget := nil;
+  Result := False;
+  if not Supports(aEntries.Elements[aIndex], IwbContainerElementRef, Entry) then Exit;
+  if not Supports(Entry.ElementByPath[aRefPath], IwbElement, Reference) then Exit;
+  if not Supports(Reference.LinksTo, IwbMainRecord, MainRecord) then Exit;
+  if MainRecord.Signature <> aMainRecord.Signature then Exit;
+  aTarget := MainRecord.WinningOverride;
+  Result := True;
+end;
+
 procedure wbLeveledListCheckCircular(const aMainRecord: IwbMainRecord; aStack: PnxLeveledListCheckCircularStack);
 var
   Stack      : TnxLeveledListCheckCircularStack;
-  s, s1      : string;
-  CER        : IwbContainerElementRef;
+  s          : string;
   Entries    : IwbContainerElementRef;
-  Entry      : IwbContainerElementRef;
   i          : Integer;
-  Sig        : TwbSignature;
-  Reference  : IwbElement;
   MainRecord : IwbMainRecord;
   RefPath    : string;
 begin
@@ -305,36 +350,11 @@ begin
     Exit;
   aMainRecord.Tag;
 
-  Sig := aMainRecord.Signature;
-  if Sig = 'LVLB' then s1 := 'Base Form';
-  if Sig = 'LVLC' then s1 := 'Creature';
-  if Sig = 'LVLI' then s1 := 'Item';
-  if Sig = 'LVLN' then s1 := 'NPC';
-  if Sig = 'LVLP' then s1 := 'Pack In';
-  if Sig = 'LVPC' then s1 := 'Perk Card';
-  if Sig = 'LVSC' then s1 := 'Space Cell';
-  if Sig = 'LVSP' then s1 := 'Spell';
-
-  if wbIsOblivion then
-    RefPath := s1
-  else
-    RefPath := 'LVLO\' + s1;
-
-  if Supports(aMainRecord, IwbContainerElementRef, CER) then begin
-    if Supports(CER.ElementByName['Leveled List Entries'], IwbContainerElementRef, Entries) then begin
-      for i := 0 to Pred(Entries.ElementCount) do
-        if Supports(Entries.Elements[i], IwbContainerElementRef, Entry) then begin
-          if Supports(Entry.ElementByPath[RefPath], IwbElement, Reference) then begin
-            if Supports(Reference.LinksTo, IwbMainRecord, MainRecord) then begin
-              if (MainRecord.Signature = aMainRecord.Signature) then begin
-                MainRecord := MainRecord.WinningOverride;
-                wbLeveledListCheckCircular(MainRecord, @Stack);
-              end;
-            end;
-          end;
-        end;
-    end;
-  end;
+  RefPath := wbLeveledListEntryReferencePath(aMainRecord.Signature);
+  if wbLeveledListEntries(aMainRecord, Entries) then
+    for i := 0 to Pred(Entries.ElementCount) do
+      if wbLeveledListEntryTarget(aMainRecord, Entries, i, RefPath, MainRecord) then
+        wbLeveledListCheckCircular(MainRecord, @Stack);
 end;
 
 function Vec3Subtract(out vOut: TwbVector; const v1, v2: TwbVector): TwbVector;

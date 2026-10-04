@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 import struct
 from itm_fixture import Client, record, subrecord
+from validation_step_fixture import finish
 
 PLUGIN = "AutomationCircularLists.esp"
 SIGNATURES = (b"LVLI", b"LVLN", b"LVSP")
@@ -39,7 +40,7 @@ def exercise(client):
     job = client.call("jobs.start", kind="validation.circular_leveled_lists",
                       target={"files": [PLUGIN]})
     assert job["dryRun"] and job["progress"]["total"] == 1, job
-    job = client.call("jobs.get", jobId=job["jobId"])
+    job = finish(client, job["jobId"], [])
     assert job["state"] == "succeeded", job
     assert job["progress"]["completed"] == 1, job
     assert job["summary"]["cycleCount"] >= 3, job
