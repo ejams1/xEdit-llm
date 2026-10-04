@@ -1118,6 +1118,8 @@ begin
     raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode, 'Reference/reachability filters require numeric TES4 records');
   if Result.HasPrecombinedMesh and not (wbIsFallout4 or wbIsFallout76) then
     raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode, 'Precombined mesh filtering requires Fallout4/76');
+  if Result.HasVWDMesh and not Assigned(wbContainerHandler) then
+    raise xeAutomationStateConflict('hasVWDMesh requires the loaded native resource container; unavailable resource state is not a false match');
   Result.ConflictAll := xeAutomationReadConflictAllSetArg(AArgs, 'conflictAll', Result.UseConflictAll);
   Result.ConflictThis := xeAutomationReadConflictThisSetArg(AArgs, 'conflictThis', Result.UseConflictThis);
   lPreset := xeAutomationReadStringArg(AArgs, 'preset');
