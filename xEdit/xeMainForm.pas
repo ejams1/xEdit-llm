@@ -1290,6 +1290,10 @@ procedure DoProcessMessages;
 procedure xeApplyFontAndScale(aForm: TForm);
 
 function IsPositionChanged(MainRecord: IwbMainRecord): Boolean;
+// Automation reuses the native persistence candidates without applying a GUI
+// filter or silently constructing reference indexes during a query.
+function IsUnnecessaryPersistent(MainRecord: IwbMainRecord): Boolean;
+function IsMasterTemporary(MainRecord: IwbMainRecord): Boolean;
 
 function xeAutomationCleanIdenticalToMasterInMemory(const AFile: IwbFile; const AApply: Boolean;
   out APlanned, AApplied, ASkipped: Integer): Boolean;

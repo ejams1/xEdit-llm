@@ -72,6 +72,7 @@ procedure wbFileForceClosed;
 // Zero disables the automation-only visit limit; GUI behavior stays unbounded.
 var wbAutomationReachabilityBudget: Integer;
 procedure wbAutomationReachRoot(const ARecord: IwbMainRecord);
+function wbAutomationReferenceIndexIsCurrent(const AFile: IwbFile): Boolean;
 
 function StartsWith(const s, t: string): Boolean;
 
@@ -549,6 +550,7 @@ type
     procedure UpdateNameSuffixes;
 
     function ResolveElementName(aName: string; out aRemainingName: string; aCanCreate: Boolean = False): IwbElement;
+    function ReferenceIndexIsCurrent: Boolean;
   end;
 
   TwbContainer = class(TwbElement, IwbContainerElementRef, IwbContainer, IwbContainerInternal)
@@ -605,6 +607,7 @@ type
     procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override;
     function UpdateMemoryOrder(out aMemoryOrderElements: TArray<Pointer>): Boolean;
     procedure BuildRef; override;
+    function ReferenceIndexIsCurrent: Boolean;
     procedure MarkModifiedRecursive(const aElementTypes: TwbElementTypes); override;
 
     function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override;
@@ -7449,6 +7452,20 @@ begin
       else
         Result := tbFalse;
    end;
+end;
+
+function TwbContainer.ReferenceIndexIsCurrent: Boolean;
+begin
+  // csRefsBuild is set before traversal. Only the completion generation proves
+  // that all descendants finished and the index still matches current contents.
+  Result := (csRefsBuild in cntStates) and (cntRefsBuildAt >= eGeneration);
+end;
+
+function wbAutomationReferenceIndexIsCurrent(const AFile: IwbFile): Boolean;
+var C: IwbContainerInternal;
+begin
+  Result := Assigned(AFile) and not (fsRefsBuilding in AFile.FileStates) and
+    Supports(AFile, IwbContainerInternal, C) and C.ReferenceIndexIsCurrent;
 end;
 
 function TwbContainer.GetContainerStates: TwbContainerStates;

@@ -7,11 +7,21 @@ unit xeAutomationCommandsReachability;
 
 interface
 procedure xeAutomationRegisterReachabilityJobs;
+function xeAutomationReachabilityIsCurrent: Boolean;
 
 implementation
 uses SysUtils, Classes, JsonDataObjects, wbInterface, wbImplementation,
   wbLoadOrder, xeMainForm, xeAutomationJobs, xeAutomationErrors,
   xeAutomationDataLookup, xeAutomationObjectModel, xeAutomationRecordQueries;
+
+var ReachabilityComplete: Boolean;
+    ReachabilityGeneration, ReachabilitySemanticRevision: UInt64;
+
+function xeAutomationReachabilityIsCurrent: Boolean;
+begin
+  Result := ReachabilityComplete and (ReachabilityGeneration = wbGlobalModifedGeneration) and
+    (ReachabilitySemanticRevision = xeAutomationQuerySemanticRevision);
+end;
 
 procedure xeReachStep(const ASteps: TJsonArray; const APhase, AFile: string);
 var lStep: TJsonObject;
@@ -113,6 +123,7 @@ begin
   lRow := AResult.A['steps'].AddObject;
   lRow.Assign(lStep);
   if ADryRun then begin lRow.S['outcome'] := 'planned'; Exit; end;
+  ReachabilityComplete := False;
   // A failed/canceled pass never advertises the half-built GUI filter flags.
   if Assigned(frmMain) then frmMain.AutomationSetReachableBuilt(False);
   lPreviousBudget := wbAutomationReachabilityBudget;
@@ -161,6 +172,9 @@ begin
           if lRecord.IsNotReachable then ASummary.I['notReachableRecords'] := ASummary.I['notReachableRecords'] + 1;
         end;
       end else if lStep.S['phase'] = 'complete' then begin
+        ReachabilityComplete := True;
+        ReachabilityGeneration := wbGlobalModifedGeneration;
+        ReachabilitySemanticRevision := xeAutomationQuerySemanticRevision;
         if Assigned(frmMain) then frmMain.AutomationSetReachableBuilt(True);
         ASummary.B['analysisComplete'] := True;
         AResult.S['readbackValidity'] := 'terminal succeeded snapshot only; rerun after graph edits';
