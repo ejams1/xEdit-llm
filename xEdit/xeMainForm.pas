@@ -1100,6 +1100,7 @@ type
     procedure UpdateActiveFromPluggyLink;
   public
     Settings: TMemIniFile;
+    procedure AutomationGetGameLink(out Mode: string; out WatcherActive: Boolean);
     destructor Destroy; override;
 
     procedure PostResetActiveTree;
@@ -2600,6 +2601,16 @@ begin
       1: Handled := acBack.Execute;
       2: Handled := acForward.Execute;
     end;
+end;
+
+procedure TfrmMain.AutomationGetGameLink(out Mode: string; out WatcherActive: Boolean);
+begin
+  case PluggyLinkState of
+    plsReference: Mode := 'reference'; plsBase: Mode := 'base';
+    plsInventory: Mode := 'inventory'; plsEnchantment: Mode := 'enchantment';
+    plsSpell: Mode := 'spell';
+  else Mode := 'disabled'; end;
+  WatcherActive := Assigned(PluggyLinkThread) and not PluggyLinkThread.Terminated;
 end;
 
 procedure TfrmMain.mniMainPluggyLinkClick(Sender: TObject);

@@ -635,10 +635,18 @@
       ]
     },
     "preferences": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Separate GUI appearance settings from semantic options/language/ModGroups/game-link configuration; expose supported semantic settings or intentional unsupported reasons.",
-      "effect": "session preferences/external game integration",
+      "status": "direct",
+      "routes": [
+        "session.options",
+        "session.set_options",
+        "session.game_link",
+        "localization.language",
+        "modgroups.list",
+        "modgroups.activate",
+        "modgroups.write"
+      ],
+      "notes": "Effective semantic option discovery, preflighted guarded session-only UDR/ONAM changes and semantic revision invalidation. Startup/lazy-index/persistence/appearance settings and external game-link watcher control intentionally excluded with reasons; language/ModGroups route separately. Runtime not verified.",
+      "effect": "session globals only; no implicit config/plugin save; game-link status/refusal only",
       "scriptSymbols": []
     },
     "search-formid": {
@@ -1592,6 +1600,15 @@
     "files.mark_without_onam": {
       "effect": "default dry-run or native HasONAM-filtered header serialization markers -> explicit save + flush",
       "prerequisites": "<=32 explicit writable nontranslation plugins; consent; optional expectedRevision"
+    },
+    "session.options": {
+      "effect": "read-only discovery or session-only native semantic globals; no config/plugin writes; unsupported watcher control refuses"
+    },
+    "session.set_options": {
+      "effect": "read-only discovery or session-only native semantic globals; no config/plugin writes; unsupported watcher control refuses"
+    },
+    "session.game_link": {
+      "effect": "read-only discovery or session-only native semantic globals; no config/plugin writes; unsupported watcher control refuses"
     }
   }
 }
