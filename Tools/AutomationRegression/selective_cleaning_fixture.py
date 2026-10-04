@@ -48,12 +48,12 @@ def run(client, kind, files, dry=None):
     args = {'kind': kind, 'target': {'files': files}}
     if dry is not None: args['dryRun'] = dry
     job = client.call('jobs.start', **args)
-    for _ in range(12):
+    for _ in range(10000):
         job = client.call('jobs.get', jobId=job['jobId'])
         if job['terminal']:
             assert job['state'] == 'succeeded', job
             return job
-    raise AssertionError('Selective job exceeded bounded file advances')
+    raise AssertionError('Selective job exceeded 10000 cooperative advances')
 
 def exercise(client, overlay):
     before = client.call('session.get_dirty_state')
@@ -70,7 +70,7 @@ def exercise(client, overlay):
         reject(client, 'jobs.start', kind=ITM_KIND, dryRun=False, target={'files': files})
         assert client.call('session.get_dirty_state') == before
     reject(client, 'jobs.start', kind=UDR_KIND, target={'files': [UDR]}, options={'unknown': True})
-    # Cancel between files without advancing either native unit.
+    # Queued cancellation must not advance either file.
     queued = client.call('jobs.start', kind=ITM_KIND, target={'files': [ITM, UDR]})
     client.call('jobs.cancel', jobId=queued['jobId'])
     canceled = client.call('jobs.get', jobId=queued['jobId'])
@@ -83,8 +83,11 @@ def exercise(client, overlay):
     for kind, file in ((ITM_KIND, ITM), (UDR_KIND, UDR)):
         if kind == ITM_KIND:
             started = client.call('jobs.start', kind=kind, dryRun=False, target={'files': [ITM, UDR]})
-            progressed = client.call('jobs.get', jobId=started['jobId'])
-            assert not progressed['terminal'] and progressed['progress']['completed'] == 1
+            for _ in range(10000):
+                progressed = client.call('jobs.get', jobId=started['jobId'])
+                assert not progressed['terminal'], progressed
+                if progressed['progress']['completed'] == 1: break
+            else: raise AssertionError('First file never completed')
             client.call('jobs.cancel', jobId=started['jobId'])
             job = client.call('jobs.get', jobId=started['jobId'])
             assert job['state'] == 'canceled' and job['progress']['completed'] == 1

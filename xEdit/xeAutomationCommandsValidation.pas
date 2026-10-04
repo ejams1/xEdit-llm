@@ -447,6 +447,7 @@ begin
 end;
 
 function xeAutomationCreateCircularStepper(const AKind: string;
+  const ADryRun, ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject): TxeAutomationJobStepper;
 begin
   Result := TxeAutomationCircularStepper.Create(Trim(ATarget.A['files'].S[0]));
@@ -667,6 +668,7 @@ begin
 end;
 
 function xeAutomationCreateValidationStepper(const AKind: string;
+  const ADryRun, ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject): TxeAutomationJobStepper;
 begin
   // The factory's target is temporary; retain only the selected file name.

@@ -28,6 +28,7 @@ type
     procedure WriteProgress(const AProgress: TJsonObject); virtual; abstract;
   end;
   TxeAutomationJobStepperFactory = function(const AKind: string;
+    const ADryRun, ADryRunSpecified: Boolean;
     const ATarget, AOptions: TJsonObject): TxeAutomationJobStepper;
   TxeAutomationJobStartValidator = procedure(var ADryRun: Boolean; const ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject);
   TxeAutomationJobHandler = procedure(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject;
@@ -445,7 +446,8 @@ begin
           lTarget.A['files'].Add(AJob.Target.A['files'].S[AJob.WorkIndex])
         else
           lTarget.A[AJob.WorkKey].AddObject.Assign(AJob.Target.A[AJob.WorkKey].O[AJob.WorkIndex]);
-        AJob.Stepper := ARegistration.StepperFactory(AJob.Kind, lTarget, AJob.Options);
+        AJob.Stepper := ARegistration.StepperFactory(AJob.Kind, AJob.DryRun, AJob.DryRunSpecified,
+          lTarget, AJob.Options);
         if not Assigned(AJob.Stepper) then
           raise Exception.Create('Automation job stepper factory returned nil');
       finally

@@ -20,6 +20,7 @@ uses
   xeAutomationCommandsBatch,
   xeAutomationCommandsComparisons,
   xeAutomationCommandsCleaning,
+  xeAutomationCommandsSelectiveCleaning,
   xeAutomationCommandsElements,
   xeAutomationCommandsExports,
   xeAutomationCommandsFileHygiene,
@@ -574,7 +575,7 @@ begin
       xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..8', False);
       lTarget.B['additionalProperties'] := False;
       lOptions.B['additionalProperties'] := False;
-      ATarget.S['constraintNotes'] := 'Empty/omitted options only; uses native UDR session settings; <=1000 selected records; non-TES3, translation off; no master hygiene';
+      ATarget.S['constraintNotes'] := 'Empty/omitted options; <=1000 selected records; non-TES3, translation off; no master hygiene; retained classification before apply, <=128 actions/16 mutation calls and soft 20ms per poll; native calls indivisible; UDR settings rechecked; immutable finding events, partial rows on cancel/failure';
       xeAutomationSchemaEffects(ATarget, 'Bounded full source records and writable targets; consent for apply; retained child-group/NAVM rules', 'isolated ITM or UDR plugin edits in memory; explicit save/flush');
     end else if SameText(AKind, 'plugin.esl.analyze') then begin
       xeAutomationSchemaEffects(ATarget, 'Native ESL/light-slot game predicates; loaded selected files', 'read-only native eligibility analysis; plugins unchanged');
@@ -1169,7 +1170,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.56';
+  Result.S['contractVersion'] := '0.57';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1195,7 +1196,8 @@ begin
   Result.O['supports'].O['selectiveCleaning'].S['kinds'] := 'cleaning.remove_itm,cleaning.undelete_and_disable_refs';
   Result.O['supports'].O['selectiveCleaning'].S['scope'] := 'target.files:1..8 loaded plugins, <=1000 records; non-TES3, translation-mode-off';
   Result.O['supports'].O['selectiveCleaning'].S['semantics'] := 'default dryRun:true; no master cleanup; retain nonempty child-group parents and deleted NAVM; UDR uses reported native session settings';
-  Result.O['supports'].O['selectiveCleaning'].S['persistence'] := 'record outcomes and partial failures; in-memory until save/terminal flush; between-file cancellation';
+  Result.O['supports'].O['selectiveCleaning'].S['persistence'] := 'retained per-record plan/apply outcomes; in-memory until save/terminal flush; between-record cancellation; no rollback';
+  Result.O['supports'].O['selectiveCleaning'].S['findings'] := 'immutable planned/skipped/applied events plus terminal per-file counts; latest outcomes in result.files.records; canceled/failed findings incomplete';
   Result.O['supports'].O['cleaningReports'].S['command'] := 'reports.cleaning';
   Result.O['supports'].O['cleaningReports'].S['scope'] := '1..8 saved/flushed source files, <=1000 records, <=64MiB each; clean masters';
   Result.O['supports'].O['cleaningReports'].S['formats'] := 'native loot; native boss only gmTES4';
@@ -1360,8 +1362,12 @@ begin
       I['visitedLimit'] := xeAutomationCircularVisitedLimit;
       B['usesSharedNativeTags'] := False;
     end;
+    with O['kindLimits'].O['cleaning.remove_itm'] do
+      I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
+    with O['kindLimits'].O['cleaning.undelete_and_disable_refs'] do
+      I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
     B['nativeCallsPreemptible'] := False;
-    S['progress'] := 'progress.detail describes the retained current/last file; completed counts fully traversed files only';
+    S['progress'] := 'progress.detail describes the retained current/last file; completed counts fully finished targets only';
     S['findings'] := 'findingsComplete only on success; canceled/failed jobs retain partial rows/findings; capacity failures keep admitted findings';
   end;
   with Result.O['supports'].O['lod'] do begin
