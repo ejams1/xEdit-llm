@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.51",
+  "contractVersion": "0.52",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -1316,11 +1316,15 @@
       "profile": "modal-field",
       "status": "partial",
       "routes": [
-        "elements.get",
+        "elements.get_value",
+        "elements.edit_capabilities",
         "elements.set_value",
-        "elements.set_native_value"
+        "elements.set_native_value",
+        "batch.rows",
+        "records.replace",
+        "records.replacement_options"
       ],
-      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "notes": "Lossless full EditValue/native values, editor-capability constraints, guarded field setters and native row/record replacement. Whitespace and storage encoding metadata explicit; modal GUI focus/placement has no agent equivalent. Comparison-file assignment intentionally excluded. Runtime not verified.",
       "effect": "read or plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -1347,11 +1351,14 @@
       "profile": "drag-copy",
       "status": "partial",
       "routes": [
+        "records.replace",
+        "records.replacement_options",
+        "batch.rows",
         "elements.copy_child_to",
         "records.copy_into"
       ],
-      "notes": "Native drag/drop can replace fields or whole record columns via Assign(Low(Integer),source,...). Child append and record copy do not cover every replacement/placement shape.",
-      "effect": "plugin mutation -> save + flush",
+      "notes": "Explicit native wbAssignThis whole-root replacement and separate payload row replacement/append. Whole roots preserve target FormID/placement, copy flags/version, reset native VCS; native schema and master preflight, full bounded readback and partial audit. Reference/child-group/parent roots, localized/differing-encoding, opaque unresolved links, no-copy same-chain fields and comparison-file assignment excluded with reasons. Runtime not verified.",
+      "effect": "plugin payload/header mutation in memory; explicit save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -2042,11 +2049,14 @@
       "profile": "drag-copy",
       "status": "partial",
       "routes": [
+        "records.replace",
+        "records.replacement_options",
+        "batch.rows",
         "elements.copy_child_to",
         "records.copy_into"
       ],
-      "notes": "Native drag/drop can replace fields or whole record columns via Assign(Low(Integer),source,...). Child append and record copy do not cover every replacement/placement shape.",
-      "effect": "plugin mutation -> save + flush",
+      "notes": "Explicit native wbAssignThis whole-root replacement and separate payload row replacement/append. Whole roots preserve target FormID/placement, copy flags/version, reset native VCS; native schema and master preflight, full bounded readback and partial audit. Reference/child-group/parent roots, localized/differing-encoding, opaque unresolved links, no-copy same-chain fields and comparison-file assignment excluded with reasons. Runtime not verified.",
+      "effect": "plugin payload/header mutation in memory; explicit save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -2158,11 +2168,14 @@
       "profile": "drag-copy",
       "status": "partial",
       "routes": [
+        "records.replace",
+        "records.replacement_options",
+        "batch.rows",
         "elements.copy_child_to",
         "records.copy_into"
       ],
-      "notes": "Native drag/drop can replace fields or whole record columns via Assign(Low(Integer),source,...). Child append and record copy do not cover every replacement/placement shape.",
-      "effect": "plugin mutation -> save + flush",
+      "notes": "Explicit native wbAssignThis whole-root replacement and separate payload row replacement/append. Whole roots preserve target FormID/placement, copy flags/version, reset native VCS; native schema and master preflight, full bounded readback and partial audit. Reference/child-group/parent roots, localized/differing-encoding, opaque unresolved links, no-copy same-chain fields and comparison-file assignment excluded with reasons. Runtime not verified.",
+      "effect": "plugin payload/header mutation in memory; explicit save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -2274,11 +2287,14 @@
       "profile": "drag-copy",
       "status": "partial",
       "routes": [
+        "records.replace",
+        "records.replacement_options",
+        "batch.rows",
         "elements.copy_child_to",
         "records.copy_into"
       ],
-      "notes": "Native drag/drop can replace fields or whole record columns via Assign(Low(Integer),source,...). Child append and record copy do not cover every replacement/placement shape.",
-      "effect": "plugin mutation -> save + flush",
+      "notes": "Explicit native wbAssignThis whole-root replacement and separate payload row replacement/append. Whole roots preserve target FormID/placement, copy flags/version, reset native VCS; native schema and master preflight, full bounded readback and partial audit. Reference/child-group/parent roots, localized/differing-encoding, opaque unresolved links, no-copy same-chain fields and comparison-file assignment excluded with reasons. Runtime not verified.",
+      "effect": "plugin payload/header mutation in memory; explicit save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -10673,11 +10689,15 @@
       "profile": "modal-field",
       "status": "partial",
       "routes": [
-        "elements.get",
+        "elements.get_value",
+        "elements.edit_capabilities",
         "elements.set_value",
-        "elements.set_native_value"
+        "elements.set_native_value",
+        "batch.rows",
+        "records.replace",
+        "records.replacement_options"
       ],
-      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "notes": "Lossless full EditValue/native values, editor-capability constraints, guarded field setters and native row/record replacement. Whitespace and storage encoding metadata explicit; modal GUI focus/placement has no agent equivalent. Comparison-file assignment intentionally excluded. Runtime not verified.",
       "effect": "read or plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10704,11 +10724,15 @@
       "profile": "modal-field",
       "status": "partial",
       "routes": [
-        "elements.get",
+        "elements.get_value",
+        "elements.edit_capabilities",
         "elements.set_value",
-        "elements.set_native_value"
+        "elements.set_native_value",
+        "batch.rows",
+        "records.replace",
+        "records.replacement_options"
       ],
-      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "notes": "Lossless full EditValue/native values, editor-capability constraints, guarded field setters and native row/record replacement. Whitespace and storage encoding metadata explicit; modal GUI focus/placement has no agent equivalent. Comparison-file assignment intentionally excluded. Runtime not verified.",
       "effect": "read or plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10735,11 +10759,15 @@
       "profile": "modal-field",
       "status": "partial",
       "routes": [
-        "elements.get",
+        "elements.get_value",
+        "elements.edit_capabilities",
         "elements.set_value",
-        "elements.set_native_value"
+        "elements.set_native_value",
+        "batch.rows",
+        "records.replace",
+        "records.replacement_options"
       ],
-      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "notes": "Lossless full EditValue/native values, editor-capability constraints, guarded field setters and native row/record replacement. Whitespace and storage encoding metadata explicit; modal GUI focus/placement has no agent equivalent. Comparison-file assignment intentionally excluded. Runtime not verified.",
       "effect": "read or plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10766,11 +10794,15 @@
       "profile": "modal-field",
       "status": "partial",
       "routes": [
-        "elements.get",
+        "elements.get_value",
+        "elements.edit_capabilities",
         "elements.set_value",
-        "elements.set_native_value"
+        "elements.set_native_value",
+        "batch.rows",
+        "records.replace",
+        "records.replacement_options"
       ],
-      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "notes": "Lossless full EditValue/native values, editor-capability constraints, guarded field setters and native row/record replacement. Whitespace and storage encoding metadata explicit; modal GUI focus/placement has no agent equivalent. Comparison-file assignment intentionally excluded. Runtime not verified.",
       "effect": "read or plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10797,11 +10829,15 @@
       "profile": "modal-field",
       "status": "partial",
       "routes": [
-        "elements.get",
+        "elements.get_value",
+        "elements.edit_capabilities",
         "elements.set_value",
-        "elements.set_native_value"
+        "elements.set_native_value",
+        "batch.rows",
+        "records.replace",
+        "records.replacement_options"
       ],
-      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "notes": "Lossless full EditValue/native values, editor-capability constraints, guarded field setters and native row/record replacement. Whitespace and storage encoding metadata explicit; modal GUI focus/placement has no agent equivalent. Comparison-file assignment intentionally excluded. Runtime not verified.",
       "effect": "read or plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10828,11 +10864,15 @@
       "profile": "modal-field",
       "status": "partial",
       "routes": [
-        "elements.get",
+        "elements.get_value",
+        "elements.edit_capabilities",
         "elements.set_value",
-        "elements.set_native_value"
+        "elements.set_native_value",
+        "batch.rows",
+        "records.replace",
+        "records.replacement_options"
       ],
-      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "notes": "Lossless full EditValue/native values, editor-capability constraints, guarded field setters and native row/record replacement. Whitespace and storage encoding metadata explicit; modal GUI focus/placement has no agent equivalent. Comparison-file assignment intentionally excluded. Runtime not verified.",
       "effect": "read or plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10942,11 +10982,14 @@
       "profile": "drag-copy",
       "status": "partial",
       "routes": [
+        "records.replace",
+        "records.replacement_options",
+        "batch.rows",
         "elements.copy_child_to",
         "records.copy_into"
       ],
-      "notes": "Native drag/drop can replace fields or whole record columns via Assign(Low(Integer),source,...). Child append and record copy do not cover every replacement/placement shape.",
-      "effect": "plugin mutation -> save + flush",
+      "notes": "Explicit native wbAssignThis whole-root replacement and separate payload row replacement/append. Whole roots preserve target FormID/placement, copy flags/version, reset native VCS; native schema and master preflight, full bounded readback and partial audit. Reference/child-group/parent roots, localized/differing-encoding, opaque unresolved links, no-copy same-chain fields and comparison-file assignment excluded with reasons. Runtime not verified.",
+      "effect": "plugin payload/header mutation in memory; explicit save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -11967,6 +12010,30 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "records.replace",
+      "kind": "command",
+      "handler": "ReplaceRecord",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsReplacement.pas",
+        "line": 247
+      },
+      "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
+      "effect": "native whole-record Assign in memory; schema/dependency/revision preflight; identity/header/full payload readback; explicit save + flush; partial native failures",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "records.replacement_options",
+      "kind": "command",
+      "handler": "ReplacementOptions",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsReplacement.pas",
+        "line": 248
+      },
+      "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
+      "effect": "read-only supported scopes, field/full-value routes and intentional external comparison/placement exclusions",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "records.set_reference_flags",
       "kind": "command",
       "handler": "SetReferenceFlags",
@@ -12236,7 +12303,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1211
+        "line": 1215
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12248,7 +12315,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1210
+        "line": 1214
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -12260,7 +12327,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1209
+        "line": 1213
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12272,7 +12339,7 @@
       "handler": "xeAutomationSystemDiagnostics",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1212
+        "line": 1216
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12284,7 +12351,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1208
+        "line": 1212
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12296,7 +12363,7 @@
       "handler": "xeAutomationSystemRunDiagnostic",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1213
+        "line": 1217
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",

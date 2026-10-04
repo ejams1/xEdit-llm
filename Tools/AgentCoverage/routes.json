@@ -673,22 +673,29 @@
     "modal-field": {
       "status": "partial",
       "routes": [
-        "elements.get",
+        "elements.get_value",
+        "elements.edit_capabilities",
         "elements.set_value",
-        "elements.set_native_value"
+        "elements.set_native_value",
+        "batch.rows",
+        "records.replace",
+        "records.replacement_options"
       ],
-      "notes": "Double-click expands/sorts labels or opens a full/modal value editor. Structured mutation exists but lossless read/editor constraints remain #2/#18.",
+      "notes": "Lossless full EditValue/native values, editor-capability constraints, guarded field setters and native row/record replacement. Whitespace and storage encoding metadata explicit; modal GUI focus/placement has no agent equivalent. Comparison-file assignment intentionally excluded. Runtime not verified.",
       "effect": "read or plugin mutation -> save + flush",
       "scriptSymbols": []
     },
     "drag-copy": {
       "status": "partial",
       "routes": [
+        "records.replace",
+        "records.replacement_options",
+        "batch.rows",
         "elements.copy_child_to",
         "records.copy_into"
       ],
-      "notes": "Native drag/drop can replace fields or whole record columns via Assign(Low(Integer),source,...). Child append and record copy do not cover every replacement/placement shape.",
-      "effect": "plugin mutation -> save + flush",
+      "notes": "Explicit native wbAssignThis whole-root replacement and separate payload row replacement/append. Whole roots preserve target FormID/placement, copy flags/version, reset native VCS; native schema and master preflight, full bounded readback and partial audit. Reference/child-group/parent roots, localized/differing-encoding, opaque unresolved links, no-copy same-chain fields and comparison-file assignment excluded with reasons. Runtime not verified.",
+      "effect": "plugin payload/header mutation in memory; explicit save + flush",
       "scriptSymbols": []
     },
     "keyboard": {
@@ -1609,6 +1616,12 @@
     },
     "session.game_link": {
       "effect": "read-only discovery or session-only native semantic globals; no config/plugin writes; unsupported watcher control refuses"
+    },
+    "records.replace": {
+      "effect": "native whole-record Assign in memory; schema/dependency/revision preflight; identity/header/full payload readback; explicit save + flush; partial native failures"
+    },
+    "records.replacement_options": {
+      "effect": "read-only supported scopes, field/full-value routes and intentional external comparison/placement exclusions"
     }
   }
 }

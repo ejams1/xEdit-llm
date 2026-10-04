@@ -615,7 +615,11 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.51';
+  Result.S['contractVersion'] := '0.52';
+  Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
+  Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
+  Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
+  Result.O['supports'].O['replacement'].B['nativeAcceptancePending'] := True;
   with Result.O['supports'].O['comparisons'] do begin
     S['recordsCommand'] := 'comparisons.records'; S['loadCommand'] := 'comparisons.load';
     S['scope'] := 'explicit ordered columns, common payload path, native sibling leaf classification';
