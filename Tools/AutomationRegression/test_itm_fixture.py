@@ -30,8 +30,9 @@ class ItmFixtureTests(unittest.TestCase):
         for text in (validation, cleaning):
             self.assertIn("if xeAutomationRecordIsIdenticalToMaster(lRecord) then", text)
             self.assertNotIn("xeAutomationElementContentEquals", text)
-        check = validation.split("procedure xeAutomationRunCheckForItm(")[1].split("procedure ", 2)[1:]
-        self.assertNotIn("ConflictThis", "".join(check))
+        check = validation.split("procedure TxeAutomationValidationStepper.CheckElement(")[1].split(
+            "procedure TxeAutomationValidationStepper.AddNoFindings", 1)[0]
+        self.assertNotIn("ConflictThis", check)
 
 
 if __name__ == "__main__":

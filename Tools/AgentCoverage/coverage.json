@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.54",
+  "contractVersion": "0.55",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -11549,7 +11549,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 142
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11561,7 +11561,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 143
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11573,7 +11573,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 141
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11585,7 +11585,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 140
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11597,7 +11597,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 139
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12303,7 +12303,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1766
+        "line": 1777
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12315,7 +12315,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1765
+        "line": 1776
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand descriptors for all current commands and job-kind-specific target/options; registry-derived coverage, wire preconditions/projection and explicit example availability; future unauthored routes remain explicit; no plugin persistence",
@@ -12327,7 +12327,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1764
+        "line": 1775
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12339,7 +12339,7 @@
       "handler": "xeAutomationSystemDiagnostics",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1767
+        "line": 1778
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12351,7 +12351,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1763
+        "line": 1774
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12363,7 +12363,7 @@
       "handler": "xeAutomationSystemRunDiagnostic",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1768
+        "line": 1779
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12389,7 +12389,7 @@
         "file": "xEdit/xeAutomationCommandsReachability.pas",
         "line": 292
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "default dry-run staged plan; apply rebuilds native derived reachability flags globally; no plugin mutation or refcache writes; historical findings valid only for succeeded jobs",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12401,7 +12401,7 @@
         "file": "xEdit/xeAutomationCommandsRecords.pas",
         "line": 1998
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "default dry-run plan; apply preserves overrides in injection provider then removes source references in memory -> save both + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12413,7 +12413,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 328
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12425,7 +12425,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 326
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12449,7 +12449,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 330
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12473,7 +12473,7 @@
         "file": "xEdit/xeAutomationCommandsFileHygiene.pas",
         "line": 604
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12485,7 +12485,7 @@
         "file": "xEdit/xeAutomationCommandsLOD.pas",
         "line": 385
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "default dry-run plan; apply writes immediate external per-world artifacts and scratch; no plugin save; cancellation between worldspaces; independent output verification required",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12497,7 +12497,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 980
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "read-only; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12509,7 +12509,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 984
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12521,7 +12521,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 982
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12531,10 +12531,10 @@
       "handler": "xeAutomationCheckForDeletedRefsJobHandler",
       "source": {
         "file": "xEdit/xeAutomationCommandsValidation.pas",
-        "line": 482
+        "line": 522
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
-      "effect": "read-only; no plugin persistence",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -12543,10 +12543,10 @@
       "handler": "xeAutomationCheckForErrorsJobHandler",
       "source": {
         "file": "xEdit/xeAutomationCommandsValidation.pas",
-        "line": 478
+        "line": 518
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
-      "effect": "read-only; no plugin persistence",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -12555,10 +12555,10 @@
       "handler": "xeAutomationCheckForItmJobHandler",
       "source": {
         "file": "xEdit/xeAutomationCommandsValidation.pas",
-        "line": 480
+        "line": 520
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
-      "effect": "read-only; no plugin persistence",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -12567,9 +12567,9 @@
       "handler": "xeAutomationCircularListsJob",
       "source": {
         "file": "xEdit/xeAutomationCommandsValidation.pas",
-        "line": 484
+        "line": 527
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "read-only native cycle validation; transient tags reset; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     }

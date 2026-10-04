@@ -917,7 +917,7 @@
       "effect": "list/read pure; script storage writes immediate; run may mutate plugins -> save + flush"
     },
     "jobs": {
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "validation/analysis/dry-run reads; cleaning/hygiene/ESL apply mutates plugins -> save + flush"
     },
     "localization": {
@@ -1472,13 +1472,13 @@
       "effect": "dry-run reads; apply mutates plugins -> save + flush"
     },
     "validation.check_for_deleted_refs": {
-      "effect": "read-only; no plugin persistence"
+      "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence"
     },
     "validation.check_for_errors": {
-      "effect": "read-only; no plugin persistence"
+      "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence"
     },
     "validation.check_for_itm": {
-      "effect": "read-only; no plugin persistence"
+      "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence"
     },
     "validation.circular_leveled_lists": {
       "effect": "read-only native cycle validation; transient tags reset; no plugin persistence"

@@ -16,6 +16,8 @@ implementation
 
 uses
   Classes,
+  System.Diagnostics,
+  System.Generics.Collections,
   SysUtils,
   JsonDataObjects,
   xeAutomationRecordComparison,
@@ -211,12 +213,16 @@ begin
   try
     lFinding.S['severity'] := ASeverity;
     lFinding.S['code'] := ACode;
-    lFinding.S['message'] := AMessage;
+    lFinding.S['message'] := Copy(AMessage, 1, 4096);
+    if Length(AMessage) > 4096 then begin
+      lFinding.B['messageTruncated'] := True;
+      lFinding.I['originalMessageCharacters'] := Length(AMessage);
+    end;
     xeAutomationWriteValidationTarget(lFinding.O['target'], AFile, ARecord, APath);
     lFinding.S['source'] := ASource;
     lFinding.O['action'].S['kind'] := 'none';
     lFinding.O['action'].S['reason'] := 'validation_only';
-    AFindings.Add(lFinding);
+    xeAutomationAppendJobFinding(AFindings, lFinding);
     lFinding := nil;
   finally
     lFinding.Free;
@@ -262,215 +268,249 @@ begin
   Result := Assigned(AFile) and Assigned(ARecord) and Assigned(ARecord._File) and SameText(ARecord._File.FileName, AFile.FileName);
 end;
 
-procedure xeAutomationRunCheckForErrors(const ASource: string; const AFile: IwbFile; const AFindings: TJsonArray;
-  var ACheckedRecords: Integer);
+type
+  TxeAutomationValidationFrame = class
+  public
+    Element: IwbElement;
+    Container: IwbContainerElementRef;
+    Entered: Boolean;
+    NextChild: Integer;
+    constructor Create(const AElement: IwbElement);
+  end;
+
+  TxeAutomationValidationStepper = class(TxeAutomationJobStepper)
+  private
+    FKind, FFileName: string;
+    FFile: IwbFile;
+    FStack: TObjectList<TxeAutomationValidationFrame>;
+    FRow: TJsonObject; // Owned by the durable job result, never by this cursor.
+    FCheckedRecords, FVisitedElements, FFindingsBefore: Integer;
+    FSteps, FLastWorkUnits: Integer;
+    FComplete: Boolean;
+    procedure CheckElement(const AElement: IwbElement; const AFindings: TJsonArray);
+    procedure AddNoFindings(const AFindings: TJsonArray);
+  public
+    constructor Create(const AKind, AFileName: string);
+    destructor Destroy; override;
+    function Advance(const AFindings: TJsonArray;
+      const ASummary, AResult, AFailure: TJsonObject): Boolean; override;
+    procedure WriteProgress(const AProgress: TJsonObject); override;
+  end;
+
+constructor TxeAutomationValidationFrame.Create(const AElement: IwbElement);
+begin
+  inherited Create;
+  Element := AElement;
+end;
+
+constructor TxeAutomationValidationStepper.Create(const AKind, AFileName: string);
+begin
+  inherited Create;
+  FKind := AKind;
+  FFileName := AFileName;
+  FStack := TObjectList<TxeAutomationValidationFrame>.Create(True);
+end;
+
+destructor TxeAutomationValidationStepper.Destroy;
+begin
+  // Release every pinned interface on success, cancellation and failure.
+  FStack.Free;
+  FFile := nil;
+  inherited;
+end;
+
+procedure TxeAutomationValidationStepper.CheckElement(const AElement: IwbElement;
+  const AFindings: TJsonArray);
 var
-  lLastErrorRecord: IwbMainRecord;
-  lFindingsBefore: Integer;
-
-  procedure CheckElement(const AElement: IwbElement);
-  var
-    lContainer: IwbContainerElementRef;
-    lError: string;
-    lRecord: IwbMainRecord;
-    i: Integer;
-  begin
-    if not Assigned(AElement) then
-      Exit;
-
+  lError, lCode, lSeverity, lMessage: string;
+  lRecord: IwbMainRecord;
+begin
+  if FKind = xeAutomationValidationCheckForErrorsKind then begin
+    // The native check is indivisible and may itself initialize/traverse data.
     lError := AElement.Check;
     if lError <> '' then begin
       lRecord := AElement.ContainingMainRecord;
-      if Assigned(lRecord) and (lRecord <> lLastErrorRecord) then
-        lLastErrorRecord := lRecord;
-      xeAutomationAddValidationFinding(AFindings, ASource, 'error', xeAutomationFindingValidationCheckError,
-        lError, AFile, lRecord, AElement.Path);
+      xeAutomationAddValidationFinding(AFindings, FKind, 'error', xeAutomationFindingValidationCheckError,
+        lError, FFile, lRecord, AElement.Path);
     end;
-    if AElement.ElementType = etMainRecord then
-      Inc(ACheckedRecords);
-
-    if Supports(AElement, IwbContainerElementRef, lContainer) then
-      for i := 0 to Pred(lContainer.ElementCount) do
-        CheckElement(lContainer.Elements[i]);
-  end;
-begin
-  lLastErrorRecord := nil;
-  lFindingsBefore := AFindings.Count;
-  // This mirrors the GUI check-for-errors traversal without progress/UI writes;
-  // automation needs machine-readable findings and must not depend on selection.
-  CheckElement(AFile);
-  if AFindings.Count = lFindingsBefore then
-    xeAutomationAddValidationFinding(AFindings, ASource, 'info', xeAutomationFindingValidationNoErrorsFound,
-      Format('No xEdit check errors found in %s', [AFile.FileName]), AFile, nil, '');
-end;
-
-procedure xeAutomationRunCheckForItm(const ASource: string; const AFile: IwbFile; const AFindings: TJsonArray;
-  var ACheckedRecords: Integer);
-var
-  lFindingsBefore: Integer;
-
-  procedure CheckElement(const AElement: IwbElement);
-  var
-    lContainer: IwbContainerElementRef;
-    lRecord: IwbMainRecord;
-    i: Integer;
-  begin
-    if not Assigned(AElement) then
-      Exit;
-
-    if Supports(AElement, IwbMainRecord, lRecord) then begin
-      if xeAutomationRecordBelongsToFile(AFile, lRecord) then begin
-        Inc(ACheckedRecords);
-        if xeAutomationRecordIsIdenticalToMaster(lRecord) then
-          xeAutomationAddValidationFinding(AFindings, ASource, 'warning', xeAutomationFindingValidationItmRecord,
-            Format('Identical to master record: %s', [lRecord.Name]), AFile, lRecord, '');
+    if AElement.ElementType = etMainRecord then Inc(FCheckedRecords);
+  end else if Supports(AElement, IwbMainRecord, lRecord) and
+              xeAutomationRecordBelongsToFile(FFile, lRecord) then begin
+    Inc(FCheckedRecords);
+    if FKind = xeAutomationValidationCheckForItmKind then begin
+      if xeAutomationRecordIsIdenticalToMaster(lRecord) then
+        xeAutomationAddValidationFinding(AFindings, FKind, 'warning', xeAutomationFindingValidationItmRecord,
+          Format('Identical to master record: %s', [lRecord.Name]), FFile, lRecord, '');
+    end else if lRecord.IsEditable and lRecord.IsDeleted and xeAutomationIsDeletedRefSignature(lRecord) then begin
+      lCode := xeAutomationFindingValidationDeletedReference;
+      lSeverity := 'warning';
+      lMessage := Format('Deleted reference: %s', [lRecord.Name]);
+      if lRecord.Signature = 'NAVM' then begin
+        lCode := xeAutomationFindingValidationDeletedNavmesh;
+        lSeverity := 'error';
+        lMessage := Format('Deleted NavMesh cannot be safely undeleted by xEdit cleaning: %s', [lRecord.Name]);
+      end else if not xeAutomationDeletedRefCanBeSafelyUndeleted(lRecord) then begin
+        lCode := xeAutomationFindingValidationDeletedReferenceSkipped;
+        lSeverity := 'info';
+        lMessage := Format('Deleted reference cannot be safely undeleted by xEdit cleaning: %s', [lRecord.Name]);
       end;
+      xeAutomationAddValidationFinding(AFindings, FKind, lSeverity, lCode, lMessage, FFile, lRecord, '');
     end;
-
-    if Supports(AElement, IwbContainerElementRef, lContainer) then
-      for i := 0 to Pred(lContainer.ElementCount) do
-        CheckElement(lContainer.Elements[i]);
   end;
-begin
-  lFindingsBefore := AFindings.Count;
-  // The GUI cleaner uses filtered tree conflict state. This read-only seam uses the
-  // same native conflict flags directly, avoiding filter setup and Remove calls.
-  CheckElement(AFile);
-  if AFindings.Count = lFindingsBefore then
-    xeAutomationAddValidationFinding(AFindings, ASource, 'info', xeAutomationFindingValidationNoItmRecordsFound,
-      Format('No identical-to-master records found in %s', [AFile.FileName]), AFile, nil, '');
 end;
 
-procedure xeAutomationRunCheckForDeletedRefs(const ASource: string; const AFile: IwbFile; const AFindings: TJsonArray;
-  var ACheckedRecords: Integer);
+procedure TxeAutomationValidationStepper.AddNoFindings(const AFindings: TJsonArray);
 var
-  lFindingsBefore: Integer;
-
-  procedure CheckElement(const AElement: IwbElement);
-  var
-    lContainer: IwbContainerElementRef;
-    lRecord: IwbMainRecord;
-    lCode: string;
-    lSeverity: string;
-    lMessage: string;
-    i: Integer;
-  begin
-    if not Assigned(AElement) then
-      Exit;
-
-    if Supports(AElement, IwbMainRecord, lRecord) then begin
-      if xeAutomationRecordBelongsToFile(AFile, lRecord) then begin
-        Inc(ACheckedRecords);
-        if lRecord.IsEditable and lRecord.IsDeleted and xeAutomationIsDeletedRefSignature(lRecord) then begin
-          lCode := xeAutomationFindingValidationDeletedReference;
-          lSeverity := 'warning';
-          lMessage := Format('Deleted reference: %s', [lRecord.Name]);
-          if lRecord.Signature = 'NAVM' then begin
-            lCode := xeAutomationFindingValidationDeletedNavmesh;
-            lSeverity := 'error';
-            lMessage := Format('Deleted NavMesh cannot be safely undeleted by xEdit cleaning: %s', [lRecord.Name]);
-          end else if not xeAutomationDeletedRefCanBeSafelyUndeleted(lRecord) then begin
-            lCode := xeAutomationFindingValidationDeletedReferenceSkipped;
-            lSeverity := 'info';
-            lMessage := Format('Deleted reference cannot be safely undeleted by xEdit cleaning: %s', [lRecord.Name]);
-          end;
-          xeAutomationAddValidationFinding(AFindings, ASource, lSeverity, lCode, lMessage, AFile, lRecord, '');
-        end;
-      end;
-    end;
-
-    if Supports(AElement, IwbContainerElementRef, lContainer) then
-      for i := 0 to Pred(lContainer.ElementCount) do
-        CheckElement(lContainer.Elements[i]);
-  end;
+  lCode, lMessage: string;
 begin
-  lFindingsBefore := AFindings.Count;
-  // Count/report only: the cleaning counterpart may undelete/disable later, but
-  // validation must never toggle flags or remove fields from loaded records.
-  CheckElement(AFile);
-  if AFindings.Count = lFindingsBefore then
-    xeAutomationAddValidationFinding(AFindings, ASource, 'info', xeAutomationFindingValidationNoDeletedRefsFound,
-      Format('No deleted references found in %s', [AFile.FileName]), AFile, nil, '');
+  if FKind = xeAutomationValidationCheckForErrorsKind then begin
+    lCode := xeAutomationFindingValidationNoErrorsFound;
+    lMessage := Format('No xEdit check errors found in %s', [FFileName]);
+  end else if FKind = xeAutomationValidationCheckForItmKind then begin
+    lCode := xeAutomationFindingValidationNoItmRecordsFound;
+    lMessage := Format('No identical-to-master records found in %s', [FFileName]);
+  end else begin
+    lCode := xeAutomationFindingValidationNoDeletedRefsFound;
+    lMessage := Format('No deleted references found in %s', [FFileName]);
+  end;
+  xeAutomationAddValidationFinding(AFindings, FKind, 'info', lCode, lMessage, FFile, nil, '');
 end;
 
-procedure xeAutomationRunValidationJob(const AKind: string; const ATarget: TJsonObject; const AFindings: TJsonArray;
-  const ASummary, AResult: TJsonObject);
+function TxeAutomationValidationStepper.Advance(const AFindings: TJsonArray;
+  const ASummary, AResult, AFailure: TJsonObject): Boolean;
 var
-  lFiles: TJsonArray;
-  lFile: IwbFile;
-  lFileResult: TJsonObject;
-  lBeforeModified: Boolean;
-  lAfterModified: Boolean;
-  lCheckedRecords: Integer;
-  lFindingsBefore: Integer;
+  lFrame: TxeAutomationValidationFrame;
+  lChild: IwbElement;
+  lTimer: TStopwatch;
+  lCheckedBefore, lVisitedBefore: Integer;
+begin
+  Result := FComplete;
+  if FComplete then Exit;
+  lTimer := TStopwatch.StartNew;
+  Inc(FSteps);
+  FLastWorkUnits := 0;
+  lCheckedBefore := FCheckedRecords;
+  lVisitedBefore := FVisitedElements;
+  try
+    if not Assigned(FFile) then begin
+      FFile := xeAutomationRequirePluginFile(FFileName);
+      FFindingsBefore := AFindings.Count;
+      FRow := AResult.A['files'].AddObject;
+      FRow.S['fileName'] := FFile.FileName;
+      FRow.B['dirtyBefore'] := FFile.Modified;
+      FRow.B['complete'] := False;
+      ASummary.S['kind'] := FKind;
+      ASummary.B['validationOnly'] := True;
+      if not ASummary.Contains('fileCount') then ASummary.I['fileCount'] := 0;
+      FStack.Add(TxeAutomationValidationFrame.Create(FFile));
+      Inc(FLastWorkUnits);
+    end;
+    // Each enter, child fetch and pop consumes a unit. No eager child array,
+    // recursive call or restart/rescan of an already visited subtree.
+    while (FStack.Count > 0) and (FLastWorkUnits < xeAutomationJobStepWorkLimit) and
+          (lTimer.ElapsedMilliseconds < xeAutomationJobStepBudgetMs) do begin
+      lFrame := FStack.Last;
+      Inc(FLastWorkUnits);
+      if not lFrame.Entered then begin
+        lFrame.Entered := True;
+        Inc(FVisitedElements);
+        CheckElement(lFrame.Element, AFindings);
+        Supports(lFrame.Element, IwbContainerElementRef, lFrame.Container);
+      end else if Assigned(lFrame.Container) and
+                  (lFrame.NextChild < lFrame.Container.ElementCount) then begin
+        if FStack.Count >= xeAutomationJobStepDepthLimit then
+          raise xeAutomationNewError('job_capacity', 'Validation traversal exceeds the retained depth budget');
+        lChild := lFrame.Container.Elements[lFrame.NextChild];
+        Inc(lFrame.NextChild);
+        if Assigned(lChild) then FStack.Add(TxeAutomationValidationFrame.Create(lChild));
+        lChild := nil;
+      end else
+        FStack.Delete(FStack.Count - 1);
+    end;
+    if FStack.Count = 0 then begin
+      // Never emit a clean-file finding for an incomplete/canceled traversal.
+      if AFindings.Count = FFindingsBefore then AddNoFindings(AFindings);
+      FComplete := True;
+      ASummary.I['fileCount'] := ASummary.I['fileCount'] + 1;
+    end;
+    Result := FComplete;
+  finally
+    ASummary.I['checkedRecords'] := ASummary.I['checkedRecords'] + FCheckedRecords - lCheckedBefore;
+    ASummary.I['visitedElements'] := ASummary.I['visitedElements'] + FVisitedElements - lVisitedBefore;
+    ASummary.I['findingCount'] := AFindings.Count;
+    if Assigned(FRow) then begin
+      FRow.B['complete'] := FComplete;
+      FRow.I['checkedRecords'] := FCheckedRecords;
+      FRow.I['visitedElements'] := FVisitedElements;
+      FRow.I['findingCount'] := AFindings.Count - FFindingsBefore;
+      FRow.B['dirtyAfter'] := FFile.Modified;
+      FRow.B['dirtyChanged'] := FRow.B['dirtyBefore'] <> FFile.Modified;
+      ASummary.B['dirtyChanged'] := ASummary.B['dirtyChanged'] or FRow.B['dirtyChanged'];
+    end;
+  end;
+end;
+
+procedure TxeAutomationValidationStepper.WriteProgress(const AProgress: TJsonObject);
+begin
+  AProgress.S['fileName'] := FFileName;
+  AProgress.B['fileComplete'] := FComplete;
+  AProgress.I['checkedRecords'] := FCheckedRecords;
+  AProgress.I['visitedElements'] := FVisitedElements;
+  AProgress.I['retainedDepth'] := FStack.Count;
+  AProgress.I['steps'] := FSteps;
+  AProgress.I['lastWorkUnits'] := FLastWorkUnits;
+  AProgress.I['workLimit'] := xeAutomationJobStepWorkLimit;
+  AProgress.I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
+  AProgress.B['nativeCallsPreemptible'] := False;
+end;
+
+function xeAutomationCreateValidationStepper(const AKind: string;
+  const ATarget, AOptions: TJsonObject): TxeAutomationJobStepper;
+begin
+  // The factory's target is temporary; retain only the selected file name.
+  Result := TxeAutomationValidationStepper.Create(AKind, Trim(ATarget.A['files'].S[0]));
+end;
+
+procedure xeAutomationRunValidationJob(const AKind: string; const ATarget: TJsonObject;
+  const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
+var
+  lStepper: TxeAutomationJobStepper;
   i: Integer;
 begin
-  lFiles := ATarget.A['files'];
-  ASummary.S['kind'] := AKind;
-  ASummary.B['validationOnly'] := True;
-  ASummary.I['fileCount'] := lFiles.Count;
-  AResult.A['files'].Clear;
-
-  for i := 0 to Pred(lFiles.Count) do begin
-    lFile := xeAutomationRequirePluginFile(lFiles.S[i]);
-    lBeforeModified := lFile.Modified;
-    lCheckedRecords := 0;
-    lFindingsBefore := AFindings.Count;
-
-    if SameText(AKind, xeAutomationValidationCheckForErrorsKind) then
-      xeAutomationRunCheckForErrors(AKind, lFile, AFindings, lCheckedRecords)
-    else if SameText(AKind, xeAutomationValidationCheckForItmKind) then
-      xeAutomationRunCheckForItm(AKind, lFile, AFindings, lCheckedRecords)
-    else if SameText(AKind, xeAutomationValidationCheckForDeletedRefsKind) then
-      xeAutomationRunCheckForDeletedRefs(AKind, lFile, AFindings, lCheckedRecords)
-    else
-      raise xeAutomationNewError(xeAutomationErrorUnknownJobKind, Format('Automation validation kind not registered: %s', [AKind]));
-
-    lAfterModified := lFile.Modified;
-    lFileResult := TJsonObject.Create;
+  // Compatibility handler uses the same semantics; registered automation jobs
+  // attach the factory below and never drain a file synchronously here.
+  for i := 0 to Pred(ATarget.A['files'].Count) do begin
+    lStepper := TxeAutomationValidationStepper.Create(AKind, ATarget.A['files'].S[i]);
     try
-      lFileResult.S['fileName'] := lFile.FileName;
-      lFileResult.I['checkedRecords'] := lCheckedRecords;
-      lFileResult.I['findingCount'] := AFindings.Count - lFindingsBefore;
-      lFileResult.B['dirtyBefore'] := lBeforeModified;
-      lFileResult.B['dirtyAfter'] := lAfterModified;
-      lFileResult.B['dirtyChanged'] := lBeforeModified <> lAfterModified;
-      AResult.A['files'].Add(lFileResult);
-      lFileResult := nil;
+      while not lStepper.Advance(AFindings, ASummary, AResult, AFailure) do begin end;
     finally
-      lFileResult.Free;
+      lStepper.Free;
     end;
   end;
-
-  ASummary.I['findingCount'] := AFindings.Count;
-  ASummary.B['dirtyChanged'] := False;
-  for i := 0 to Pred(AResult.A['files'].Count) do
-    if AResult.A['files'].O[i].B['dirtyChanged'] then
-      ASummary.B['dirtyChanged'] := True;
 end;
 
 procedure xeAutomationValidationJobHandler(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject; const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
 begin
-  xeAutomationRunValidationJob(xeAutomationValidationKindName(AOptions.S['kind']), ATarget, AFindings, ASummary, AResult);
+  xeAutomationRunValidationJob(xeAutomationValidationKindName(AOptions.S['kind']), ATarget, AFindings, ASummary, AResult, AFailure);
 end;
 
 procedure xeAutomationCheckForErrorsJobHandler(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject; const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
 begin
-  xeAutomationRunValidationJob(xeAutomationValidationCheckForErrorsKind, ATarget, AFindings, ASummary, AResult);
+  xeAutomationRunValidationJob(xeAutomationValidationCheckForErrorsKind, ATarget, AFindings, ASummary, AResult, AFailure);
 end;
 
 procedure xeAutomationCheckForItmJobHandler(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject; const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
 begin
-  xeAutomationRunValidationJob(xeAutomationValidationCheckForItmKind, ATarget, AFindings, ASummary, AResult);
+  xeAutomationRunValidationJob(xeAutomationValidationCheckForItmKind, ATarget, AFindings, ASummary, AResult, AFailure);
 end;
 
 procedure xeAutomationCheckForDeletedRefsJobHandler(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject; const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
 begin
-  xeAutomationRunValidationJob(xeAutomationValidationCheckForDeletedRefsKind, ATarget, AFindings, ASummary, AResult);
+  xeAutomationRunValidationJob(xeAutomationValidationCheckForDeletedRefsKind, ATarget, AFindings, ASummary, AResult, AFailure);
 end;
 
 procedure xeAutomationRegisterValidationCommands;
@@ -481,6 +521,9 @@ begin
     xeAutomationValidateValidationStart);
   xeAutomationRegisterJobKindWithValidator(xeAutomationValidationCheckForDeletedRefsKind, xeAutomationCheckForDeletedRefsJobHandler,
     xeAutomationValidateValidationStart);
+  xeAutomationRegisterJobStepper(xeAutomationValidationCheckForErrorsKind, xeAutomationCreateValidationStepper);
+  xeAutomationRegisterJobStepper(xeAutomationValidationCheckForItmKind, xeAutomationCreateValidationStepper);
+  xeAutomationRegisterJobStepper(xeAutomationValidationCheckForDeletedRefsKind, xeAutomationCreateValidationStepper);
   xeAutomationRegisterJobKindWithValidator(xeAutomationValidationCircularListsKind, xeAutomationCircularListsJob,
     xeAutomationValidateValidationStart);
 end;
