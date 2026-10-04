@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.48",
+  "contractVersion": "0.49",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -1056,13 +1056,17 @@
       "handlerSources": [
         {
           "file": "xEdit/xeLogAnalyzerForm.pas",
-          "line": 704
+          "line": 706
         }
       ],
       "profile": "logs",
-      "status": "missing",
-      "routes": [],
-      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "status": "direct",
+      "routes": [
+        "messages.read",
+        "messages.export",
+        "logs.analyze"
+      ],
+      "notes": "Full delivered-session messages in a bounded sequence window, frozen-range cursors and explicit truncation/eviction; atomic UTF-8 export with explicit root/name/overwrite. Bounded captured native Skyrim Papyrus/TES4-FO3-FNV profiler parsing and record attribution; parser preserves native permissive conventions. Runtime not verified.",
       "effect": "session read/external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -1083,13 +1087,17 @@
       "handlerSources": [
         {
           "file": "xEdit/xeLogAnalyzerForm.pas",
-          "line": 666
+          "line": 668
         }
       ],
       "profile": "logs",
-      "status": "missing",
-      "routes": [],
-      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "status": "direct",
+      "routes": [
+        "messages.read",
+        "messages.export",
+        "logs.analyze"
+      ],
+      "notes": "Full delivered-session messages in a bounded sequence window, frozen-range cursors and explicit truncation/eviction; atomic UTF-8 export with explicit root/name/overwrite. Bounded captured native Skyrim Papyrus/TES4-FO3-FNV profiler parsing and record attribution; parser preserves native permissive conventions. Runtime not verified.",
       "effect": "session read/external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -1110,13 +1118,17 @@
       "handlerSources": [
         {
           "file": "xEdit/xeLogAnalyzerForm.pas",
-          "line": 232
+          "line": 234
         }
       ],
       "profile": "logs",
-      "status": "missing",
-      "routes": [],
-      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "status": "direct",
+      "routes": [
+        "messages.read",
+        "messages.export",
+        "logs.analyze"
+      ],
+      "notes": "Full delivered-session messages in a bounded sequence window, frozen-range cursors and explicit truncation/eviction; atomic UTF-8 export with explicit root/name/overwrite. Bounded captured native Skyrim Papyrus/TES4-FO3-FNV profiler parsing and record attribution; parser preserves native permissive conventions. Runtime not verified.",
       "effect": "session read/external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -1137,13 +1149,17 @@
       "handlerSources": [
         {
           "file": "xEdit/xeLogAnalyzerForm.pas",
-          "line": 279
+          "line": 281
         }
       ],
       "profile": "logs",
-      "status": "missing",
-      "routes": [],
-      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "status": "direct",
+      "routes": [
+        "messages.read",
+        "messages.export",
+        "logs.analyze"
+      ],
+      "notes": "Full delivered-session messages in a bounded sequence window, frozen-range cursors and explicit truncation/eviction; atomic UTF-8 export with explicit root/name/overwrite. Bounded captured native Skyrim Papyrus/TES4-FO3-FNV profiler parsing and record attribution; parser preserves native permissive conventions. Runtime not verified.",
       "effect": "session read/external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -1164,13 +1180,17 @@
       "handlerSources": [
         {
           "file": "xEdit/xeLogAnalyzerForm.pas",
-          "line": 334
+          "line": 336
         }
       ],
       "profile": "logs",
-      "status": "missing",
-      "routes": [],
-      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "status": "direct",
+      "routes": [
+        "messages.read",
+        "messages.export",
+        "logs.analyze"
+      ],
+      "notes": "Full delivered-session messages in a bounded sequence window, frozen-range cursors and explicit truncation/eviction; atomic UTF-8 export with explicit root/name/overwrite. Bounded captured native Skyrim Papyrus/TES4-FO3-FNV profiler parsing and record attribution; parser preserves native permissive conventions. Runtime not verified.",
       "effect": "session read/external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -1191,7 +1211,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 7295
+          "line": 7297
         }
       ],
       "profile": "keyboard",
@@ -1229,14 +1249,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 7289
+            "line": 7291
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 15618
+          "line": 15620
         }
       ],
       "profile": "presentation",
@@ -1263,7 +1283,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 18655
+          "line": 18662
         }
       ],
       "profile": "presentation",
@@ -1290,7 +1310,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 18887
+          "line": 18894
         }
       ],
       "profile": "modal-field",
@@ -1321,7 +1341,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 18974
+          "line": 18981
         }
       ],
       "profile": "drag-copy",
@@ -1351,7 +1371,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 19364
+          "line": 19371
         }
       ],
       "profile": "presentation",
@@ -1378,7 +1398,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 19441
+          "line": 19448
         }
       ],
       "profile": "navigation",
@@ -1407,7 +1427,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 19526
+          "line": 19533
         }
       ],
       "profile": "keyboard",
@@ -1443,7 +1463,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 19683
+          "line": 19690
         }
       ],
       "profile": "presentation",
@@ -1470,7 +1490,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 19705
+          "line": 19712
         }
       ],
       "profile": "edit",
@@ -1504,7 +1524,7 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16991
+            "line": 16993
           }
         },
         {
@@ -1512,7 +1532,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 17054
+            "line": 17056
           }
         },
         {
@@ -1520,7 +1540,7 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 17100
+            "line": 17102
           }
         },
         {
@@ -1528,7 +1548,7 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 17410
+            "line": 17412
           }
         },
         {
@@ -1536,14 +1556,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 17489
+            "line": 17491
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20006
+          "line": 20013
         }
       ],
       "profile": "presentation",
@@ -1570,7 +1590,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6607
+          "line": 6609
         }
       ],
       "profile": "presentation",
@@ -1597,7 +1617,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6620
+          "line": 6622
         }
       ],
       "profile": "presentation",
@@ -1624,7 +1644,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6439
+          "line": 6441
         }
       ],
       "profile": "presentation",
@@ -1651,7 +1671,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6607
+          "line": 6609
         }
       ],
       "profile": "presentation",
@@ -1678,7 +1698,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6620
+          "line": 6622
         }
       ],
       "profile": "presentation",
@@ -1705,7 +1725,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6607
+          "line": 6609
         }
       ],
       "profile": "presentation",
@@ -1732,7 +1752,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6620
+          "line": 6622
         }
       ],
       "profile": "presentation",
@@ -1759,7 +1779,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6439
+          "line": 6441
         }
       ],
       "profile": "presentation",
@@ -1786,7 +1806,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6607
+          "line": 6609
         }
       ],
       "profile": "presentation",
@@ -1813,7 +1833,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6607
+          "line": 6609
         }
       ],
       "profile": "presentation",
@@ -1840,7 +1860,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6607
+          "line": 6609
         }
       ],
       "profile": "presentation",
@@ -1867,7 +1887,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9376
+          "line": 9378
         }
       ],
       "profile": "presentation",
@@ -1894,7 +1914,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8582
+          "line": 8584
         }
       ],
       "profile": "navigation",
@@ -1923,7 +1943,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8591
+          "line": 8593
         }
       ],
       "profile": "keyboard",
@@ -1959,7 +1979,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9848
+          "line": 9850
         }
       ],
       "profile": "search-formid",
@@ -1989,7 +2009,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 21137
+          "line": 21144
         }
       ],
       "profile": "presentation",
@@ -2016,7 +2036,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20967
+          "line": 20974
         }
       ],
       "profile": "drag-copy",
@@ -2046,7 +2066,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20323
+          "line": 20330
         }
       ],
       "profile": "presentation",
@@ -2073,7 +2093,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 21348
+          "line": 21355
         }
       ],
       "profile": "edit",
@@ -2105,7 +2125,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 21137
+          "line": 21144
         }
       ],
       "profile": "presentation",
@@ -2132,7 +2152,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20967
+          "line": 20974
         }
       ],
       "profile": "drag-copy",
@@ -2162,7 +2182,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20323
+          "line": 20330
         }
       ],
       "profile": "presentation",
@@ -2189,7 +2209,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 21348
+          "line": 21355
         }
       ],
       "profile": "edit",
@@ -2221,7 +2241,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 21137
+          "line": 21144
         }
       ],
       "profile": "presentation",
@@ -2248,7 +2268,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20967
+          "line": 20974
         }
       ],
       "profile": "drag-copy",
@@ -2278,7 +2298,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20323
+          "line": 20330
         }
       ],
       "profile": "presentation",
@@ -2305,7 +2325,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 21348
+          "line": 21355
         }
       ],
       "profile": "edit",
@@ -2339,7 +2359,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 4014
+            "line": 4016
           }
         },
         {
@@ -2347,7 +2367,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 4072
+            "line": 4074
           }
         },
         {
@@ -2355,14 +2375,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 21716
+            "line": 21723
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9386
+          "line": 9388
         }
       ],
       "profile": "presentation",
@@ -2389,7 +2409,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9475
+          "line": 9477
         }
       ],
       "profile": "presentation",
@@ -2416,7 +2436,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9443
+          "line": 9445
         }
       ],
       "profile": "presentation",
@@ -2443,7 +2463,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9404
+          "line": 9406
         }
       ],
       "profile": "presentation",
@@ -2470,7 +2490,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9459
+          "line": 9461
         }
       ],
       "profile": "presentation",
@@ -2497,7 +2517,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9357
+          "line": 9359
         }
       ],
       "profile": "presentation",
@@ -2524,7 +2544,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9368
+          "line": 9370
         }
       ],
       "profile": "presentation",
@@ -2551,7 +2571,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9418
+          "line": 9420
         }
       ],
       "profile": "presentation",
@@ -2578,7 +2598,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9432
+          "line": 9434
         }
       ],
       "profile": "presentation",
@@ -2607,7 +2627,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 14259
+            "line": 14261
           }
         },
         {
@@ -2615,14 +2635,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 14651
+            "line": 14653
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 19904
+          "line": 19911
         }
       ],
       "profile": "presentation",
@@ -2651,7 +2671,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 14259
+            "line": 14261
           }
         },
         {
@@ -2659,14 +2679,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 14651
+            "line": 14653
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20323
+          "line": 20330
         }
       ],
       "profile": "presentation",
@@ -2695,7 +2715,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 14259
+            "line": 14261
           }
         },
         {
@@ -2703,14 +2723,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 14651
+            "line": 14653
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20649
+          "line": 20656
         }
       ],
       "profile": "keyboard",
@@ -2748,7 +2768,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 14259
+            "line": 14261
           }
         },
         {
@@ -2756,14 +2776,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 14651
+            "line": 14653
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 20747
+          "line": 20754
         }
       ],
       "profile": "presentation",
@@ -2790,7 +2810,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6445
+          "line": 6447
         }
       ],
       "profile": "presentation",
@@ -2817,7 +2837,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6455
+          "line": 6457
         }
       ],
       "profile": "search-formid",
@@ -2847,7 +2867,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6333
+          "line": 6335
         }
       ],
       "profile": "presentation",
@@ -2874,7 +2894,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6343
+          "line": 6345
         }
       ],
       "profile": "search-editorid",
@@ -2905,7 +2925,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6398
+          "line": 6400
         }
       ],
       "profile": "presentation",
@@ -2932,7 +2952,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6420
+          "line": 6422
         }
       ],
       "profile": "presentation",
@@ -2959,7 +2979,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 6439
+          "line": 6441
         }
       ],
       "profile": "presentation",
@@ -2988,14 +3008,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 17641
+            "line": 17643
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12062
+          "line": 12064
         }
       ],
       "profile": "cancel",
@@ -3026,14 +3046,14 @@
           "expression": "Supports(Element, IwbFile)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15812
+            "line": 15814
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3961
+          "line": 3963
         }
       ],
       "profile": "comparison",
@@ -3067,14 +3087,14 @@
           "expression": "not wbTranslationMode and Supports(Element, IwbFile)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15813
+            "line": 15815
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4023
+          "line": 4025
         }
       ],
       "profile": "delta-patch",
@@ -3105,7 +3125,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15886
+            "line": 15888
           }
         },
         {
@@ -3113,14 +3133,14 @@
           "expression": "Length(Nodes) > 1",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15905
+            "line": 15907
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3941
+          "line": 3943
         }
       ],
       "profile": "comparison",
@@ -3152,7 +3172,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12882
+          "line": 12884
         }
       ],
       "profile": "presentation",
@@ -3179,7 +3199,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13805
+          "line": 13807
         }
       ],
       "profile": "filters",
@@ -3211,7 +3231,7 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15782
+            "line": 15784
           }
         },
         {
@@ -3219,14 +3239,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15792
+            "line": 15794
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 14728
+          "line": 14730
         }
       ],
       "profile": "cleaning-filter",
@@ -3259,7 +3279,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15787
+            "line": 15789
           }
         },
         {
@@ -3267,14 +3287,14 @@
           "expression": "not wbManualCleaningHide",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15797
+            "line": 15799
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3924
+          "line": 3926
         }
       ],
       "profile": "obsolete",
@@ -3301,7 +3321,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 14656
+          "line": 14658
         }
       ],
       "profile": "filters",
@@ -3331,7 +3351,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13805
+          "line": 13807
         }
       ],
       "profile": "filters",
@@ -3363,7 +3383,7 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15783
+            "line": 15785
           }
         },
         {
@@ -3371,14 +3391,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15793
+            "line": 15795
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 14728
+          "line": 14730
         }
       ],
       "profile": "cleaning-filter",
@@ -3411,7 +3431,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15788
+            "line": 15790
           }
         },
         {
@@ -3419,14 +3439,14 @@
           "expression": "not wbManualCleaningHide",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15798
+            "line": 15800
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3924
+          "line": 3926
         }
       ],
       "profile": "obsolete",
@@ -3453,7 +3473,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 14656
+          "line": 14658
         }
       ],
       "profile": "filters",
@@ -3485,14 +3505,14 @@
           "expression": "not wbTranslationMode and wbEditAllowed and Assigned(Element)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15769
+            "line": 15771
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3890
+          "line": 3892
         }
       ],
       "profile": "validation",
@@ -3523,14 +3543,14 @@
           "expression": "mniNavCheckForErrors.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15774
+            "line": 15776
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3858
+          "line": 3860
         }
       ],
       "profile": "circular-lists",
@@ -3561,14 +3581,14 @@
           "expression": "not wbTranslationMode and wbEditAllowed and Assigned(Element) and (Element.ElementType = etMainRecord) and ((Element as IwbMainRecord).Signature <> 'TES4') and Element.IsEditable",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15732
+            "line": 15734
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10478
+          "line": 10480
         }
       ],
       "profile": "form-id",
@@ -3606,14 +3626,14 @@
           "expression": "not wbTranslationMode and wbEditAllowed and Assigned(Element) and (Element.ElementType = etMainRecord) and ((Element as IwbMainRecord).MasterOrSelf.ReferencedByCount > 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15762
+            "line": 15764
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3714
+          "line": 3716
         }
       ],
       "profile": "replace-references",
@@ -3648,14 +3668,14 @@
           "expression": "not wbTranslationMode and wbEditAllowed and Assigned(Element) and (Element.ElementType = etFile) and Element.IsEditable",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15744
+            "line": 15746
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13321
+          "line": 13323
         }
       ],
       "profile": "form-id",
@@ -3693,14 +3713,14 @@
           "expression": "mniNavRenumberFormIDsFrom.Visible and wbIsLightSupported and Supports(Element, IwbFile, _File) and not (_File.IsLight or _File.IsUpdate)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15751
+            "line": 15753
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13321
+          "line": 13323
         }
       ],
       "profile": "compact",
@@ -3733,14 +3753,14 @@
           "expression": "mniNavRenumberFormIDsFrom.Visible and Supports(Element, IwbFile, _File) and (_File.MasterCount[True] > 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15757
+            "line": 15759
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13321
+          "line": 13323
         }
       ],
       "profile": "form-id",
@@ -3778,14 +3798,14 @@
           "expression": "mniNavCheckForErrors.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15818
+            "line": 15820
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9483
+          "line": 9485
         }
       ],
       "profile": "scripts",
@@ -3819,7 +3839,7 @@
           "expression": "mniNavCheckForErrors.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15785
+            "line": 15787
           }
         },
         {
@@ -3827,14 +3847,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15795
+            "line": 15797
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12069
+          "line": 12071
         }
       ],
       "profile": "standalone-cleaning",
@@ -3866,7 +3886,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15790
+            "line": 15792
           }
         },
         {
@@ -3874,14 +3894,14 @@
           "expression": "(not wbManualCleaningHide) and mniNavCheckForErrors.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15800
+            "line": 15802
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3924
+          "line": 3926
         }
       ],
       "profile": "obsolete",
@@ -3910,7 +3930,7 @@
           "expression": "mniNavCheckForErrors.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15784
+            "line": 15786
           }
         },
         {
@@ -3918,14 +3938,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15794
+            "line": 15796
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12399
+          "line": 12401
         }
       ],
       "profile": "standalone-cleaning",
@@ -3957,7 +3977,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15789
+            "line": 15791
           }
         },
         {
@@ -3965,14 +3985,14 @@
           "expression": "(not wbManualCleaningHide) and mniNavCheckForErrors.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15799
+            "line": 15801
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3924
+          "line": 3926
         }
       ],
       "profile": "obsolete",
@@ -4001,14 +4021,14 @@
           "expression": "mniNavCheckForErrors.Visible and (Length(LOOTPluginInfos) <> 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15779
+            "line": 15781
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12607
+          "line": 12609
         }
       ],
       "profile": "dirty-report",
@@ -4039,14 +4059,14 @@
           "expression": "mniNavCheckForErrors.Visible and wbIsOblivion",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15777
+            "line": 15779
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 11423
+          "line": 11425
         }
       ],
       "profile": "vwd-mesh",
@@ -4077,14 +4097,14 @@
           "expression": "mniNavCheckForErrors.Visible and wbIsOblivion",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15778
+            "line": 15780
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 11529
+          "line": 11531
         }
       ],
       "profile": "vwd-mesh",
@@ -4115,14 +4135,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15932
+            "line": 15934
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10374
+          "line": 10376
         }
       ],
       "profile": "record-flags",
@@ -4156,14 +4176,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15931
+            "line": 15933
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10374
+          "line": 10376
         }
       ],
       "profile": "record-flags",
@@ -4197,14 +4217,14 @@
           "expression": "mniNavCheckForErrors.Visible and SelectionIncludesOnlyREFR(NoNodes)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15933
+            "line": 15935
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10374
+          "line": 10376
         }
       ],
       "profile": "record-flags",
@@ -4238,14 +4258,14 @@
           "expression": "mniNavCellChildNotVWD.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15934
+            "line": 15936
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10374
+          "line": 10376
         }
       ],
       "profile": "record-flags",
@@ -4277,7 +4297,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13046
+          "line": 13048
         }
       ],
       "profile": "create-file",
@@ -4308,14 +4328,14 @@
           "expression": "mniNavAdd.Count > 0",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15846
+            "line": 15848
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9960
+          "line": 9962
         }
       ],
       "profile": "general-structure",
@@ -4352,14 +4372,14 @@
           "expression": "not wbTranslationMode and wbEditAllowed and (Length(RemovableSelection(nil)) > 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15803
+            "line": 15805
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 11329
+          "line": 11331
         }
       ],
       "profile": "general-structure",
@@ -4396,14 +4416,14 @@
           "expression": "not wbTranslationMode and wbEditAllowed and (Length(EditableSelection(nil)) > 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15807
+            "line": 15809
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13285
+          "line": 13287
         }
       ],
       "profile": "modified",
@@ -4436,14 +4456,14 @@
           "expression": "mniNavCheckForErrors.Visible and Supports(Element, IwbFile)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15814
+            "line": 15816
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8995
+          "line": 8997
         }
       ],
       "profile": "explicit-masters",
@@ -4474,14 +4494,14 @@
           "expression": "mniNavAddMasters.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15815
+            "line": 15817
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 11647
+          "line": 11649
         }
       ],
       "profile": "sort-masters",
@@ -4512,14 +4532,14 @@
           "expression": "mniNavAddMasters.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15816
+            "line": 15818
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 3932
+          "line": 3934
         }
       ],
       "profile": "clean-masters",
@@ -4550,7 +4570,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15909
+            "line": 15911
           }
         },
         {
@@ -4558,14 +4578,14 @@
           "expression": "Length(Nodes) > 1",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15924
+            "line": 15926
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4570
+          "line": 4572
         }
       ],
       "profile": "modgroups",
@@ -4600,14 +4620,14 @@
           "expression": "Length(wbModGroupsByName(False)) > 0",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15927
+            "line": 15929
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4825
+          "line": 4827
         }
       ],
       "profile": "modgroups",
@@ -4642,14 +4662,14 @@
           "expression": "mniNavEditModGroup.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15928
+            "line": 15930
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4788
+          "line": 4790
         }
       ],
       "profile": "modgroups",
@@ -4684,14 +4704,14 @@
           "expression": "mniNavEditModGroup.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15929
+            "line": 15931
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12308
+          "line": 12310
         }
       ],
       "profile": "modgroups",
@@ -4726,7 +4746,7 @@
           "expression": "mniNavCheckForErrors.Visible and not mniNavAddMasters.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15850
+            "line": 15852
           }
         },
         {
@@ -4734,7 +4754,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15854
+            "line": 15856
           }
         },
         {
@@ -4742,14 +4762,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15862
+            "line": 15864
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4198
+          "line": 4200
         }
       ],
       "profile": "general-structure",
@@ -4786,7 +4806,7 @@
           "expression": "mniNavCopyAsOverride.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15856
+            "line": 15858
           }
         },
         {
@@ -4794,14 +4814,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15863
+            "line": 15865
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4198
+          "line": 4200
         }
       ],
       "profile": "general-structure",
@@ -4838,14 +4858,14 @@
           "expression": "mniNavCopyAsOverride.Visible and SelectionIncludesAnyDeepCopyRecords",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15857
+            "line": 15859
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4198
+          "line": 4200
         }
       ],
       "profile": "general-structure",
@@ -4882,14 +4902,14 @@
           "expression": "mniNavDeepCopyAsOverride.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15858
+            "line": 15860
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4198
+          "line": 4200
         }
       ],
       "profile": "general-structure",
@@ -4926,14 +4946,14 @@
           "expression": "mniNavCopyAsOverride.Visible and not SelectionIncludesNonCopyNewRecords",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15859
+            "line": 15861
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4198
+          "line": 4200
         }
       ],
       "profile": "general-structure",
@@ -4970,14 +4990,14 @@
           "expression": "mniNavCopyAsWrapper.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15876
+            "line": 15878
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4198
+          "line": 4200
         }
       ],
       "profile": "special-copy",
@@ -5008,7 +5028,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15866
+            "line": 15868
           }
         },
         {
@@ -5016,14 +5036,14 @@
           "expression": "(MainRecord.Signature = 'LVLB') or (MainRecord.Signature = 'LVLC') or (MainRecord.Signature = 'LVLI') or (MainRecord.Signature = 'LVLN') or (MainRecord.Signature = 'LVLP') or (MainRecord.Signature = 'LVSC') or (MainRecord.Signature = 'LVSP')",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15868
+            "line": 15870
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4198
+          "line": 4200
         }
       ],
       "profile": "special-copy",
@@ -5054,14 +5074,14 @@
           "expression": "mniNavCopyAsOverride.Visible and IsMainRecord and MainRecord.ReferencesInjected",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15881
+            "line": 15883
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4877
+          "line": 4879
         }
       ],
       "profile": "injected-cleanup",
@@ -5092,14 +5112,14 @@
           "expression": "(wbGameMode <= gmFNV) and mniNavCheckForErrors.Visible and not mniNavAddMasters.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15879
+            "line": 15881
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4083
+          "line": 4085
         }
       ],
       "profile": "idle-copy",
@@ -5130,14 +5150,14 @@
           "expression": "Assigned(Element)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15729
+            "line": 15731
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12911
+          "line": 12913
         }
       ],
       "profile": "presentation",
@@ -5166,14 +5186,14 @@
           "expression": "DebugHook <> 0",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15718
+            "line": 15720
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 11741
+          "line": 11743
         }
       ],
       "profile": "diagnostics",
@@ -5203,7 +5223,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10009
+          "line": 10011
         }
       ],
       "profile": "diagnostics",
@@ -5235,14 +5255,14 @@
           "expression": "not wbTranslationMode and wbEditAllowed",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15972
+            "line": 15974
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4246
+          "line": 4248
         }
       ],
       "profile": "merged-patch",
@@ -5273,14 +5293,14 @@
           "expression": "wbIsSkyrim and Assigned(Element) and (Element.ElementType = etFile)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15940
+            "line": 15942
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4711
+          "line": 4713
         }
       ],
       "profile": "seq",
@@ -5311,14 +5331,14 @@
           "expression": "mniNavCompareTo.Visible and (wbGameMode in [gmTES4, gmFO3, gmFNV, gmTES5, gmEnderal, gmTES5VR, gmSSE, gmEnderalSE, gmFO4, gmFO4VR, gmSF1])",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15819
+            "line": 15821
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10973
+          "line": 10975
         }
       ],
       "profile": "lod",
@@ -5347,7 +5367,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10326
+          "line": 10328
         }
       ],
       "profile": "reference-index",
@@ -5379,7 +5399,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10292
+          "line": 10294
         }
       ],
       "profile": "reachable",
@@ -5410,14 +5430,14 @@
           "expression": "mniNavAddMasters.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15817
+            "line": 15819
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10091
+          "line": 10093
         }
       ],
       "profile": "replace-references",
@@ -5450,7 +5470,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 11263
+          "line": 11265
         }
       ],
       "profile": "diagnostics",
@@ -5482,14 +5502,14 @@
           "expression": "Assigned(Element) and (Element.ElementType = etFile) and (Element._File.LoadOrder > 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15945
+            "line": 15947
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13088
+          "line": 13090
         }
       ],
       "profile": "localization",
@@ -5524,7 +5544,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 16546
+          "line": 16548
         }
       ],
       "profile": "modified",
@@ -5555,7 +5575,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 14892
+          "line": 14894
         }
       ],
       "profile": "preferences",
@@ -5584,7 +5604,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15225
+            "line": 15227
           }
         },
         {
@@ -5592,7 +5612,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15226
+            "line": 15228
           }
         },
         {
@@ -5600,7 +5620,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15721
+            "line": 15723
           }
         },
         {
@@ -5608,14 +5628,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15722
+            "line": 15724
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 15216
+          "line": 15218
         }
       ],
       "profile": "presentation",
@@ -5644,7 +5664,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16139
+            "line": 16141
           }
         },
         {
@@ -5652,14 +5672,14 @@
           "expression": "Assigned(Element) and Element.IsEditable",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16184
+            "line": 16186
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10680
+          "line": 10682
         }
       ],
       "profile": "edit",
@@ -5693,7 +5713,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16141
+            "line": 16143
           }
         },
         {
@@ -5701,14 +5721,14 @@
           "expression": "not wbTranslationMode and GetAddElement(TargetNode, TargetIndex, TargetElement) and TargetElement.CanAssign(TargetIndex, nil, True) and not (esNotSuitableToAddTo in TargetElement.ElementStates)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16200
+            "line": 16202
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8638
+          "line": 8640
         }
       ],
       "profile": "add-child",
@@ -5741,7 +5761,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16144
+            "line": 16146
           }
         },
         {
@@ -5749,14 +5769,14 @@
           "expression": "not wbTranslationMode and Assigned(Element) and Element.IsRemovable",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16187
+            "line": 16189
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12686
+          "line": 12688
         }
       ],
       "profile": "remove-child",
@@ -5787,7 +5807,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16145
+            "line": 16147
           }
         },
         {
@@ -5795,14 +5815,14 @@
           "expression": "not wbTranslationMode and Assigned(Element) and Element.IsClearable",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16188
+            "line": 16190
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12733
+          "line": 12735
         }
       ],
       "profile": "clear",
@@ -5833,7 +5853,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16148
+            "line": 16150
           }
         },
         {
@@ -5841,14 +5861,14 @@
           "expression": "not wbTranslationMode and mniViewRemove.Visible and ComparingSiblings",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16193
+            "line": 16195
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12780
+          "line": 12782
         }
       ],
       "profile": "batch-rows",
@@ -5881,7 +5901,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16142
+            "line": 16144
           }
         },
         {
@@ -5889,14 +5909,14 @@
           "expression": "not wbTranslationMode and Assigned(Element) and Element.CanChangeMember",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16197
+            "line": 16199
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 15230
+          "line": 15232
         }
       ],
       "profile": "next-member",
@@ -5927,7 +5947,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16143
+            "line": 16145
           }
         },
         {
@@ -5935,14 +5955,14 @@
           "expression": "not wbTranslationMode and Assigned(Element) and Element.CanChangeMember",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16198
+            "line": 16200
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 16289
+          "line": 16291
         }
       ],
       "profile": "previous-member",
@@ -5973,7 +5993,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16140
+            "line": 16142
           }
         },
         {
@@ -5981,14 +6001,14 @@
           "expression": "not wbTranslationMode and Assigned(Element) and Element._File.IsEditable and (Supports(Element.ValueDef, IwbStructDef, StructDef) and (StructDef.OptionalFromElement <> -1))",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16185
+            "line": 16187
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10778
+          "line": 10780
         }
       ],
       "profile": "default",
@@ -6019,7 +6039,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16150
+            "line": 16152
           }
         },
         {
@@ -6027,14 +6047,14 @@
           "expression": "mniViewCopyMultipleToSelectedRecords.Visible and Assigned(Element)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16195
+            "line": 16197
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8766
+          "line": 8768
         }
       ],
       "profile": "batch-rows",
@@ -6067,7 +6087,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16151
+            "line": 16153
           }
         },
         {
@@ -6075,14 +6095,14 @@
           "expression": "not wbTranslationMode and ComparingSiblings",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16194
+            "line": 16196
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8837
+          "line": 8839
         }
       ],
       "profile": "batch-rows",
@@ -6115,7 +6135,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16146
+            "line": 16148
           }
         },
         {
@@ -6123,7 +6143,7 @@
           "expression": "not wbTranslationMode and Assigned(Element) and Element.CanMoveUp",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16189
+            "line": 16191
           }
         },
         {
@@ -6131,14 +6151,14 @@
           "expression": "mniViewMoveUp.Enabled or mniViewMoveDown.Enabled",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16191
+            "line": 16193
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9640
+          "line": 9642
         }
       ],
       "profile": "move-up",
@@ -6169,7 +6189,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16147
+            "line": 16149
           }
         },
         {
@@ -6177,7 +6197,7 @@
           "expression": "not wbTranslationMode and Assigned(Element) and Element.CanMoveDown",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16190
+            "line": 16192
           }
         },
         {
@@ -6185,14 +6205,14 @@
           "expression": "mniViewMoveUp.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16192
+            "line": 16194
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9612
+          "line": 9614
         }
       ],
       "profile": "move-down",
@@ -6223,14 +6243,14 @@
           "expression": "ComparingSiblings",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16149
+            "line": 16151
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12839
+          "line": 12841
         }
       ],
       "profile": "presentation",
@@ -6259,7 +6279,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16152
+            "line": 16154
           }
         },
         {
@@ -6267,14 +6287,14 @@
           "expression": "not wbTranslationMode and (Length(GetUniqueLinksTo(NodeDatas, Length(ActiveRecords))) > 1)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16196
+            "line": 16198
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8754
+          "line": 8756
         }
       ],
       "profile": "comparison",
@@ -6308,14 +6328,14 @@
           "expression": "Assigned(Element)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16135
+            "line": 16137
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8690
+          "line": 8692
         }
       ],
       "profile": "presentation",
@@ -6342,7 +6362,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13021
+          "line": 13023
         }
       ],
       "profile": "clipboard",
@@ -6372,7 +6392,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12993
+          "line": 12995
         }
       ],
       "profile": "clipboard",
@@ -6402,7 +6422,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13000
+          "line": 13002
         }
       ],
       "profile": "clipboard",
@@ -6432,7 +6452,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13014
+          "line": 13016
         }
       ],
       "profile": "clipboard",
@@ -6464,14 +6484,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 8717
+            "line": 8719
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13035
+          "line": 13037
         }
       ],
       "profile": "clipboard",
@@ -6501,7 +6521,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13007
+          "line": 13009
         }
       ],
       "profile": "clipboard",
@@ -6533,14 +6553,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 8726
+            "line": 8728
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12986
+          "line": 12988
         }
       ],
       "profile": "clipboard",
@@ -6572,14 +6592,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 8732
+            "line": 8734
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13028
+          "line": 13030
         }
       ],
       "profile": "clipboard",
@@ -6611,14 +6631,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16137
+            "line": 16139
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9553
+          "line": 9555
         }
       ],
       "profile": "presentation",
@@ -6645,7 +6665,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9562
+          "line": 9564
         }
       ],
       "profile": "presentation",
@@ -6674,7 +6694,7 @@
           "expression": "NodeLabel <> ''",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16165
+            "line": 16167
           }
         },
         {
@@ -6682,14 +6702,14 @@
           "expression": "NodeLabel <> ''",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16176
+            "line": 16178
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9573
+          "line": 9575
         }
       ],
       "profile": "presentation",
@@ -6716,7 +6736,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8735
+          "line": 8737
         }
       ],
       "profile": "presentation",
@@ -6743,7 +6763,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8735
+          "line": 8737
         }
       ],
       "profile": "presentation",
@@ -6770,7 +6790,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8735
+          "line": 8737
         }
       ],
       "profile": "presentation",
@@ -6797,7 +6817,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 8735
+          "line": 8737
         }
       ],
       "profile": "presentation",
@@ -6824,7 +6844,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9941
+          "line": 9943
         }
       ],
       "profile": "modgroups",
@@ -6859,14 +6879,14 @@
           "expression": "ModGroupsExist",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 9943
+            "line": 9945
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9914
+          "line": 9916
         }
       ],
       "profile": "modgroups",
@@ -6901,14 +6921,14 @@
           "expression": "ModGroupsExist",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 9944
+            "line": 9946
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9914
+          "line": 9916
         }
       ],
       "profile": "modgroups",
@@ -6941,7 +6961,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9584
+          "line": 9586
         }
       ],
       "profile": "modgroups",
@@ -6974,7 +6994,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9949
+          "line": 9951
         }
       ],
       "profile": "presentation",
@@ -7001,7 +7021,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9949
+          "line": 9951
         }
       ],
       "profile": "presentation",
@@ -7030,14 +7050,14 @@
           "expression": "Assigned(BackHistory) and (BackHistory.Count > 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 2218
+            "line": 2219
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2205
+          "line": 2206
         }
       ],
       "profile": "presentation",
@@ -7066,14 +7086,14 @@
           "expression": "Assigned(ForwardHistory) and (ForwardHistory.Count > 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 2234
+            "line": 2235
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2221
+          "line": 2222
         }
       ],
       "profile": "presentation",
@@ -7100,7 +7120,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2237
+          "line": 2238
         }
       ],
       "profile": "scripts",
@@ -7134,14 +7154,14 @@
           "expression": "Length((pmuSpreadsheet.PopupComponent as TVirtualEditTree). GetSortedSelection(True)) > 1",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16051
+            "line": 16053
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12638
+          "line": 12640
         }
       ],
       "profile": "comparison",
@@ -7173,7 +7193,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12656
+          "line": 12658
         }
       ],
       "profile": "presentation",
@@ -7202,7 +7222,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16065
+            "line": 16067
           }
         },
         {
@@ -7210,14 +7230,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16087
+            "line": 16089
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10804
+          "line": 10806
         }
       ],
       "profile": "copy",
@@ -7248,7 +7268,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16066
+            "line": 16068
           }
         },
         {
@@ -7256,14 +7276,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16088
+            "line": 16090
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10804
+          "line": 10806
         }
       ],
       "profile": "copy",
@@ -7294,7 +7314,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16067
+            "line": 16069
           }
         },
         {
@@ -7302,14 +7322,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16090
+            "line": 16092
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10804
+          "line": 10806
         }
       ],
       "profile": "copy",
@@ -7340,7 +7360,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16068
+            "line": 16070
           }
         },
         {
@@ -7348,14 +7368,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16091
+            "line": 16093
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10804
+          "line": 10806
         }
       ],
       "profile": "copy",
@@ -7386,7 +7406,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16069
+            "line": 16071
           }
         },
         {
@@ -7394,14 +7414,14 @@
           "expression": "not( (MainRecord.Signature = 'CELL') or (MainRecord.Signature = 'WRLD') or (MainRecord.Signature = 'PGRD') or (MainRecord.Signature = 'NAVM') or (MainRecord.Signature = 'NAVI') or (MainRecord.Signature = 'LAND') or (MainRecord.Signature = 'ROAD') )",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16094
+            "line": 16096
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10804
+          "line": 10806
         }
       ],
       "profile": "copy",
@@ -7432,7 +7452,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16070
+            "line": 16072
           }
         },
         {
@@ -7440,14 +7460,14 @@
           "expression": "(MainRecord.Signature = 'LVLC') or (MainRecord.Signature = 'LVLI') or (MainRecord.Signature = 'LVSP') or (MainRecord.Signature = 'LVLN')",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16103
+            "line": 16105
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10804
+          "line": 10806
         }
       ],
       "profile": "special-copy",
@@ -7478,7 +7498,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16071
+            "line": 16073
           }
         },
         {
@@ -7486,14 +7506,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16121
+            "line": 16123
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10891
+          "line": 10893
         }
       ],
       "profile": "delete-record",
@@ -7525,7 +7545,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16073
+            "line": 16075
           }
         },
         {
@@ -7533,14 +7553,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16105
+            "line": 16107
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10873
+          "line": 10875
         }
       ],
       "profile": "navigation",
@@ -7571,14 +7591,14 @@
           "expression": "Length(ActiveRecords) > 2",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16063
+            "line": 16065
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 4570
+          "line": 4572
         }
       ],
       "profile": "modgroups",
@@ -7613,7 +7633,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16072
+            "line": 16074
           }
         },
         {
@@ -7621,14 +7641,14 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16106
+            "line": 16108
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 10850
+          "line": 10852
         }
       ],
       "profile": "presentation",
@@ -7657,14 +7677,14 @@
           "expression": "AnyHidden",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16117
+            "line": 16119
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12666
+          "line": 12668
         }
       ],
       "profile": "presentation",
@@ -7691,7 +7711,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12893
+          "line": 12895
         }
       ],
       "profile": "presentation",
@@ -7718,7 +7738,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12893
+          "line": 12895
         }
       ],
       "profile": "presentation",
@@ -7745,7 +7765,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12893
+          "line": 12895
         }
       ],
       "profile": "presentation",
@@ -7772,7 +7792,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2663
+          "line": 2665
         }
       ],
       "profile": "presentation",
@@ -7799,7 +7819,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2663
+          "line": 2665
         }
       ],
       "profile": "presentation",
@@ -7828,7 +7848,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16013
+            "line": 16015
           }
         },
         {
@@ -7836,7 +7856,7 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16016
+            "line": 16018
           }
         },
         {
@@ -7844,14 +7864,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16021
+            "line": 16023
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9676
+          "line": 9678
         }
       ],
       "profile": "comparison",
@@ -7885,14 +7905,14 @@
           "expression": "Length(Selected) > 0",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16028
+            "line": 16030
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9483
+          "line": 9485
         }
       ],
       "profile": "scripts",
@@ -7926,7 +7946,7 @@
           "expression": "not wbTranslationMode and wbEditAllowed and (Length(Selected) > 0)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15986
+            "line": 15988
           }
         },
         {
@@ -7934,14 +7954,14 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16000
+            "line": 16002
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9716
+          "line": 9718
         }
       ],
       "profile": "copy",
@@ -7972,14 +7992,14 @@
           "expression": "mniRefByCopyOverrideInto.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15990
+            "line": 15992
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9716
+          "line": 9718
         }
       ],
       "profile": "copy",
@@ -8010,14 +8030,14 @@
           "expression": "mniRefByCopyOverrideInto.Visible and ByRefSelectionIncludesAnyDeepCopyRecords(Selected)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15991
+            "line": 15993
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9716
+          "line": 9718
         }
       ],
       "profile": "copy",
@@ -8048,14 +8068,14 @@
           "expression": "mniRefByDeepCopyOverrideInto.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15992
+            "line": 15994
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9716
+          "line": 9718
         }
       ],
       "profile": "copy",
@@ -8086,14 +8106,14 @@
           "expression": "mniRefByCopyOverrideInto.Visible and not ByRefSelectionIncludesNonCopyNewRecords(Selected)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15994
+            "line": 15996
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9716
+          "line": 9718
         }
       ],
       "profile": "copy",
@@ -8124,14 +8144,14 @@
           "expression": "mniRefByCopyOverrideInto.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15995
+            "line": 15997
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9690
+          "line": 9692
         }
       ],
       "profile": "disabled-copy",
@@ -8165,14 +8185,14 @@
           "expression": "mniRefByCopyOverrideInto.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15996
+            "line": 15998
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9766
+          "line": 9768
         }
       ],
       "profile": "delete-record",
@@ -8204,14 +8224,14 @@
           "expression": "mniRefByCopyOverrideInto.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15997
+            "line": 15999
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9741
+          "line": 9743
         }
       ],
       "profile": "modified",
@@ -8244,7 +8264,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16002
+            "line": 16004
           }
         },
         {
@@ -8252,14 +8272,14 @@
           "expression": "AnyNotVWD",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16045
+            "line": 16047
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 11898
+          "line": 11900
         }
       ],
       "profile": "record-flags",
@@ -8293,7 +8313,7 @@
           "expression": "False",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16003
+            "line": 16005
           }
         },
         {
@@ -8301,14 +8321,14 @@
           "expression": "AnyVWD",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 16046
+            "line": 16048
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 11898
+          "line": 11900
         }
       ],
       "profile": "record-flags",
@@ -8340,7 +8360,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9881
+          "line": 9883
         }
       ],
       "profile": "presentation",
@@ -8367,13 +8387,17 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 9886
+          "line": 9888
         }
       ],
       "profile": "logs",
-      "status": "missing",
-      "routes": [],
-      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "status": "direct",
+      "routes": [
+        "messages.read",
+        "messages.export",
+        "logs.analyze"
+      ],
+      "notes": "Full delivered-session messages in a bounded sequence window, frozen-range cursors and explicit truncation/eviction; atomic UTF-8 export with explicit root/name/overwrite. Bounded captured native Skyrim Papyrus/TES4-FO3-FNV profiler parsing and record attribution; parser preserves native permissive conventions. Runtime not verified.",
       "effect": "session read/external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -8394,7 +8418,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13051
+          "line": 13053
         }
       ],
       "profile": "localization",
@@ -8431,14 +8455,14 @@
           "expression": "mniMainPluggyLink.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15691
+            "line": 15693
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2603
+          "line": 2605
         }
       ],
       "profile": "preferences",
@@ -8467,14 +8491,14 @@
           "expression": "mniMainPluggyLink.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15692
+            "line": 15694
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2603
+          "line": 2605
         }
       ],
       "profile": "preferences",
@@ -8503,14 +8527,14 @@
           "expression": "mniMainPluggyLink.Visible",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15693
+            "line": 15695
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2603
+          "line": 2605
         }
       ],
       "profile": "preferences",
@@ -8539,14 +8563,14 @@
           "expression": "mniMainPluggyLink.Visible and (wbGameMode = gmTES4)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15694
+            "line": 15696
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2603
+          "line": 2605
         }
       ],
       "profile": "preferences",
@@ -8575,14 +8599,14 @@
           "expression": "mniMainPluggyLink.Visible and (wbGameMode = gmTES4)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15696
+            "line": 15698
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2603
+          "line": 2605
         }
       ],
       "profile": "preferences",
@@ -8611,14 +8635,14 @@
           "expression": "mniMainPluggyLink.Visible and (wbGameMode = gmTES4)",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15695
+            "line": 15697
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 2603
+          "line": 2605
         }
       ],
       "profile": "preferences",
@@ -8647,14 +8671,14 @@
           "expression": "wbEditAllowed and not wbDontSave",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 15698
+            "line": 15700
           }
         }
       ],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 16540
+          "line": 16542
         }
       ],
       "profile": "save",
@@ -8685,7 +8709,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 14892
+          "line": 14894
         }
       ],
       "profile": "preferences",
@@ -8712,7 +8736,7 @@
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 12936
+          "line": 12938
         }
       ],
       "profile": "presentation",
@@ -10720,14 +10744,14 @@
       "event": "OnMouseDown",
       "source": {
         "file": "xEdit/xeMainForm.pas",
-        "line": 5566
+        "line": 5568
       },
       "mainForm": true,
       "nativeGuards": [],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 17705
+          "line": 17707
         }
       ],
       "profile": "presentation",
@@ -10747,14 +10771,14 @@
       "event": "OnHeaderDropped",
       "source": {
         "file": "xEdit/xeMainForm.pas",
-        "line": 5596
+        "line": 5598
       },
       "mainForm": true,
       "nativeGuards": [],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 19389
+          "line": 19396
         }
       ],
       "profile": "drag-copy",
@@ -10777,14 +10801,14 @@
       "event": "OnClick",
       "source": {
         "file": "xEdit/xeMainForm.pas",
-        "line": 15678
+        "line": 15680
       },
       "mainForm": true,
       "nativeGuards": [],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13063
+          "line": 13065
         }
       ],
       "profile": "localization",
@@ -10812,20 +10836,24 @@
       "event": "OnClick",
       "source": {
         "file": "xEdit/xeMainForm.pas",
-        "line": 15959
+        "line": 15961
       },
       "mainForm": true,
       "nativeGuards": [],
       "handlerSources": [
         {
           "file": "xEdit/xeMainForm.pas",
-          "line": 13272
+          "line": 13274
         }
       ],
       "profile": "logs",
-      "status": "missing",
-      "routes": [],
-      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "status": "direct",
+      "routes": [
+        "messages.read",
+        "messages.export",
+        "logs.analyze"
+      ],
+      "notes": "Full delivered-session messages in a bounded sequence window, frozen-range cursors and explicit truncation/eviction; atomic UTF-8 export with explicit root/name/overwrite. Bounded captured native Skyrim Papyrus/TES4-FO3-FNV profiler parsing and record attribution; parser preserves native permissive conventions. Runtime not verified.",
       "effect": "session read/external output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -11442,6 +11470,42 @@
       },
       "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
       "effect": "read native loaded resource metadata",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "logs.analyze",
+      "kind": "command",
+      "handler": "AnalyzeLog",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsMessages.pas",
+        "line": 161
+      },
+      "prerequisites": "loaded session; supported native game/format; explicit existing input root/basename and lossless encoding; bounded file snapshot",
+      "effect": "read-only native log record attribution; no plugin save",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "messages.export",
+      "kind": "command",
+      "handler": "ExportMessages",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsMessages.pas",
+        "line": 160
+      },
+      "prerequisites": "session-delivered message window; exports require explicit existing root and consent",
+      "effect": "read-only memory snapshot or immediate external UTF-8 output",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "messages.read",
+      "kind": "command",
+      "handler": "ReadMessages",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsMessages.pas",
+        "line": 159
+      },
+      "prerequisites": "session-delivered message window; exports require explicit existing root and consent",
+      "effect": "read-only memory snapshot or immediate external UTF-8 output",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {

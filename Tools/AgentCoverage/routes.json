@@ -611,9 +611,13 @@
       "scriptSymbols": []
     },
     "logs": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Provide bounded cursor-based message access/export and log-analysis entrypoints with explicit input/output path policy. Script messages only cover that run, not the full session log. Native log analyzer supports Skyrim Papyrus or TES4/FO3/FNV xSE profiler logs.",
+      "status": "direct",
+      "routes": [
+        "messages.read",
+        "messages.export",
+        "logs.analyze"
+      ],
+      "notes": "Full delivered-session messages in a bounded sequence window, frozen-range cursors and explicit truncation/eviction; atomic UTF-8 export with explicit root/name/overwrite. Bounded captured native Skyrim Papyrus/TES4-FO3-FNV profiler parsing and record attribution; parser preserves native permissive conventions. Runtime not verified.",
       "effect": "session read/external output",
       "scriptSymbols": []
     },
@@ -922,6 +926,14 @@
     "analysis": {
       "prerequisites": "loaded native modules; numeric game gate for reference-index jobs",
       "effect": "derived memory analysis/index state; no plugin persistence"
+    },
+    "messages": {
+      "prerequisites": "session-delivered message window; exports require explicit existing root and consent",
+      "effect": "read-only memory snapshot or immediate external UTF-8 output"
+    },
+    "logs": {
+      "prerequisites": "loaded session; supported native game/format; explicit existing input root/basename and lossless encoding; bounded file snapshot",
+      "effect": "read-only native log record attribution; no plugin save"
     }
   },
   "requiredProfiles": [
@@ -1561,6 +1573,15 @@
     },
     "system.run_diagnostic": {
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error"
+    },
+    "messages.read": {
+      "effect": "read-only memory snapshot or immediate external UTF-8 output"
+    },
+    "messages.export": {
+      "effect": "read-only memory snapshot or immediate external UTF-8 output"
+    },
+    "logs.analyze": {
+      "effect": "read-only native log record attribution; no plugin save"
     }
   }
 }

@@ -45,6 +45,7 @@ uses
   xeAutomationCommandsFileHygiene in 'xEdit\xeAutomationCommandsFileHygiene.pas',
   xeAutomationCommandsFiles in 'xEdit\xeAutomationCommandsFiles.pas',
   xeAutomationCommandsJobs in 'xEdit\xeAutomationCommandsJobs.pas',
+  xeAutomationCommandsMessages in 'xEdit\xeAutomationCommandsMessages.pas',
   xeAutomationCommandsPluginAnalysis in 'xEdit\xeAutomationCommandsPluginAnalysis.pas',
   xeAutomationCommandsRecords in 'xEdit\xeAutomationCommandsRecords.pas',
   xeAutomationCommandsSession in 'xEdit\xeAutomationCommandsSession.pas',
