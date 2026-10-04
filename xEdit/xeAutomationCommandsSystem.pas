@@ -615,7 +615,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.47';
+  Result.S['contractVersion'] := '0.48';
   with Result.O['supports'].O['comparisons'] do begin
     S['recordsCommand'] := 'comparisons.records'; S['loadCommand'] := 'comparisons.load';
     S['scope'] := 'explicit ordered columns, common payload path, native sibling leaf classification';
@@ -1155,6 +1155,52 @@ begin
 
 end;
 
+function xeAutomationSystemDiagnostics(const Args: TJsonObject): TJsonObject;
+  procedure Exclude(const Name, Handler, Availability, Reason, Alternative: string);
+  begin
+    with Result.A['diagnostics'].AddObject do begin
+      S['name'] := Name; S['nativeHandler'] := Handler;
+      B['supported'] := False; S['status'] := 'intentionally-excluded';
+      S['nativeAvailability'] := Availability; S['reason'] := Reason;
+      S['alternative'] := Alternative; S['automationEffect'] := 'none';
+    end;
+  end;
+begin
+  Result := TJsonObject.Create;
+  Result.S['scope'] := 'source-audited specialized GUI actions; exclusion applies in every automation game/build';
+  Result.S['persistence'] := 'read-only catalog; excluded operations never execute GUI callbacks';
+  Exclude('test', 'TfrmMain.mniNavTestClick', 'DebugHook-dependent visibility; older alternate handlers are commented out',
+    'Active experiment selects Files[2] and prefixes EditorIDs with Hummer; no explicit target contract or diagnostic semantics',
+    'validation.check_for_errors; explicit record queries and consented element edits');
+  Exclude('bandit_fix', 'TfrmMain.mniNavBanditFixClick', 'hidden legacy mod-specific SCPT/NPC workflow',
+    'Hardcoded Mart''s Monster Mod.esm and four named CSNPC scripts; unchecked script pointers and naming-dependent mutation',
+    'explicit scoped scripts.run with reviewed script; no automatic equivalent');
+  Exclude('race_lvli_fix', 'TfrmMain.mniNavRaceLVLIsClick', 'hidden legacy race-specific LVLI mutation',
+    'Infers races and leveled-list replacements from EditorID conventions across loaded files without a general target contract',
+    'validation.circular_leveled_lists; explicit FormID/reference plans for intentionally selected replacements');
+end;
+
+function xeAutomationSystemRunDiagnostic(const Args: TJsonObject): TJsonObject;
+var Catalog, Details, Row: TJsonObject; Name: string; i: Integer;
+begin
+  Name := xeAutomationRequireStringArg(Args, 'name');
+  Catalog := xeAutomationSystemDiagnostics(nil);
+  try
+    for i := 0 to Catalog.A['diagnostics'].Count - 1 do begin
+      Row := Catalog.A['diagnostics'].O[i];
+      if not SameText(Name, Row.S['name']) then Continue;
+      // Exclusions are enforced, not merely advisory capability labels. Never
+      // dispatch hidden callbacks whose implicit selections can mutate files.
+      Details := Row.Clone;
+      try
+        Details.S['gameMode'] := GetEnumName(TypeInfo(TwbGameMode), Ord(wbGameMode));
+        raise xeAutomationNewError('unsupported_diagnostic', Row.S['reason'], Details);
+      finally Details.Free; end;
+    end;
+    raise xeAutomationInvalidRequest('Unknown diagnostic; inspect system.diagnostics');
+  finally Catalog.Free; end;
+end;
+
 initialization
   // System commands self-register because they are safe before data loading.
   // Loaded-data command groups are linked here but registered through explicit
@@ -1163,5 +1209,7 @@ initialization
   xeAutomationRegisterCommand('system.describe', xeAutomationSystemDescribe);
   xeAutomationRegisterCommand('system.command_schema', xeAutomationSystemCommandSchema);
   xeAutomationRegisterCommand('system.capabilities', xeAutomationSystemCapabilities);
+  xeAutomationRegisterCommand('system.diagnostics', xeAutomationSystemDiagnostics);
+  xeAutomationRegisterCommand('system.run_diagnostic', xeAutomationSystemRunDiagnostic);
 
 end.

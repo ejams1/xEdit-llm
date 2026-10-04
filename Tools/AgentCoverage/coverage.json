@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.47",
+  "contractVersion": "0.48",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -5177,10 +5177,13 @@
         }
       ],
       "profile": "diagnostics",
-      "status": "missing",
-      "routes": [],
-      "notes": "Audit hidden/Test/Bandit Fix/race-LVLI actions per conditional build/game. Provide supported native diagnostics as explicit operations or document intentional exclusion.",
-      "effect": "game/build-specific mutation or diagnostics",
+      "status": "intentionally-excluded",
+      "routes": [
+        "system.diagnostics",
+        "system.run_diagnostic"
+      ],
+      "notes": "Source-audited hidden Test/Bandit Fix/race LVLI experiments have implicit hardcoded selections/naming and mutation assumptions. Catalog returns native visibility/game/build caveats, reasons and supported alternatives; run explicitly rejects in every game/build. Runtime nonmutation verification pending.",
+      "effect": "read-only catalog or structured unsupported_diagnostic refusal; no GUI callbacks",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -5204,10 +5207,13 @@
         }
       ],
       "profile": "diagnostics",
-      "status": "missing",
-      "routes": [],
-      "notes": "Audit hidden/Test/Bandit Fix/race-LVLI actions per conditional build/game. Provide supported native diagnostics as explicit operations or document intentional exclusion.",
-      "effect": "game/build-specific mutation or diagnostics",
+      "status": "intentionally-excluded",
+      "routes": [
+        "system.diagnostics",
+        "system.run_diagnostic"
+      ],
+      "notes": "Source-audited hidden Test/Bandit Fix/race LVLI experiments have implicit hardcoded selections/naming and mutation assumptions. Catalog returns native visibility/game/build caveats, reasons and supported alternatives; run explicitly rejects in every game/build. Runtime nonmutation verification pending.",
+      "effect": "read-only catalog or structured unsupported_diagnostic refusal; no GUI callbacks",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -5448,10 +5454,13 @@
         }
       ],
       "profile": "diagnostics",
-      "status": "missing",
-      "routes": [],
-      "notes": "Audit hidden/Test/Bandit Fix/race-LVLI actions per conditional build/game. Provide supported native diagnostics as explicit operations or document intentional exclusion.",
-      "effect": "game/build-specific mutation or diagnostics",
+      "status": "intentionally-excluded",
+      "routes": [
+        "system.diagnostics",
+        "system.run_diagnostic"
+      ],
+      "notes": "Source-audited hidden Test/Bandit Fix/race LVLI experiments have implicit hardcoded selections/naming and mutation assumptions. Catalog returns native visibility/game/build caveats, reasons and supported alternatives; run explicitly rejects in every game/build. Runtime nonmutation verification pending.",
+      "effect": "read-only catalog or structured unsupported_diagnostic refusal; no GUI callbacks",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
     },
@@ -11945,7 +11954,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1165
+        "line": 1211
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11957,7 +11966,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1164
+        "line": 1210
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11969,10 +11978,22 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1163
+        "line": 1209
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "system.diagnostics",
+      "kind": "command",
+      "handler": "xeAutomationSystemDiagnostics",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsSystem.pas",
+        "line": 1212
+      },
+      "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
+      "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -11981,10 +12002,22 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1162
+        "line": 1208
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "system.run_diagnostic",
+      "kind": "command",
+      "handler": "xeAutomationSystemRunDiagnostic",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsSystem.pas",
+        "line": 1213
+      },
+      "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
+      "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
