@@ -30,6 +30,7 @@ uses
   xeAutomationCommandsJobs,
   xeAutomationCommandsLOD,
   xeAutomationCommandsReachability,
+  xeAutomationRecordQueries,
   xeAutomationCommandsLocalization,
   xeAutomationCommandsModGroups,
   xeAutomationCommandsVWD,
@@ -468,6 +469,10 @@ begin
     end;
     xeAutomationSchemaEffects(ATarget, 'Loaded scope; reverse/injected/unnecessary-persistent predicates require current reference indexes; notReachable needs completed current global analysis', 'read-only paged query; single-use cursor bound to original arguments and mutation/semantic revisions');
     ATarget.S['resultNotes'] := 'Continue with identical original arguments plus nextCursor; consume even empty pages; inspect complete/incompleteReason; never treat timeout/budget refusal as no match';
+    if SameText(ACommand, 'records.references') then begin
+      ATarget.S['resultNotes'] := ATarget.S['resultNotes'] + '; traversal reports root-payload/select-child-roots/sort-child-roots/child-payload progress';
+      ATarget.S['constraintNotes'] := 'Root payload first; recursive child roots selected from own and later parent-override child groups, highest scoped file version per FormID, then FormID order; 5000 work units/soft 100ms per page, <=100000 roots, 1000000 selection units, 100000 payload units, depth128, shared64MiB; native calls indivisible';
+    end;
     ATarget.A['errors'].Add('cursor_invalidated'); ATarget.A['errors'].Add('cursor_capacity');
   end else if SameText(ACommand, 'records.create') then begin
     xeAutomationSchemaField(ATarget, 'targetFile', 'string:loaded-writable-plugin', True);
@@ -1179,7 +1184,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.59';
+  Result.S['contractVersion'] := '0.60';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1582,12 +1587,12 @@ begin
   lApplyFilterPagination.I['defaultOffset'] := 0;
   lApplyFilterPagination.S['cursorField'] := 'nextCursor';
   lApplyFilterPagination.B['offsetCompatibility'] := True;
-  lApplyFilterPagination.S['revisionBinding'] := 'native-plugin-modification-generation';
+  lApplyFilterPagination.S['revisionBinding'] := 'native-plugin-modification-generation-and-semantic-generation';
   lApplyFilterPagination.I['maxActiveCursors'] := 32;
   lApplyFilterPagination.I['cursorLifetimeMs'] := 300000;
   lApplyFilterPagination.I['maxRetainedBytes'] := 67108864;
-  lApplyFilterPagination.I['maxScannedPerPage'] := 5000;
-  lApplyFilterPagination.I['scanBudgetMs'] := 100;
+  lApplyFilterPagination.I['maxScannedPerPage'] := xeAutomationQueryPageWorkLimit;
+  lApplyFilterPagination.I['scanBudgetMs'] := xeAutomationQueryPageBudgetMs;
   lApplyFilterPagination.B['emptyContinuationPagesPossible'] := True;
   lApplyFilterPagination.B['consumesPageTokens'] := True;
   lApplyFilterPagination.S['retryRule'] := 'repeat-exact-request-with-idempotency-key';
@@ -1615,6 +1620,14 @@ begin
     Add('QUST');
   end;
   lReferencesRecursive.S['dedupBy'] := 'file-and-loadOrderFormId';
+  lReferencesRecursive.S['rootOrder'] := 'root payload first, then scoped highest-version child roots in native FormID order';
+  lReferencesRecursive.S['selectionScope'] := 'own child group plus later parent overrides; does not substitute unrelated global winning child versions';
+  lReferencesRecursive.S['setup'] := 'retained structural selection and incremental in-place heapsort inside page work/time checkpoints';
+  lReferencesRecursive.I['maxSelectedRoots'] := xeAutomationRecursiveRootLimit;
+  lReferencesRecursive.I['maxSelectionWork'] := xeAutomationRecursiveSelectionWorkLimit;
+  lReferencesRecursive.I['maxPayloadWork'] := xeAutomationRelationshipPayloadWorkLimit;
+  lReferencesRecursive.I['maxDepth'] := 128;
+  lReferencesRecursive.B['nativeCallsPreemptible'] := False;
   with Result.O['supports'].O['recordQueryPagination'] do begin
     A['commands'].Add('records.list');
     A['commands'].Add('records.apply_filter');
@@ -1625,6 +1638,11 @@ begin
     S['cursorArg'] := 'cursor';
     S['continuationField'] := 'nextCursor';
     B['reverseIndexRequired'] := True;
+    S['revisionBinding'] := 'native-plugin-and-semantic-generations';
+    I['pageWorkLimit'] := xeAutomationQueryPageWorkLimit;
+    I['softPageBudgetMs'] := xeAutomationQueryPageBudgetMs;
+    B['emptyContinuationPagesPossible'] := True;
+    B['nativeCallsPreemptible'] := False;
   end;
   with Result.O['supports'].O['responseProjection'] do begin
     S['fieldsArg'] := 'fields';

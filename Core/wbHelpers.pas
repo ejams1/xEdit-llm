@@ -84,6 +84,7 @@ function wbDistance(const a, b: IwbMainRecord): Single; overload;
 function wbStringToSignatures(aSignatures: string): TwbSignatures;
 function wbGetSiblingREFRsWithin(const aMainRecord: IwbMainRecord; aDistance: Single): TDynMainRecords;
 function wbGetSiblingRecords(const aElement: IwbElement; aSignatures: TwbSignatures; aOverrides: Boolean): TDynMainRecords;
+function wbSiblingRecordMatchesSignatures(const aRecord: IwbMainRecord; const aSignatures: TwbSignatures): Boolean;
 function FindMatchText(Strings: TStrings; const Str: string): Integer;
 function IsFileCC(const aFileName: string): Boolean;
 procedure DeleteDirectory(const DirName: string);
@@ -485,6 +486,15 @@ begin
   end;
 end;
 
+function wbSiblingRecordMatchesSignatures(const aRecord: IwbMainRecord; const aSignatures: TwbSignatures): Boolean;
+var i: Integer;
+begin
+  Result := False;
+  if not Assigned(aRecord) then Exit;
+  for i := Low(aSignatures) to High(aSignatures) do
+    if aRecord.Signature = aSignatures[i] then Exit(True);
+end;
+
 function wbGetSiblingRecords(const aElement: IwbElement; aSignatures: TwbSignatures; aOverrides: Boolean): TDynMainRecords;
 
   procedure FindRecords(const aElement: IwbElement; var aSignatures: TwbSignatures; var Records: TDynMainRecords; var Count: Integer);
@@ -494,14 +504,12 @@ function wbGetSiblingRecords(const aElement: IwbElement; aSignatures: TwbSignatu
     i          : Integer;
   begin
     if Supports(aElement, IwbMainRecord, MainRecord) then begin
-      for i := Low(aSignatures) to High(aSignatures) do
-        if MainRecord.Signature = aSignatures[i] then begin
-          if High(Records) < Count then
-            SetLength(Records, Length(Records) * 2);
-          Records[Count] := MainRecord;
-          Inc(Count);
-          Break;
-        end;
+      if wbSiblingRecordMatchesSignatures(MainRecord, aSignatures) then begin
+        if High(Records) < Count then
+          SetLength(Records, Length(Records) * 2);
+        Records[Count] := MainRecord;
+        Inc(Count);
+      end;
     end else if Supports(aElement, IwbContainerElementRef, Container) then
       for i := 0 to Pred(Container.ElementCount) do
         FindRecords(Container.Elements[i], aSignatures, Records, Count);

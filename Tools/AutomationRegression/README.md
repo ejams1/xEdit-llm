@@ -1,5 +1,65 @@
 # Automation regression fixtures
 
+## Issue #12: retained recursive reference selection (contract 0.60)
+
+`records.references recursive:true` now advances root payload, child-group
+selection, in-place heapsort and selected child payload within the existing
+5,000-work-unit / soft 100 ms page checkpoints. The root's own hits come first;
+child roots use native FormID order and the highest file version **within the
+selected parent child groups**. Selection covers the addressed root's group and
+later parent overrides, including later groups when the root has no own group.
+Main records terminate structural selection descent; links are not followed
+transitively and unrelated global winning child versions are not substituted.
+
+Pages add `semanticRevision`, `cursorRetained`, and `traversal` phase/counters.
+Selection is capped at 100,000 unique roots / 1,000,000 structural work units;
+payload traversal retains its separate 100,000-work-unit cap. Depth is at most
+128 and accounted state shares the existing 64 MiB session budget. Selection
+refusal ends with `complete:false`, `incomplete:true`, no cursor, and
+`recursive_root_limit`, `recursive_selection_visit_limit`, or
+`recursive_root_retention_limit`. Payload/seen-key refusals retain
+`query_visit_limit`, `relationship_depth_limit`, or `query_retention_limit`.
+Root hits already returned remain a partial prefix. Setup and sorting count in
+`scanned`/`scannedTotal`; an empty page with `nextCursor` still requires draining.
+`accountedRetainedBytes` is the last page snapshot; `cursorRetained:false` means
+the query has released its retained state. These are explicit work checkpoints,
+not hard latency guarantees: native getters, comparison, initialization,
+allocations and interface release remain indivisible.
+
+Active page ownership is detached from the cache before native execution.
+Reentrant invalidation can clear cached queries without freeing the active
+query, which checks native and semantic generations before returning results.
+This also applies to list/filter/reverse pages and summary serialization.
+
+Compile LiteDebug with licensed Delphi from this PR's exact head. Generate a
+fresh FO4 MO2 overlay and load only Fallout4.esm plus the three generated plugins
+in Base, Patch, Outside order; launch the built daemon with mutation consent.
+The runner restores one EDID edit, saves only Patch, and ends with explicit flush:
+
+```text
+python Tools/AutomationRegression/relationship_step_fixture.py generate --overlay <new-MO2-mod>
+python Tools/AutomationRegression/relationship_step_fixture.py exercise --overlay <same-MO2-mod> --exe <built-xEdit.exe> --pid <daemon-pid> --artifacts <new-artifact-directory>
+```
+
+The 700 child roots appear structurally odd-then-even, have 234 scoped overrides,
+duplicate teleport links, a moved outside-scope global winner, a transitive link
+sentinel, and a root with children only in a later parent override. Check exact
+ordering/dedup with limits 1/37/500, offset suffix, projected identity, shallow
+and empty results, scoped Patch-only roots, a retained sort continuation,
+monotone counters/page limits, single-use and argument refusal, reference-index
+semantic invalidation, reverse index completeness/stable dedup paging, real
+mutation invalidation/restoration and independent persisted semantic readback.
+Requests/responses plus `relationship-steps.json` retain evidence and IPC timing.
+No native build or runtime result is asserted by the Python tests.
+
+Before accepting #12, also run other supported games and WRLD/DIAL/QUST roots,
+the root/selection/payload/depth/retention caps, idle/capacity/session teardown,
+missing/stale reverse-index refusal, and injected exceptions or invalidation
+during native getter/comparator/summary callbacks. Confirm no use-after-free,
+leaked cursor charge, false completeness or retained interfaces. Relaunch after
+save/flush to verify restored EDID and relationship results. Native acceptance
+remains pending; this follow-up does not close #12.
+
 ## Issue #17: bounded projected subtree reads (contract 0.59)
 
 `elements.subtree` takes a record/element locator, `maxNodes` (1..256, default
@@ -690,15 +750,16 @@ position, returns `scanned`, `scannedTotal`, `emittedTotal`, revision and
 completeness, and never repeats already-scanned filter predicates. A token is
 consumed per page. If a response is lost, retry the exact request with the
 same idempotency key; old tokens otherwise return `cursor_invalidated`.
-Changing query arguments, projection or page size invalidates continuation.
+Changing query arguments, projection or page size refuses continuation without
+consuming the original token.
 Native plugin mutation, GUI language/ModGroup/reachable/ref-index changes,
 expired tokens and terminal flush also invalidate cursors. The cache retains
 at most 32 queries, 64 MiB of accounted state, with a five-minute idle expiry.
 Reverse relations require the loaded-file reference index; missing index is an
 explicit prerequisite error, not an empty complete answer. Recursive outgoing
 references use native child-override selection, never a transitive graph walk.
-The native selection helper eagerly sorts recursive child roots before paging;
-large recursive roots require further profiling in the game-backed test pass.
+Recursive selection and sorting retain progress inside the page checkpoints;
+see the contract 0.60 fixture above for selection scope and explicit limits.
 
 `records.apply_filter` retains strict 1..100 page sizes and legacy `offset`.
 `nextOffset` is emitted only for a nonempty continuation page. New clients

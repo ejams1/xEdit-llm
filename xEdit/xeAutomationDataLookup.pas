@@ -17,6 +17,9 @@ uses
   JsonDataObjects,
   xeAutomationObjectModel;
 
+const
+  xeAutomationChildGroupReferenceSignatures = 'REFR,ACHR,PGRE,PHZD,PARW,PBAR,PBEA,PCON,PFLA,PMIS,LAND,NAVM,PGRD,INFO,DLBR,SCEN,CELL,DIAL,QUST,WRLD';
+
 type
   TxeAutomationMainRecords = array of IwbMainRecord;
   TxeAutomationFiles = array of IwbFile;
@@ -166,7 +169,6 @@ const
   xeAutomationRegexTimeoutMs = 100;
   xeAutomationMaxRegexTasksInFlight = 4;
   xeAutomationMaxFilterPatternValues = 32;
-  xeAutomationChildGroupReferenceSignatures = 'REFR,ACHR,PGRE,PHZD,PARW,PBAR,PBEA,PCON,PFLA,PMIS,LAND,NAVM,PGRD,INFO,DLBR,SCEN,CELL,DIAL,QUST,WRLD';
 
 var
   xeAutomationRegexTasksInFlight: Integer = 0;

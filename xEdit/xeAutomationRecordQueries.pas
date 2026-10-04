@@ -9,6 +9,13 @@ interface
 
 uses JsonDataObjects, xeAutomationDataLookup;
 
+const
+  xeAutomationRecursiveRootLimit = 100000;
+  xeAutomationRecursiveSelectionWorkLimit = 1000000;
+  xeAutomationRelationshipPayloadWorkLimit = 100000;
+  xeAutomationQueryPageWorkLimit = 5000;
+  xeAutomationQueryPageBudgetMs = 100;
+
 function xeAutomationRecordQueryPage(const AKind: string; const AArgs: TJsonObject;
   const AMetadata: TJsonObject): TxeAutomationMainRecords;
 procedure xeAutomationInvalidateRecordQueries;
@@ -22,32 +29,44 @@ uses Windows, SysUtils, Generics.Collections, wbInterface, wbHelpers, wbLoadOrde
 
 const
   MaxCursors = 32;
-  MaxVisited = 100000;
   CursorLifetimeMs = 300000;
-  MaxScannedPerPage = 5000;
   MaxRetainedBytes = 64 * 1024 * 1024;
 
 type
+  TxeReferencePhase = (qrRootPayload, qrSelectGroups, qrSortRoots, qrChildPayload, qrDone);
   TxeQueryFrame = record
     Element: IwbElement;
     NextChild: Integer;
     Visited: Boolean;
   end;
   TxeRecordQuery = class
-    Kind, Query, Token, IncompleteReason: string;
-    Revision, Touched: UInt64;
+    Kind, Query, IncompleteReason: string;
+    Revision, Touched, SemanticGeneration: UInt64;
     RetainedBytes: Int64;
     Filter: TxeAutomationRecordFilter;
     FileIndex, RecordIndex, Skip, Emitted, Visited: Integer;
     Root: IwbMainRecord;
-    Roots: TDynMainRecords;
-    RootIndex: Integer;
+    Roots: TList<IwbMainRecord>;
+    RootKeys: TDictionary<string, Integer>;
+    RootSignatures: TwbSignatures;
+    ParentMaster: IwbMainRecord;
+    ReferencePhase: TxeReferencePhase;
+    Recursive, RootStarted, SelectionComplete: Boolean;
+    RootIndex, ParentOverrideIndex, PayloadVisited, SelectionWork, SelectionCandidates, SortWork: Integer;
+    HeapNode, HeapEnd, HeapBuildIndex: Integer;
+    HeapBuilding, HeapActive: Boolean;
     Frames: TList<TxeQueryFrame>;
     Seen: TDictionary<string, Boolean>;
     PendingHit: IwbMainRecord;
     Done, Incomplete: Boolean;
     constructor Create;
     destructor Destroy; override;
+    procedure PushFrame(const element: IwbElement);
+    procedure SelectRoot(const recordRef: IwbMainRecord);
+    procedure SelectOne;
+    procedure SortOne;
+    function NextReference(out ARecord: IwbMainRecord): Boolean;
+    procedure WriteReferenceProgress(const metadata: TJsonObject);
     function Next(out ARecord: IwbMainRecord): Boolean;
   end;
 
@@ -55,13 +74,18 @@ var
   Cursors: TObjectDictionary<string, TxeRecordQuery>;
   TotalRetainedBytes: Int64;
   SemanticRevision: UInt64;
+  ActiveQueries: Integer;
 
 constructor TxeRecordQuery.Create;
 begin
   inherited;
   Frames := TList<TxeQueryFrame>.Create;
   Seen := TDictionary<string, Boolean>.Create;
+  Roots := TList<IwbMainRecord>.Create;
+  RootKeys := TDictionary<string, Integer>.Create;
+  ParentOverrideIndex := -1;
   Revision := wbGlobalModifedGeneration;
+  SemanticGeneration := SemanticRevision;
   Touched := GetTickCount64;
   RetainedBytes := 16384; // Covers bounded stack and object overhead.
   Inc(TotalRetainedBytes, RetainedBytes);
@@ -72,6 +96,8 @@ begin
   Dec(TotalRetainedBytes, RetainedBytes);
   Frames.Free;
   Seen.Free;
+  RootKeys.Free;
+  Roots.Free;
   inherited;
 end;
 
@@ -93,62 +119,223 @@ procedure xeAutomationVerifyRecordQueryRevision(const AMetadata: TJsonObject);
 begin
   // Summary serialization may itself trigger native lazy work. A continuation
   // must never carry the earlier graph revision after that work completes.
-  if AMetadata.S['revision'] <> UIntToStr(wbGlobalModifedGeneration) then begin
+  if (AMetadata.S['revision'] <> UIntToStr(wbGlobalModifedGeneration)) or
+     (AMetadata.S['semanticRevision'] <> UIntToStr(SemanticRevision)) then begin
     xeAutomationInvalidateRecordQueries;
     raise xeAutomationNewError('cursor_invalidated', 'Loaded graph changed while serializing the page');
   end;
 end;
 
+procedure TxeRecordQuery.PushFrame(const element: IwbElement);
+var frame: TxeQueryFrame;
+begin
+  if not Assigned(element) then Exit;
+  if Frames.Count >= 128 then begin
+    Incomplete := True;
+    IncompleteReason := 'relationship_depth_limit';
+    Exit;
+  end;
+  frame.Element := element; frame.NextChild := 0; frame.Visited := False;
+  Frames.Add(frame);
+end;
+
+procedure TxeRecordQuery.SelectRoot(const recordRef: IwbMainRecord);
+var
+  key: string;
+  index, charge: Integer;
+begin
+  if not wbSiblingRecordMatchesSignatures(recordRef, RootSignatures) then Exit;
+  Inc(SelectionCandidates);
+  key := recordRef.LoadOrderFormID.ToString(False);
+  if RootKeys.TryGetValue(key, index) then begin
+    // Native sibling selection retains the last/highest file version within
+    // these parent child groups, not an unrelated global WinningOverride.
+    if CompareElementsFormIDAndLoadOrder(Pointer(IwbElement(Roots[index])),
+      Pointer(IwbElement(recordRef))) < 0 then Roots[index] := recordRef;
+    Exit;
+  end;
+  if Roots.Count >= xeAutomationRecursiveRootLimit then begin
+    Incomplete := True; IncompleteReason := 'recursive_root_limit'; Exit;
+  end;
+  charge := Length(key) * 2 + 160; // Key/map/list capacity, including spare slots.
+  if (Length(key) > 1024) or (TotalRetainedBytes + charge > MaxRetainedBytes) then begin
+    Incomplete := True; IncompleteReason := 'recursive_root_retention_limit'; Exit;
+  end;
+  Inc(RetainedBytes, charge); Inc(TotalRetainedBytes, charge);
+  RootKeys.Add(key, Roots.Count);
+  Roots.Add(recordRef);
+end;
+
+procedure TxeRecordQuery.SelectOne;
+var
+  frame: TxeQueryFrame;
+  recordRef, parent: IwbMainRecord;
+  container: IwbContainerElementRef;
+  child: IwbElement;
+begin
+  if SelectionWork >= xeAutomationRecursiveSelectionWorkLimit then begin
+    Incomplete := True; IncompleteReason := 'recursive_selection_visit_limit'; Exit;
+  end;
+  Inc(SelectionWork);
+  if Frames.Count = 0 then begin
+    if ParentOverrideIndex < 0 then begin
+      ParentOverrideIndex := 0;
+      PushFrame(Root.ChildGroup);
+      Exit;
+    end;
+    if not Assigned(ParentMaster) then ParentMaster := Root.MasterOrSelf;
+    if ParentOverrideIndex < ParentMaster.OverrideCount then begin
+      parent := ParentMaster.Overrides[ParentOverrideIndex];
+      Inc(ParentOverrideIndex);
+      if parent._File.LoadOrder > Root._File.LoadOrder then PushFrame(parent.ChildGroup);
+      Exit;
+    end;
+    SelectionComplete := True;
+    RootIndex := 0;
+    if Roots.Count > 1 then begin
+      HeapBuildIndex := Roots.Count div 2 - 1;
+      HeapEnd := Roots.Count - 1;
+      HeapBuilding := True; HeapActive := False;
+      ReferencePhase := qrSortRoots;
+    end else ReferencePhase := qrChildPayload;
+    Exit;
+  end;
+  frame := Frames.Last;
+  if not frame.Visited then begin
+    frame.Visited := True; Frames[Frames.Count - 1] := frame;
+    if Supports(frame.Element, IwbMainRecord, recordRef) then begin
+      SelectRoot(recordRef);
+      // Match native FindRecords: a main record terminates structural descent.
+      // Its payload and ChildGroup are not recursively followed here.
+      Frames.Delete(Frames.Count - 1);
+    end;
+    Exit;
+  end;
+  if Supports(frame.Element, IwbContainerElementRef, container) and
+     (frame.NextChild < container.ElementCount) then begin
+    child := container.Elements[frame.NextChild];
+    Inc(frame.NextChild); Frames[Frames.Count - 1] := frame;
+    PushFrame(child);
+  end else Frames.Delete(Frames.Count - 1);
+end;
+
+procedure TxeRecordQuery.SortOne;
+var
+  child: Integer;
+  saved: IwbMainRecord;
+
+  function Compare(const left, right: Integer): Integer;
+  begin
+    Result := CompareElementsFormIDAndLoadOrder(Pointer(IwbElement(Roots[left])),
+      Pointer(IwbElement(Roots[right])));
+  end;
+
+  procedure Swap(const left, right: Integer);
+  begin
+    saved := Roots[left]; Roots[left] := Roots[right]; Roots[right] := saved;
+  end;
+begin
+  Inc(SortWork);
+  // Incremental heapsort: one sift level (<=2 native comparisons and one swap)
+  // or one stage transition per work unit. No whole-root sort before paging.
+  if HeapActive then begin
+    child := HeapNode * 2 + 1;
+    if child > HeapEnd then HeapActive := False
+    else begin
+      if (child < HeapEnd) and (Compare(child, child + 1) < 0) then Inc(child);
+      if Compare(HeapNode, child) < 0 then begin
+        Swap(HeapNode, child); HeapNode := child;
+      end else HeapActive := False;
+    end;
+  end else if HeapBuilding then begin
+    if HeapBuildIndex >= 0 then begin
+      HeapNode := HeapBuildIndex; Dec(HeapBuildIndex); HeapActive := True;
+    end else HeapBuilding := False;
+  end else if HeapEnd > 0 then begin
+    Swap(0, HeapEnd); Dec(HeapEnd); HeapNode := 0; HeapActive := True;
+  end else ReferencePhase := qrChildPayload;
+end;
+
+function TxeRecordQuery.NextReference(out ARecord: IwbMainRecord): Boolean;
+var
+  frame: TxeQueryFrame;
+  container: IwbContainer;
+  linked, child: IwbElement;
+begin
+  Result := True;
+  ARecord := nil;
+  case ReferencePhase of
+    qrSelectGroups: begin SelectOne; Exit; end;
+    qrSortRoots: begin SortOne; Exit; end;
+    qrDone: begin Done := True; Exit(False); end;
+  end;
+  if PayloadVisited >= xeAutomationRelationshipPayloadWorkLimit then begin
+    Incomplete := True; IncompleteReason := 'query_visit_limit'; Exit;
+  end;
+  Inc(PayloadVisited);
+  if Frames.Count = 0 then begin
+    if ReferencePhase = qrRootPayload then begin
+      if not RootStarted then begin PushFrame(Root); RootStarted := True; end
+      else begin
+        if Recursive then ReferencePhase := qrSelectGroups
+        else begin ReferencePhase := qrDone; Done := True; end;
+        Exit;
+      end;
+    end else if RootIndex < Roots.Count then begin
+      PushFrame(Roots[RootIndex]);
+      Roots[RootIndex] := nil; // Frames own the current root; release finished slots.
+      Inc(RootIndex);
+    end else begin ReferencePhase := qrDone; Done := True; Exit; end;
+  end;
+  if Incomplete then Exit;
+  frame := Frames.Last;
+  if not frame.Visited then begin
+    frame.Visited := True; Frames[Frames.Count - 1] := frame;
+    if frame.Element.CanContainFormIDs then begin
+      linked := frame.Element.LinksTo;
+      if Assigned(linked) then ARecord := linked.ContainingMainRecord;
+    end;
+    Exit;
+  end;
+  if frame.Element.CanContainFormIDs and Supports(frame.Element, IwbContainer, container) and
+     (frame.NextChild < container.ElementCount) then begin
+    child := container.Elements[frame.NextChild];
+    Inc(frame.NextChild); Frames[Frames.Count - 1] := frame;
+    PushFrame(child);
+  end else Frames.Delete(Frames.Count - 1);
+end;
+
+procedure TxeRecordQuery.WriteReferenceProgress(const metadata: TJsonObject);
+const
+  PhaseNames: array[TxeReferencePhase] of string = ('root-payload', 'select-child-roots',
+    'sort-child-roots', 'child-payload', 'complete');
+begin
+  metadata.O['traversal'].S['phase'] := PhaseNames[ReferencePhase];
+  metadata.O['traversal'].B['recursive'] := Recursive;
+  metadata.O['traversal'].B['rootSelectionComplete'] := SelectionComplete or not Recursive;
+  metadata.O['traversal'].I['selectedChildRoots'] := Roots.Count;
+  metadata.O['traversal'].I['retainedChildRoots'] := Roots.Count - RootIndex;
+  metadata.O['traversal'].I['candidateVersions'] := SelectionCandidates;
+  metadata.O['traversal'].I['selectionWork'] := SelectionWork;
+  metadata.O['traversal'].I['sortWork'] := SortWork;
+  metadata.O['traversal'].I['payloadWork'] := PayloadVisited;
+  metadata.O['traversal'].I['retainedDepth'] := Frames.Count;
+  metadata.O['traversal'].L['accountedRetainedBytes'] := RetainedBytes;
+  metadata.O['traversal'].I['rootLimit'] := xeAutomationRecursiveRootLimit;
+  metadata.O['traversal'].I['selectionWorkLimit'] := xeAutomationRecursiveSelectionWorkLimit;
+  metadata.O['traversal'].I['payloadWorkLimit'] := xeAutomationRelationshipPayloadWorkLimit;
+  metadata.O['traversal'].I['pageWorkLimit'] := xeAutomationQueryPageWorkLimit;
+  metadata.O['traversal'].I['softPageBudgetMs'] := xeAutomationQueryPageBudgetMs;
+  metadata.O['traversal'].B['nativeCallsPreemptible'] := False;
+end;
+
 function TxeRecordQuery.Next(out ARecord: IwbMainRecord): Boolean;
 var
   lFile: IwbFile;
-  lFrame: TxeQueryFrame;
-  lContainer: IwbContainer;
-  lElement, lLinked: IwbElement;
 begin
   Result := False;
   ARecord := nil;
-  if Kind = 'references' then begin
-    if Frames.Count = 0 then begin
-      if RootIndex >= Length(Roots) then begin
-        Done := True;
-        Exit;
-      end;
-      lFrame.Element := Roots[RootIndex];
-      lFrame.NextChild := 0;
-      lFrame.Visited := False;
-      Frames.Add(lFrame);
-      Inc(RootIndex);
-    end;
-    lFrame := Frames.Last;
-    if not lFrame.Visited then begin
-      lFrame.Visited := True;
-      Frames[Frames.Count - 1] := lFrame;
-      if lFrame.Element.CanContainFormIDs then begin
-        lLinked := lFrame.Element.LinksTo;
-        if Assigned(lLinked) then
-          ARecord := lLinked.ContainingMainRecord;
-      end;
-      Exit(True);
-    end;
-    if lFrame.Element.CanContainFormIDs and Supports(lFrame.Element, IwbContainer, lContainer) and
-       (lFrame.NextChild < lContainer.ElementCount) then begin
-      lElement := lContainer.Elements[lFrame.NextChild];
-      Inc(lFrame.NextChild);
-      Frames[Frames.Count - 1] := lFrame;
-      if Frames.Count >= 128 then begin
-        Incomplete := True;
-        IncompleteReason := 'relationship_depth_limit';
-        Exit;
-      end;
-      lFrame.Element := lElement;
-      lFrame.NextChild := 0;
-      lFrame.Visited := False;
-      Frames.Add(lFrame);
-    end else
-      Frames.Delete(Frames.Count - 1);
-    Exit(True);
-  end;
+  if Kind = 'references' then Exit(NextReference(ARecord));
   if Kind = 'referenced_by' then begin
     if RecordIndex >= Root.ReferencedByCount then begin
       Done := True;
@@ -212,9 +399,7 @@ end;
 function NewQuery(const AKind: string; const AArgs: TJsonObject): TxeRecordQuery;
 var
   lArgs: TJsonObject;
-  lRecursive, lSpecified: Boolean;
-  lChildren: TDynMainRecords;
-  i: Integer;
+  lSpecified: Boolean;
 begin
   Result := TxeRecordQuery.Create;
   try
@@ -228,20 +413,8 @@ begin
       if AKind = 'referenced_by' then
         RequireReferenceIndex
       else begin
-        SetLength(Result.Roots, 1);
-        Result.Roots[0] := Result.Root;
-        lRecursive := xeAutomationReadBooleanArg(AArgs, 'recursive', lSpecified);
-        if lRecursive and Assigned(Result.Root.ChildGroup) then begin
-          // Preserve existing semantics: recurse through native sibling-selected
-          // child-group records, never through the transitive reference graph.
-          lChildren := wbGetSiblingRecords(Result.Root,
-            wbStringToSignatures('REFR,ACHR,PGRE,PHZD,PARW,PBAR,PBEA,PCON,PFLA,PMIS,LAND,NAVM,PGRD,INFO,DLBR,SCEN,CELL,DIAL,QUST,WRLD'), True);
-          if Length(lChildren) > MaxVisited then
-            raise xeAutomationInvalidRequest('Recursive relationship roots exceed the query limit');
-          SetLength(Result.Roots, Length(lChildren) + 1);
-          for i := Low(lChildren) to High(lChildren) do
-            Result.Roots[i + 1] := lChildren[i];
-        end;
+        Result.Recursive := xeAutomationReadBooleanArg(AArgs, 'recursive', lSpecified);
+        Result.RootSignatures := wbStringToSignatures(xeAutomationChildGroupReferenceSignatures);
       end;
     end else begin
       if AKind = 'list' then
@@ -265,12 +438,12 @@ begin
         lArgs.Free;
       end;
     end;
-    Inc(Result.RetainedBytes, Length(Result.Roots) * SizeOf(Pointer) +
-      Length(Result.Filter.Files) * SizeOf(Pointer) + Length(Result.Query) * 2);
+    Inc(Result.RetainedBytes, Length(Result.Filter.Files) * SizeOf(Pointer) + Length(Result.Query) * 2);
     Inc(TotalRetainedBytes, Result.RetainedBytes - 16384);
     if TotalRetainedBytes > MaxRetainedBytes then
       raise xeAutomationNewError('cursor_capacity', 'Retained query state exceeds the session byte budget');
     Result.Revision := wbGlobalModifedGeneration;
+    Result.SemanticGeneration := SemanticRevision;
   except
     Result.Free;
     raise;
@@ -301,7 +474,8 @@ begin
   try
     for lPair in Cursors do
       if (GetTickCount64 - lPair.Value.Touched > CursorLifetimeMs) or
-         (lPair.Value.Revision <> wbGlobalModifedGeneration) then
+         (lPair.Value.Revision <> wbGlobalModifedGeneration) or
+         (lPair.Value.SemanticGeneration <> SemanticRevision) then
         lExpired.Add(lPair.Key);
     for lKey in lExpired do
       Cursors.Remove(lKey);
@@ -311,53 +485,52 @@ begin
   if lToken <> '' then begin
     if not Cursors.TryGetValue(lToken, lQuery) then
       raise xeAutomationNewError('cursor_invalidated', 'Cursor expired, finished or belongs to another session');
-    if lQuery.Revision <> wbGlobalModifedGeneration then begin
+    if (lQuery.Revision <> wbGlobalModifedGeneration) or
+       (lQuery.SemanticGeneration <> SemanticRevision) then begin
       Cursors.Remove(lToken);
       raise xeAutomationNewError('cursor_invalidated', 'Loaded plugin mutation invalidated the cursor');
     end;
     if lQuery.Query <> QueryIdentity(AKind, AArgs) then
       raise xeAutomationInvalidRequest('Cursor continuation must preserve the original query arguments');
-    if AKind = 'referenced_by' then
-      RequireReferenceIndex;
-    if AKind = 'filter' then begin
-      if lQuery.Filter.HasNotReachable and not xeAutomationReachabilityIsCurrent then
-        raise xeAutomationStateConflict('Reachability changed; rerun analysis.reachability and restart the filter');
-      if lQuery.Filter.HasUnnecessaryPersistent or lQuery.Filter.HasReferencesInjected then RequireReferenceIndex;
-    end;
+    // The page owns the query while native calls execute. Invalidation can
+    // clear cached queries reentrantly without freeing this active traversal.
+    Cursors.ExtractPair(lToken);
   end else begin
-    if Cursors.Count >= MaxCursors then
+    lQuery := nil;
+    if Cursors.Count + ActiveQueries >= MaxCursors then
       raise xeAutomationNewError('cursor_capacity', 'Finish existing queries or wait for cursor expiry');
-    lQuery := NewQuery(AKind, AArgs);
-    CreateGUID(lId);
-    lToken := GUIDToString(lId);
-    lQuery.Token := lToken;
-    Cursors.Add(lToken, lQuery);
   end;
-  lQuery.Touched := GetTickCount64;
-  lQuery.Filter.RegexDeadline := GetTickCount64 + 250;
-  lQuery.Filter.RegexMatchAttempts := 0;
-  lQuery.Filter.ElementVisits := 0;
-  lQuery.Filter.RegexTimeouts := 0;
-  lQuery.Filter.RegexSlotsExhausted := 0;
-  lDeadline := GetTickCount64 + 100;
-  lScanned := 0;
+  Inc(ActiveQueries);
   try
+    if not Assigned(lQuery) then lQuery := NewQuery(AKind, AArgs)
+    else begin
+      if AKind = 'referenced_by' then
+        RequireReferenceIndex;
+      if AKind = 'filter' then begin
+        if lQuery.Filter.HasNotReachable and not xeAutomationReachabilityIsCurrent then
+          raise xeAutomationStateConflict('Reachability changed; rerun analysis.reachability and restart the filter');
+        if lQuery.Filter.HasUnnecessaryPersistent or lQuery.Filter.HasReferencesInjected then RequireReferenceIndex;
+      end;
+    end;
+    lQuery.Touched := GetTickCount64;
+    lQuery.Filter.RegexDeadline := GetTickCount64 + 250;
+    lQuery.Filter.RegexMatchAttempts := 0;
+    lQuery.Filter.ElementVisits := 0;
+    lQuery.Filter.RegexTimeouts := 0;
+    lQuery.Filter.RegexSlotsExhausted := 0;
+    lDeadline := GetTickCount64 + xeAutomationQueryPageBudgetMs;
+    lScanned := 0;
     while not lQuery.Done and not lQuery.Incomplete do begin
       if Assigned(lQuery.PendingHit) then begin
         lRecord := lQuery.PendingHit;
         lQuery.PendingHit := nil;
       end else begin
-        if (lScanned >= MaxScannedPerPage) or (GetTickCount64 >= lDeadline) then
+        if (lScanned >= xeAutomationQueryPageWorkLimit) or (GetTickCount64 >= lDeadline) then
           Break;
         if not lQuery.Next(lRecord) then
           Break;
         Inc(lScanned);
         Inc(lQuery.Visited);
-        if (lQuery.Kind = 'references') and (lQuery.Visited > MaxVisited) then begin
-          lQuery.Incomplete := True;
-          lQuery.IncompleteReason := 'query_visit_limit';
-          Break;
-        end;
         if lQuery.Incomplete then
           Break; // This candidate's regex outcome is unknown, never a nonmatch.
         if not Assigned(lRecord) then
@@ -389,36 +562,38 @@ begin
       Result[High(Result)] := lRecord;
       Inc(lQuery.Emitted);
     end;
-    if lQuery.Revision <> wbGlobalModifedGeneration then
-      raise xeAutomationNewError('cursor_invalidated', 'Native lazy reads changed the loaded graph; restart the query');
+    if (lQuery.Revision <> wbGlobalModifedGeneration) or
+       (lQuery.SemanticGeneration <> SemanticRevision) then
+      raise xeAutomationNewError('cursor_invalidated', 'Native reads changed the plugin/semantic revision; restart the query');
     lMore := not lQuery.Done and not lQuery.Incomplete;
     AMetadata.B['complete'] := lQuery.Done and not lQuery.Incomplete;
     AMetadata.B['truncated'] := lMore;
     AMetadata.B['incomplete'] := lQuery.Incomplete;
+    AMetadata.B['cursorRetained'] := lMore;
     AMetadata.S['revision'] := UIntToStr(lQuery.Revision);
+    AMetadata.S['semanticRevision'] := UIntToStr(lQuery.SemanticGeneration);
     AMetadata.I['limit'] := lLimit;
     AMetadata.I['scanned'] := lScanned;
     AMetadata.I['scannedTotal'] := lQuery.Visited;
     AMetadata.I['emittedTotal'] := lQuery.Emitted;
     AMetadata.I['regexTimeouts'] := lQuery.Filter.RegexTimeouts;
     AMetadata.I['regexSlotsExhausted'] := lQuery.Filter.RegexSlotsExhausted;
+    if lQuery.Kind = 'references' then lQuery.WriteReferenceProgress(AMetadata);
     if lQuery.Incomplete then
       AMetadata.S['incompleteReason'] := lQuery.IncompleteReason;
     if lMore then begin
       // A page token is consumed once. Lost-response retries must use the exact
       // request and an idempotency key; reusing an old token cannot skip a page.
-      Cursors.ExtractPair(lToken);
       CreateGUID(lId);
       lToken := GUIDToString(lId);
-      Cursors.Add(lToken, lQuery);
       AMetadata.S['nextCursor'] := lToken;
       AMetadata.S['continuationReason'] := 'page_or_scan_budget';
-    end
-    else
-      Cursors.Remove(lToken);
-  except
-    Cursors.Remove(lToken);
-    raise;
+      Cursors.Add(lToken, lQuery);
+      lQuery := nil; // Ownership transfers only after admission succeeds.
+    end;
+  finally
+    Dec(ActiveQueries);
+    lQuery.Free;
   end;
 end;
 
