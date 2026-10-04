@@ -6,7 +6,130 @@ procedure xeAutomationRegisterVWDCommands;
 implementation
 uses Classes, SysUtils, System.Generics.Collections, JsonDataObjects, wbInterface,
   xeAutomationDataLookup, xeAutomationObjectModel, xeAutomationErrors,
-  xeAutomationRegistry, xeAutomationMutationPolicy, xeAutomationMutationAudit;
+  xeAutomationRegistry, xeAutomationMutationPolicy, xeAutomationMutationAudit,
+  xeAutomationRecordQueries;
+
+function FlagGroup(Persistent, VWD: Boolean): Integer;
+begin
+  if Persistent then Result := 8
+  else if VWD and not wbVWDInTemporary then Result := 10 else Result := 9;
+end;
+
+function ReferenceCell(const R: IwbMainRecord; out Group: IwbGroupRecord): IwbMainRecord;
+var Children: IwbGroupRecord;
+begin
+  if not Supports(R.Container, IwbGroupRecord, Group) or not (Group.GroupType in [8,9,10]) or
+     not Supports(Group.Container, IwbGroupRecord, Children) or (Children.GroupType <> 6) then
+    raise xeAutomationInvalidTarget('REFR must belong to a native CELL child group');
+  Result := Children.ChildrenOf;
+  if not Assigned(Result) or (Result.Signature <> 'CELL') or not Result.ElementExists['DATA'] then
+    raise xeAutomationInvalidTarget('Owning CELL must have complete DATA');
+end;
+
+function PlannedCell(const R: IwbMainRecord; Persistent, VWD: Boolean): IwbMainRecord;
+var Group, Owner: IwbGroupRecord; World: IwbMainRecord; Position: TwbVector;
+  Grid, CellGrid: TwbGridCell;
+begin
+  Result := ReferenceCell(R, Group);
+  if (Integer(Result.GetElementNativeValue('DATA')) and 1) <> 0 then Exit;
+  if not Supports(Result.Container, IwbGroupRecord, Owner) or not (Owner.GroupType in [1,5]) then
+    raise xeAutomationInvalidTarget('Exterior CELL must have native world ancestry');
+  World := Owner.ChildrenOf;
+  if not Assigned(World) or (World.Signature <> 'WRLD') then
+    raise xeAutomationInvalidTarget('Exterior CELL worldspace is unavailable');
+  if Persistent then begin
+    if Owner.GroupType = 1 then Exit;
+    Result := xeAutomationFindPersistentWorldCell(World.ChildGroup);
+  end else begin
+    if not R.GetPosition(Position) then raise xeAutomationInvalidTarget('Exterior REFR position is unavailable');
+    Grid := wbPositionToGridCell(Position);
+    if not Result.IsPersistent and Result.GetGridCell(CellGrid) and (Grid = CellGrid) then Exit;
+    Result := World.ChildByGridCell[Grid];
+  end;
+  // Deliberately require existing owned destination CELLs. Native Add would
+  // otherwise create parents after flags change, with no all-target preflight.
+  if not Assigned(Result) or not Result._File.Equals(R._File) or not Result.ElementExists['DATA'] then
+    raise xeAutomationInvalidTarget('Create a complete target-owned destination CELL before changing exterior flags');
+  xeAutomationRequireWritableRootRecordTarget(Result);
+end;
+
+function SetReferenceFlags(const Args: TJsonObject): TJsonObject;
+var Records, Cells: TList<IwbMainRecord>; R, Cell: IwbMainRecord; Group: IwbGroupRecord;
+  Item, Row: TJsonObject; Locator: TxeAutomationLocator; i: Integer;
+  P, V, HasP, HasV, OldP, OldV, Expected, Present, Dry, Specified: Boolean;
+  Denied, Revision: string; Snapshot: TxeAutomationMutationSnapshot;
+begin
+  if wbIsMorrowind or wbTranslationMode then raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode, 'Reference flags require numeric edit-mode definitions');
+  if not Args.Contains('records') or (Args.Types['records'] <> jdtArray) or
+    (Args.A['records'].Count < 1) or (Args.A['records'].Count > 32) then
+    raise xeAutomationInvalidRequest('records must contain 1..32 owned REFR locators');
+  P := xeAutomationReadBooleanArg(Args, 'persistent', HasP);
+  V := xeAutomationReadBooleanArg(Args, 'visibleWhenDistant', HasV);
+  if not HasP and not HasV then raise xeAutomationInvalidRequest('Specify persistent and/or visibleWhenDistant');
+  Dry := xeAutomationReadBooleanArg(Args, 'dryRun', Specified); if not Specified then Dry := True;
+  if not Dry and not xeAutomationMutationPolicyConsentSatisfied(Denied) then
+    Exit(xeAutomationErrorsBuildConsentRequired('records.set_reference_flags', 'plugin-mutation', Denied));
+  Revision := UIntToStr(wbGlobalModifedGeneration);
+  if Args.Contains('expectedRevision') and (xeAutomationRequireStringArg(Args, 'expectedRevision') <> Revision) then
+    raise xeAutomationNewError('stale_revision', 'Reference flags require the current mutation revision');
+  Records := TList<IwbMainRecord>.Create; Cells := TList<IwbMainRecord>.Create;
+  Result := TJsonObject.Create;
+  try
+    try
+      Result.B['dryRun'] := Dry; Result.S['persistence'] := 'native flags and CELL child migration in memory; explicit save + terminal flush';
+      Result.S['exteriorPolicy'] := 'existing complete target-owned destination CELLs only; no implicit CELL creation';
+      for i := 0 to Args.A['records'].Count - 1 do begin
+        if Args.A['records'].Types[i] <> jdtObject then raise xeAutomationInvalidRequest('Record entries must be locator objects');
+        Item := Args.A['records'].O[i]; Locator := xeAutomationParseLocator(Item, True, False);
+        if Locator.Path <> '' then raise xeAutomationInvalidRequest('Flags require record roots');
+        R := xeAutomationRequireOwnedMainRecord(Locator);
+        if Records.Contains(R) then raise xeAutomationInvalidRequest('Duplicate reference target');
+        xeAutomationRequireWritableRootRecordTarget(R);
+        if (R.Signature <> 'REFR') or R.IsDeleted or R.IsPartialForm then
+          raise xeAutomationInvalidTarget('Flags require nondeleted complete native REFR records');
+        OldP := R.IsPersistent; OldV := R.IsVisibleWhenDistant;
+        Expected := xeAutomationReadBooleanArg(Item, 'expectedPersistent', Present);
+        if Present and (Expected <> OldP) then raise xeAutomationNewError('stale_value', 'Persistent state changed');
+        Expected := xeAutomationReadBooleanArg(Item, 'expectedVisibleWhenDistant', Present);
+        if Present and (Expected <> OldV) then raise xeAutomationNewError('stale_value', 'VWD state changed');
+        // Persistent is applied first; validate its intermediate destination as
+        // well as the final one before any item in the batch changes.
+        if HasP and (P <> OldP) then PlannedCell(R, P, OldV);
+        if not HasP then P := OldP;
+        if not HasV then V := OldV;
+        Cell := PlannedCell(R, P, V); Records.Add(R); Cells.Add(Cell);
+        Row := Result.A['records'].AddObject;
+        Row.S['file'] := R._File.FileName; Row.S['formId'] := R.LoadOrderFormID.ToString(False);
+        Row.B['persistentBefore'] := OldP; Row.B['visibleWhenDistantBefore'] := OldV;
+        Row.B['persistentAfter'] := P; Row.B['visibleWhenDistantAfter'] := V;
+        Row.I['plannedGroupType'] := FlagGroup(P,V);
+        Row.S['plannedCell'] := Cell.LoadOrderFormID.ToString(False); Row.S['outcome'] := 'planned';
+      end;
+      Snapshot := xeAutomationCaptureMutationSnapshot;
+      if not Dry then for i := 0 to Records.Count - 1 do begin
+        R := Records[i]; Row := Result.A['records'].O[i];
+        try
+          R.IsPersistent := Row.B['persistentAfter'];
+          R.IsVisibleWhenDistant := Row.B['visibleWhenDistantAfter'];
+          Cell := ReferenceCell(R, Group);
+          if not Cell.Equals(Cells[i]) or (Group.GroupType <> Row.I['plannedGroupType']) or
+            (R.IsPersistent <> Row.B['persistentAfter']) or (R.IsVisibleWhenDistant <> Row.B['visibleWhenDistantAfter']) then
+            raise xeAutomationStateConflict('Native flag/CELL migration readback differs from the plan');
+          Row.I['actualGroupType'] := Group.GroupType; Row.S['actualCell'] := Cell.LoadOrderFormID.ToString(False);
+          Row.S['outcome'] := 'applied';
+        except on E: Exception do begin
+          Row.S['outcome'] := 'failed'; Result.O['failure'].S['code'] := 'reference_flags_failed';
+          Result.O['failure'].S['message'] := E.Message; Result.O['failure'].I['index'] := i; Break;
+        end; end;
+      end;
+      xeAutomationWriteMutationAudit(Result.O['mutationState'], Snapshot);
+      Result.B['changed'] := Result.O['mutationState'].B['mutationsObserved'];
+      Result.B['complete'] := not Result.Contains('failure'); Result.B['partial'] := not Result.B['complete'] and Result.B['changed'];
+      Result.B['requiresSave'] := Result.B['changed']; Result.B['pathInvalidated'] := Result.B['changed'];
+      if Result.B['changed'] then xeAutomationInvalidateRecordQueries;
+    except Result.Free; raise; end;
+  finally Cells.Free; Records.Free; end;
+end;
 
 function Exterior(element: IwbElement): Boolean;
 var group: IwbGroupRecord; depth: Integer;
@@ -159,5 +282,8 @@ begin
 end;
 
 procedure xeAutomationRegisterVWDCommands;
-begin xeAutomationRegisterCommand('records.set_vwd_from_mesh', SetFromMesh); end;
+begin
+  xeAutomationRegisterCommand('records.set_vwd_from_mesh', SetFromMesh);
+  xeAutomationRegisterCommand('records.set_reference_flags', SetReferenceFlags);
+end;
 end.
