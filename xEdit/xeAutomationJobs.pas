@@ -125,7 +125,7 @@ begin
      (ACommand = 'records.references') or (ACommand = 'records.referenced_by') or
      (ACommand = 'records.conflict_status') or
      (ACommand = 'elements.get') or (ACommand = 'elements.get_value') or
-     (ACommand = 'elements.children') or
+     (ACommand = 'elements.children') or (ACommand = 'elements.subtree') or
      (ACommand = 'batch.read') or
      (ACommand = 'files.list') or (ACommand = 'files.get') then
     Exit;

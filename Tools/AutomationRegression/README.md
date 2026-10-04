@@ -1,5 +1,84 @@
 # Automation regression fixtures
 
+## Issue #17: bounded projected subtree reads (contract 0.59)
+
+`elements.subtree` takes a record/element locator, `maxNodes` (1..256, default
+64), `maxDepth` (0..8, default 4), optional `fields`, `includeRelations`,
+`includeParents` and `expectedRevision`. It returns flat `nodes` in preorder,
+with canonical locators, `depth`, `parentIndex`, `childSlots` and `complete`.
+Each node's `complete` describes its entire descendant branch. `childSlots`
+counts native immediate slots plus an available virtual ChildGroup, including
+slots suppressed by contextual navigation rules. It is not an emitted-child
+count. Root depth is zero; parentIndex is -1 for the root and otherwise refers
+to an earlier node. The `root` locator is retained even if no node fits the byte
+budget. No exact full-tree total or retained continuation is claimed.
+
+The logical tree matches `elements.children`: native payload children precede
+the virtual `\Child Group`; child records use their own flat record identities,
+and their payload/ChildGroup traversal resumes under that identity. Contextual
+WRLD duplicate CELL groups are suppressed by the same shared rule. It does not
+follow linked-record edges or read unrelated records. Empty payload branches and
+leaf roots complete normally. Contextual aliases that resolve into a child record
+or its payload switch to that record's flat identity before emitting locators;
+structural group roots require a contextual ChildGroup locator. Depth cuts continue through siblings; node, visit
+or byte exhaustion stops further traversal. Top-level `complete`, `truncated`
+and unique `truncationReasons` expose any omitted branches. Incomplete nodes can
+be addressed with fresh subtree/child requests using their returned locators.
+
+Traversal counts at most 1024 explicit node enters, child-slot fetches and group
+signature probes. It admits each projected node before retaining it, reserving
+metadata space under a 1MiB compact UTF-8 response budget. Projection preserves
+locators and completeness metadata; it still constructs each admitted candidate's
+native summary. Native lazy initialization, value/summary getters and ancestor
+discovery remain indivisible and can do more internal work than one explicit
+visit. There is no hard latency bound. Native references live only for the
+request and unwind on failures; a revision change during reading raises
+`stale_revision` rather than returning a mixed snapshot. This read requires no
+mutation consent and remains available between active job steps.
+
+ChildGroup signature hints in both `elements.children` and `elements.subtree`
+now inspect at most 32 immediate slots per group, with an exact native `count`
+and explicit `signatureScanCount`, `signatureScanLimit`, `signaturesComplete`.
+Hint completeness is independent of subtree completeness. A subtree may traverse
+all children while its initial hints cover only a prefix. Subtree probes also
+consume its shared visit budget, reducing a hint scan when fewer visits remain.
+
+`batch.read` accepts `elements.subtree` with an explicit `maxNodes` of at most
+50. Other subtree defaults/limits apply. All items execute in input order;
+aggregate `complete:false` signals an incomplete subtree item, while later items
+still return normally. The existing 32-item and 1MiB batch response limits remain.
+Structural/edit batches retain their existing preflight/order/partial-failure and
+explicit save/flush contracts; this addition performs no writes.
+
+Compile LiteDebug using licensed Delphi, generate a new FO4 MO2 overlay, enable
+Fallout4.esm + AutomationSubtreeBase.esm + AutomationSubtreeScene.esp, and launch
+a fresh daemon (mutation consent is unnecessary):
+
+```powershell
+python Tools/AutomationRegression/subtree_fixture.py generate --overlay <new-MO2-mod-folder>
+python Tools/AutomationRegression/subtree_fixture.py exercise --overlay <new-MO2-mod-folder> --exe <trusted-exe> --pid <daemon-pid> --artifacts <new-capture-folder>
+```
+
+The runner independently drains old child pages to build reference topology,
+then compares full MISC/Unicode MESG/small CELL trees and dense FLST prefixes.
+It checks canonical locator round trips and contextual record/payload aliases, parent indexes/order, repeated linked
+identities with distinct element paths, zero-depth/leaf reads, continued sibling
+coverage at depth cuts, node caps, projections/relations, parent opt-in, bounded
+dense ChildGroup hints, typed limit/stale refusals, mixed-file batches with later
+items after partial trees, and availability without advancing a queued job.
+Dirty/pending state and fixture disk bytes must stay unchanged. `subtree-read.json`
+captures results, normalized compact UTF-8 sizes, round-trip counts and timings
+including client/IPC overhead. There is no save/flush phase for this read-only
+fixture. Python fixture/assertion checks do not execute the Pascal traversal.
+
+Before acceptance, also exercise WRLD persistent/exterior contextual navigation,
+unsupported/malformed paths, native getter exceptions, revision changes during
+native callbacks, explicit visit/byte exhaustion, empty synthetic groups and
+other game definitions. Verify that no omitted branch is reported complete and
+that every native/JSON reference releases after a refusal. Delphi build and all
+native phases remain pending locally; issue #17 stays open until they pass along
+with the existing batch-edit/mixed-target/partial-write persistence tests.
+
 ## Issue #18: command schema discovery audit
 
 On a freshly compiled LiteDebug daemon run:

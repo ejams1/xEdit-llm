@@ -673,13 +673,14 @@ begin
               SameText(lCommand, 'elements.required_masters') or
               SameText(lCommand, 'elements.assign_templates') or
               SameText(lCommand, 'elements.children') or
+              SameText(lCommand, 'elements.subtree') or
               SameText(lCommand, 'records.get') then begin
     xeAutomationSchemaLocator(Result);
     if SameText(lCommand, 'elements.conflict_status') then begin
       xeAutomationSchemaField(Result, 'path', 'string:nonempty-existing-child-path', True);
       xeAutomationSchemaField(Result, 'limit', 'integer:positive-native-clamped-default-100', False);
     end;
-    if SameText(lCommand, 'elements.get') or SameText(lCommand, 'elements.children') or
+    if SameText(lCommand, 'elements.get') or SameText(lCommand, 'elements.children') or SameText(lCommand, 'elements.subtree') or
        SameText(lCommand, 'records.get') then
       xeAutomationSchemaField(Result, 'includeParents', 'boolean:default-false', False);
     if SameText(lCommand, 'elements.assign_templates') then
@@ -688,6 +689,13 @@ begin
       xeAutomationSchemaField(Result, 'offset', 'integer:nonnegative-default-0', False);
       xeAutomationSchemaField(Result, 'limit', 'integer:1..1000-default-200', False);
       Result.S['resultNotes'] := 'Immediate native children are paged; use offset until truncated=false';
+    end else if SameText(lCommand, 'elements.subtree') then begin
+      xeAutomationSchemaField(Result, 'maxNodes', 'integer:1..256-default-64', False);
+      xeAutomationSchemaField(Result, 'maxDepth', 'integer:0..8-default-4', False);
+      Result.S['resultNotes'] := 'Flat preorder nodes with depth/parentIndex/canonical locators and per-node complete; native payload plus contextual ChildGroups; no exact total or retained continuation';
+      Result.S['constraintNotes'] := '1024 explicit node/slot/signature visits, <=1 MiB compact UTF-8; limits stop before whole-tree materialization; depth cuts branches and continues siblings; partial reads expose truncationReasons; native getters indivisible';
+      Result.A['errors'].Add('result_too_large');
+      Result.A['errors'].Add('stale_revision');
     end else if SameText(lCommand, 'elements.get_value') then
       Result.S['resultNotes'] := 'Full edit/native value with exact whitespace, bounded to 1048576 characters';
     Result.S['prerequisites'] := 'Loaded file and record; no mutation consent needed';
@@ -873,9 +881,9 @@ begin
       Result.A['errors'].Add('stale_value');
     end else begin
       Result.S['prerequisites'] :=
-        'Read allowlist: records.get, elements.get, elements.get_value, elements.children';
+        'Read allowlist: records.get, elements.get, elements.get_value, elements.children, elements.subtree';
       Result.S['persistence'] := 'read-only';
-      Result.S['constraintNotes'] := 'Children need explicit limit <=50; response <=1 MiB';
+      Result.S['constraintNotes'] := 'Children need explicit limit <=50; subtree needs explicit maxNodes <=50; complete:false if any subtree is incomplete; response <=1 MiB';
     end;
   end else if SameText(lCommand, 'exports.seq') then begin
     xeAutomationSchemaField(Result, 'file', 'string:loaded-plugin', True);
@@ -1171,7 +1179,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.58';
+  Result.S['contractVersion'] := '0.59';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1184,6 +1192,16 @@ begin
     B['nativeAcceptancePending'] := True;
   end;
   Result.O['supports'].O['rowBatch'].S['command'] := 'batch.rows';
+  with Result.O['supports'].O['subtreeRead'] do begin
+    S['command'] := 'elements.subtree';
+    B['batchRead'] := True;
+    I['maxNodes'] := xeAutomationSubtreeMaxNodes;
+    I['maxDepth'] := xeAutomationSubtreeMaxDepth;
+    I['visitLimit'] := xeAutomationSubtreeVisitLimit;
+    I['responseBytes'] := xeAutomationSubtreeResponseBytes;
+    I['signatureScanLimit'] := xeAutomationChildGroupSignatureLimit;
+    S['completeness'] := 'logical elements.children preorder; partial limits explicit; no exact total/continuation or preemptible native calls';
+  end;
   Result.O['supports'].O['rowBatch'].S['modes'] := 'replace,append,remove; explicit owned source/target payload locators';
   Result.O['supports'].O['rowBatch'].S['scope'] := '1..16 items, multiple disjoint rows per record; 2048 visits, depth16, 256KiB request';
   Result.O['supports'].O['rowBatch'].S['preflight'] := 'matching expectedRevision, native schema/removal gates, missing masters; pinned identities, immutable source records';
@@ -1676,6 +1694,7 @@ begin
     Add('records.winning_override');
     Add('elements.get');
     Add('elements.children');
+    Add('elements.subtree');
   end;
   lReverseNavigation.I['maxAncestorDepth'] := 16;
   lReverseNavigation.S['ordering'] := 'nearest-first';

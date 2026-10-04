@@ -1271,7 +1271,7 @@
       "effect": "preflighted in-memory element writes; partial failures report completed steps -> session.save + terminal session.flush"
     },
     "batch.read": {
-      "effect": "bounded projected read-only results; no plugin persistence"
+      "effect": "bounded projected immediate and subtree reads; aggregate complete false for incomplete subtree items; no plugin persistence"
     },
     "elements.add_child": {
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
@@ -1280,7 +1280,10 @@
       "effect": "read-only; no plugin persistence"
     },
     "elements.children": {
-      "effect": "read-only; no plugin persistence"
+      "effect": "read-only native child pages with bounded group signature hints and explicit hint completeness; no plugin persistence"
+    },
+    "elements.subtree": {
+      "effect": "read-only bounded projected logical subtree preorder; depth/node/visit/byte limits expose partial completeness; request-scoped native references; no plugin persistence"
     },
     "elements.clear": {
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush"
