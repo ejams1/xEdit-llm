@@ -1,12 +1,27 @@
 """Exercise command discovery and optimistic element editing in a live daemon."""
 import argparse
 import json
+import math
 from pathlib import Path
 from itm_fixture import Client
 from string_fixture import PLUGIN, VALUES
 
 NAME = "AutomationStringLong"
 REPLACEMENT = "SchemaExpectedEdit"
+
+
+def validate_shape(shape):
+    """Validate descriptor structure, including authored nested job shapes."""
+    assert isinstance(shape.get("type"), str), shape
+    if "properties" in shape:
+        assert isinstance(shape["properties"], dict), shape
+        assert isinstance(shape.get("required"), list), shape
+        assert len(shape["required"]) == len(set(shape["required"])), shape
+        assert set(shape["required"]) <= set(shape["properties"]), shape
+        for field in shape["properties"].values():
+            validate_shape(field)
+    if "itemSchema" in shape:
+        validate_shape(shape["itemSchema"])
 
 
 def validate_example(schema):
@@ -26,6 +41,8 @@ def validate_example(schema):
         if isinstance(value, dict):
             assert set(shape.get("required", [])) <= set(value), (value, shape)
             assert set(value) <= set(properties), (value, shape)
+            assert len(value) >= shape.get("minProperties", 0), (value, shape)
+            assert len(value) <= shape.get("maxProperties", len(value)), (value, shape)
             for key, child in value.items():
                 field = properties[key]
                 kind = field["type"].split(":", 1)[0]
@@ -35,18 +52,31 @@ def validate_example(schema):
                     assert isinstance(child, bool), (key, child)
                 elif kind == "integer":
                     assert isinstance(child, int) and not isinstance(child, bool), (key, child)
+                elif kind == "number":
+                    assert isinstance(child, (int, float)) and not isinstance(child, bool), (key, child)
+                    assert math.isfinite(child), (key, child)
                 elif kind == "object":
                     assert isinstance(child, dict), (key, child)
                 elif kind.startswith("array"):
                     assert isinstance(child, list), (key, child)
+                    if kind.startswith("array<string"):
+                        assert all(isinstance(item, str) for item in child), (key, child)
                 if "enum" in field:
                     assert child in field["enum"], (key, child)
+                if "minimum" in field:
+                    assert child >= field["minimum"], (key, child)
+                if "maximum" in field:
+                    assert child <= field["maximum"], (key, child)
                 if "allowedBooleanKeys" in field:
                     assert set(child) <= set(field["allowedBooleanKeys"]), child
                     assert all(isinstance(flag, bool) for flag in child.values()), child
+                if isinstance(child, dict) and "properties" in field:
+                    validate(child, field)
                 if isinstance(child, list):
                     assert len(child) >= field.get("minItems", 0), child
                     assert len(child) <= field.get("maxItems", len(child)), child
+                    if "itemEnum" in field:
+                        assert all(item in field["itemEnum"] for item in child), (key, child)
                     if "itemSchema" in field:
                         for item in child:
                             validate(item, field["itemSchema"])
@@ -55,7 +85,8 @@ def validate_example(schema):
 
 
 def discovery(client):
-    """Audit every registered schema and capture explicit coverage gaps."""
+    """Audit complete command/job-kind coverage without dispatching examples."""
+    before = client.call("session.get_dirty_state")
     capabilities = client.call("system.capabilities")
     commands = capabilities["commands"]
     assert len(commands) == len(set(commands)), commands
@@ -67,9 +98,7 @@ def discovery(client):
         if schema["schemaAvailable"]:
             shape = schema["argumentSchema"]
             assert shape["type"] == "object", shape
-            assert isinstance(shape["properties"], dict), shape
-            assert isinstance(shape["required"], list), shape
-            assert set(shape["required"]) <= set(shape["properties"]), shape
+            validate_shape(shape)
             assert schema["prerequisites"] and schema["persistence"], schema
             covered.append(command)
         else:
@@ -78,10 +107,32 @@ def discovery(client):
         validate_example(schema)
         if schema["exampleAvailable"]:
             examples.append(command)
-    required = {command for command in commands if command.startswith(("elements.", "jobs."))}
-    required |= {"records.copy_into", "system.command_schema", "reports.cleaning"}
-    assert required <= set(covered), sorted(required - set(covered))
-    return {"covered": covered, "missing": missing, "examples": examples,
+    metadata = capabilities["supports"]["commandSchemas"]
+    assert metadata["registeredCommands"] == len(commands), metadata
+    assert metadata["coveredCommands"] == len(covered), metadata
+    assert metadata["missingCommands"] == missing, (metadata, missing)
+    assert metadata["partialCoverage"] == bool(missing), metadata
+    assert not missing, missing
+    kinds = capabilities["supports"]["jobs"]["kinds"]
+    assert len(kinds) == len(set(kinds)), kinds
+    covered_kinds = []
+    for kind in kinds:
+        schema = client.call("system.command_schema", command="jobs.start", kind=kind)
+        assert schema["schemaAvailable"] and schema["jobSchemaAvailable"], schema
+        assert schema["jobKind"] == kind, schema
+        validate_shape(schema["argumentSchema"])
+        properties = schema["argumentSchema"]["properties"]
+        assert properties["kind"]["enum"] == [kind], properties
+        assert properties["target"]["properties"], properties
+        assert isinstance(properties["options"]["properties"], dict), properties
+        validate_example(schema)
+        covered_kinds.append(kind)
+    assert metadata["coveredJobKinds"] == len(covered_kinds), metadata
+    assert metadata["registeredJobKinds"] == len(kinds), metadata
+    assert not metadata["partialJobKindCoverage"] and metadata["missingJobKinds"] == [], metadata
+    after = client.call("session.get_dirty_state")
+    assert before == after, (before, after)
+    return {"covered": covered, "missing": missing, "examples": examples, "coveredJobKinds": covered_kinds,
             "registeredCount": len(commands), "nativeMutationTestsRun": False}
 
 

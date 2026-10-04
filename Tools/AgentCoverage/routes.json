@@ -1265,7 +1265,7 @@
       "effect": "dry-run scoped mapping read; apply rewrites referrers and optional masters in memory -> save + flush"
     },
     "system.command_schema": {
-      "effect": "read-only on-demand argument schema and explicit example availability; complete element command/start-envelope/job-control shapes; unauthored routes remain explicit; no plugin persistence"
+      "effect": "read-only on-demand descriptors for all current commands and job-kind-specific target/options; registry-derived coverage, wire preconditions/projection and explicit example availability; future unauthored routes remain explicit; no plugin persistence"
     },
     "batch.edit": {
       "effect": "preflighted in-memory element writes; partial failures report completed steps -> session.save + terminal session.flush"

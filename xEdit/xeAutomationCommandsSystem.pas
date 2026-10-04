@@ -43,6 +43,7 @@ uses
   xeAutomationErrors,
   xeAutomationJobs,
   xeAutomationObjectModel,
+  xeAutomationProjection,
   xeAutomationReplay,
   xeAutomationWireLimits,
   xeAutomationRegistry;
@@ -187,12 +188,18 @@ begin
   Result.S['dataPath'] := wbDataPath;
 end;
 
+procedure xeAutomationSchemaShapeField(const AShape: TJsonObject; const AName, AType: string;
+  const ARequired: Boolean);
+begin
+  AShape.O['properties'].O[AName].S['type'] := AType;
+  if ARequired then
+    AShape.A['required'].Add(AName);
+end;
+
 procedure xeAutomationSchemaField(const ATarget: TJsonObject; const AName, AType: string;
   const ARequired: Boolean);
 begin
-  ATarget.O['argumentSchema'].O['properties'].O[AName].S['type'] := AType;
-  if ARequired then
-    ATarget.O['argumentSchema'].A['required'].Add(AName);
+  xeAutomationSchemaShapeField(ATarget.O['argumentSchema'], AName, AType, ARequired);
 end;
 
 procedure xeAutomationSchemaLocator(const ATarget: TJsonObject);
@@ -202,17 +209,415 @@ begin
   xeAutomationSchemaField(ATarget, 'path', 'string:record-relative-indexed-path', False);
 end;
 
+procedure xeAutomationSchemaEffects(const ATarget: TJsonObject; const APrerequisites, APersistence: string);
+begin
+  ATarget.S['prerequisites'] := APrerequisites;
+  ATarget.S['persistence'] := APersistence;
+end;
+
+function xeAutomationDescribeExtendedCommand(const ACommand: string; const ATarget: TJsonObject): Boolean;
+const
+  FilterBooleans: array[0..14] of string = ('isMaster', 'isWinningOverride', 'isDeleted', 'isInjected',
+    'notReachable', 'referencesInjected', 'isPersistent', 'isVisibleWhenDistant', 'hasVWDMesh',
+    'hasPrecombinedMesh', 'scaledActor', 'persistentPositionChanged', 'unnecessaryPersistent', 'masterIsTemporary', 'includeMasters');
+  FilterPatterns: array[0..9] of string = ('editorIdPattern', 'displayNamePattern', 'fullNamePattern',
+    'baseEditorIdPattern', 'baseDisplayNamePattern', 'editorIdRegex', 'displayNameRegex', 'fullNameRegex',
+    'baseEditorIdRegex', 'baseDisplayNameRegex');
+  FilterLiterals: array[0..4] of string = ('editorIdContains', 'displayNameContains', 'baseEditorIdContains',
+    'baseDisplayNameContains', 'elementValueContains');
+var
+  lField: string;
+  lValues: TJsonObject;
+begin
+  Result := True;
+  if SameText(ACommand, 'files.list') or SameText(ACommand, 'session.options') or
+     SameText(ACommand, 'session.game_link') or SameText(ACommand, 'analysis.reference_status') or
+     SameText(ACommand, 'records.filter_options') or SameText(ACommand, 'records.replacement_options') or
+     SameText(ACommand, 'system.diagnostics') then begin
+    xeAutomationSchemaEffects(ATarget, 'Loaded session; discovery does not require consent', 'read-only native state/discovery');
+    if SameText(ACommand, 'session.game_link') then
+      ATarget.S['constraintNotes'] := 'Watcher control is intentionally excluded; sending mode fails with unsupported_game_link_control';
+  end else if SameText(ACommand, 'system.run_diagnostic') then begin
+    xeAutomationSchemaField(ATarget, 'name', 'string:system.diagnostics.diagnostics.name', True);
+    xeAutomationSchemaEffects(ATarget, 'Known catalog entry; specialized diagnostics intentionally excluded in every game/build', 'no execution; no mutation');
+    ATarget.A['errors'].Add('unsupported_diagnostic');
+  end else if SameText(ACommand, 'files.get') or SameText(ACommand, 'files.get_header') or
+              SameText(ACommand, 'files.get_masters') then begin
+    if SameText(ACommand, 'files.get') then
+      xeAutomationSchemaField(ATarget, 'name', 'string:loaded-plugin', True)
+    else xeAutomationSchemaField(ATarget, 'file', 'string:loaded-plugin', True);
+    xeAutomationSchemaEffects(ATarget, 'Loaded plugin; no consent needed', 'read-only');
+  end else if SameText(ACommand, 'files.create') then begin
+    xeAutomationSchemaField(ATarget, 'fileName', 'string:new-simple-plugin-basename', True);
+    xeAutomationSchemaField(ATarget, 'template', 'string:empty-default-empty', False);
+    xeAutomationSchemaField(ATarget, 'flags', 'object', False);
+    with ATarget.O['argumentSchema'].O['properties'].O['flags'].A['allowedBooleanKeys'] do begin
+      Add('esm'); Add('esl'); Add('small'); Add('medium'); Add('localized');
+    end;
+    xeAutomationSchemaField(ATarget, 'initialMasters', 'array<string:earlier-loaded-plugin>', False);
+    xeAutomationSchemaEffects(ATarget, 'Consent/edit mode; unused basename in Data; native extension/slot/game restrictions; small/esl aliases must agree', 'new loaded plugin in memory; explicit session.save and terminal session.flush required');
+    ATarget.A['errors'].Add('mutation_not_allowed');
+    ATarget.A['errors'].Add('unsupported_game_mode');
+  end else if SameText(ACommand, 'files.add_masters') or SameText(ACommand, 'files.add_required_masters') then begin
+    xeAutomationSchemaField(ATarget, 'targetFile', 'string:loaded-writable-plugin', True);
+    if SameText(ACommand, 'files.add_masters') then begin
+      xeAutomationSchemaField(ATarget, 'masters', 'array<string:earlier-loaded-plugin>:1..32', True);
+      xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+    end else xeAutomationSchemaField(ATarget, 'source', 'object:file,formId,path:loaded-element', True);
+    xeAutomationSchemaEffects(ATarget, 'Native dependency/ownership/load-order/slot gates; consent for apply; add_required_masters has no dry run', 'master edits in memory; explicit save and terminal flush');
+    ATarget.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(ACommand, 'files.sort_masters') or SameText(ACommand, 'files.clean_masters') then begin
+    xeAutomationSchemaField(ATarget, 'file', 'string:loaded-writable-plugin', True);
+    xeAutomationSchemaEffects(ATarget, 'Loaded writable plugin and consent; native master sort/unused-master rules', 'in-memory-until-session.save-then-terminal-session.flush');
+    ATarget.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(ACommand, 'files.mark_without_onam') then begin
+    xeAutomationSchemaField(ATarget, 'files', 'array<string:loaded-plugin>:1..32', True);
+    xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(ATarget, 'expectedRevision', 'string:decimal-uint64', False);
+    xeAutomationSchemaEffects(ATarget, 'Translation mode off; writable selected files; native HasONAM gate; consent for apply', 'marks selected headers in memory; explicit save/flush');
+    ATarget.A['errors'].Add('stale_revision');
+  end else if SameText(ACommand, 'session.save') then begin
+    xeAutomationSchemaField(ATarget, 'all', 'boolean:must-be-true-if-present', False);
+    xeAutomationSchemaField(ATarget, 'files', 'array<string:loaded-plugin>:nonempty', False);
+    ATarget.S['constraintNotes'] := 'Exactly one of all:true or files is required; multiple files may partially save';
+    xeAutomationSchemaEffects(ATarget, 'Mutation consent; all targets resolve before first save; no competing active job', 'native plugin persistence; mapped replacement may remain pending until terminal session.flush; localization tables save separately');
+    ATarget.O['example'].S['command'] := ACommand;
+    ATarget.O['example'].O['args'].A['files'].Add('MyPatch.esp');
+    ATarget.A['errors'].Add('save_failed');
+  end else if SameText(ACommand, 'session.flush') then begin
+    xeAutomationSchemaField(ATarget, 'force', 'boolean:default-false', False);
+    xeAutomationSchemaEffects(ATarget, 'Consent; no active job; save plugins/tables first; force explicitly accepts loss of unsaved state', 'terminal session shutdown and pending plugin replacement; no automatic save');
+    ATarget.A['errors'].Add('state_conflict');
+  end else if SameText(ACommand, 'session.navigate_to_record') then begin
+    xeAutomationSchemaLocator(ATarget);
+    xeAutomationSchemaEffects(ATarget, 'Loaded record root; empty path; main form present and no GUI blockers', 'GUI selection/navigation only; no plugin mutation');
+    ATarget.A['errors'].Add('state_conflict');
+  end else if SameText(ACommand, 'session.set_options') then begin
+    xeAutomationSchemaField(ATarget, 'values', 'object', True);
+    lValues := ATarget.O['argumentSchema'].O['properties'].O['values'];
+    lValues.A['required'].Clear; lValues.O['properties'].Clear;
+    lValues.B['additionalProperties'] := False;
+    lValues.I['minProperties'] := 1; lValues.I['maxProperties'] := 8;
+    xeAutomationSchemaShapeField(lValues, 'alwaysSaveOnam', 'boolean', False);
+    xeAutomationSchemaShapeField(lValues, 'udrSetXESP', 'boolean', False);
+    xeAutomationSchemaShapeField(lValues, 'udrSetScale', 'boolean', False);
+    xeAutomationSchemaShapeField(lValues, 'udrSetZ', 'boolean', False);
+    xeAutomationSchemaShapeField(lValues, 'udrSetMSTT', 'boolean', False);
+    xeAutomationSchemaShapeField(lValues, 'udrScaleValue', 'number:finite', False);
+    lValues.O['properties'].O['udrScaleValue'].F['minimum'] := 0;
+    lValues.O['properties'].O['udrScaleValue'].F['maximum'] := 10;
+    xeAutomationSchemaShapeField(lValues, 'udrZValue', 'number:finite', False);
+    lValues.O['properties'].O['udrZValue'].F['minimum'] := -10000000;
+    lValues.O['properties'].O['udrZValue'].F['maximum'] := 10000000;
+    xeAutomationSchemaField(ATarget, 'expectedSessionRevision', 'string:decimal-uint64', False);
+    xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+    ATarget.S['constraintNotes'] := 'Unknown/startup keys reject; MSTT requires native wbIsFallout3; forced ONAM cannot disable; numeric values must be finite';
+    xeAutomationSchemaEffects(ATarget, 'Inspect session.options; complete typed preflight; consent for apply; no active job', 'session-only semantic options/revision; no settings or plugin disk write');
+    ATarget.A['errors'].Add('stale_session_revision');
+    ATarget.A['errors'].Add('unsupported_option');
+  end else if SameText(ACommand, 'localization.tables') or SameText(ACommand, 'localization.get') or
+              SameText(ACommand, 'localization.set') then begin
+    xeAutomationSchemaField(ATarget, 'file', 'string:loaded-localized-plugin', True);
+    if not SameText(ACommand, 'localization.tables') then begin
+      xeAutomationSchemaField(ATarget, 'type', 'string:strings|dlstrings|ilstrings', True);
+      xeAutomationSchemaField(ATarget, 'id', 'string:8-hex-digit-string-id', True);
+    end;
+    if SameText(ACommand, 'localization.set') then begin
+      xeAutomationSchemaField(ATarget, 'value', 'string:exact-full-text', True);
+      xeAutomationSchemaField(ATarget, 'expectedValue', 'string:exact-current-text', True);
+      xeAutomationSchemaEffects(ATarget, 'Supported localization game; writable plugin/table, existing nonzero ID, exact old value and consent', 'localized table in memory; localization.save writes tables; plugin save is separate');
+      ATarget.A['errors'].Add('state_conflict');
+    end else xeAutomationSchemaEffects(ATarget, 'Supported localization game and resolved loaded string tables; no consent needed', 'read-only table access');
+    ATarget.A['errors'].Add('unsupported_game_mode');
+  end else if SameText(ACommand, 'localization.language') then begin
+    xeAutomationSchemaField(ATarget, 'language', 'string:native-supported-language', False);
+    xeAutomationSchemaEffects(ATarget, 'Read without language; changing requires consent, clean plugins and clean tables; restart after failed reload', 'session language and resource-cache reload only; no plugin/table/settings disk save');
+    ATarget.A['errors'].Add('state_conflict');
+  end else if SameText(ACommand, 'localization.convert') then begin
+    xeAutomationSchemaField(ATarget, 'file', 'string:loaded-writable-nonzero-load-order-plugin', True);
+    xeAutomationSchemaField(ATarget, 'mode', 'string:localize|delocalize', True);
+    xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(ATarget, 'reuseDuplicates', 'boolean:default-false', False);
+    xeAutomationSchemaEffects(ATarget, 'Supported localization game, resolved native string reads, bounded complete field/table preflight; consent for apply', 'plugin/table representation changes in memory; explicit plugin/table saves and terminal flush; restart required after apply');
+    ATarget.A['errors'].Add('localization_capacity');
+    ATarget.A['errors'].Add('unsupported_game_mode');
+  end else if SameText(ACommand, 'localization.save') or SameText(ACommand, 'localization.export_text') then begin
+    xeAutomationSchemaField(ATarget, 'file', 'string:loaded-plugin', True);
+    xeAutomationSchemaField(ATarget, 'outputDirectory', 'string:absolute-existing-directory', True);
+    xeAutomationSchemaField(ATarget, 'overwrite', 'boolean:default-false', False);
+    xeAutomationSchemaEffects(ATarget, 'Supported localization game and consent; native table snapshot/encoding preflight; save also needs writable plugin', 'immediate external table/text files; per-file atomic write; earlier outputs retained on later failure; no plugin save');
+    ATarget.S['constraintNotes'] := 'No dry run; project saved tables into runtime Strings for reload';
+    ATarget.A['errors'].Add('external_output_failed');
+  end else if SameText(ACommand, 'modgroups.list') then begin
+    xeAutomationSchemaField(ATarget, 'configFile', 'string:absolute-approved-modgroups-config-path', False);
+    xeAutomationSchemaEffects(ATarget, 'Loaded native ModGroups; optional config path must meet native path policy', 'read-only config/selection inventory and hashes');
+  end else if SameText(ACommand, 'modgroups.activate') then begin
+    xeAutomationSchemaField(ATarget, 'groups', 'array<object:configFile,name>:0..32', True);
+    xeAutomationSchemaField(ATarget, 'enabled', 'boolean:default-true', False);
+    xeAutomationSchemaEffects(ATarget, 'Consent; explicit valid nonduplicate native groups and main form; empty array removes group relationships', 'session-only conflict/group selection; invalidates derived queries; no config/plugin save');
+  end else if SameText(ACommand, 'modgroups.reload') then begin
+    xeAutomationSchemaEffects(ATarget, 'Consent; known automation-owned selection; native reload resolves the same identities', 'reload native config and reapply session selection; no config/plugin write');
+    ATarget.A['errors'].Add('state_conflict');
+  end else if SameText(ACommand, 'modgroups.write') or SameText(ACommand, 'modgroups.refresh_crc') then begin
+    xeAutomationSchemaField(ATarget, 'configFile', 'string:absolute-approved-modgroups-config-path', True);
+    xeAutomationSchemaField(ATarget, 'name', 'string:native-group-section-name', True);
+    xeAutomationSchemaField(ATarget, 'expectedFileHash', 'string:modgroups.list.fileHash', True);
+    xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(ATarget, 'allowInvalid', 'boolean:default-false', False);
+    if SameText(ACommand, 'modgroups.write') then begin
+      xeAutomationSchemaField(ATarget, 'operation', 'string:create|update|delete', True);
+      xeAutomationSchemaField(ATarget, 'newName', 'string:native-group-section-name', False);
+      xeAutomationSchemaField(ATarget, 'items', 'array<string:native-plugin-flags-and-optional-crc-line>:2..64', False);
+      ATarget.S['constraintNotes'] := 'items required for create/update; delete omits replacement lines; newName applies only to nondelete operations';
+    end else begin
+      xeAutomationSchemaField(ATarget, 'addMissing', 'boolean:default-true', False);
+      xeAutomationSchemaField(ATarget, 'appendCurrent', 'boolean:default-true', False);
+      ATarget.S['constraintNotes'] := 'Refresh requires existing group; adds missing CRCs/appends current CRC according to explicit booleans';
+    end;
+    xeAutomationSchemaEffects(ATarget, 'Exact current config hash, known selection, bounded native candidate validation; consent for apply', 'immediate external config write/reload; session selection refreshed; plugins unchanged');
+    ATarget.A['errors'].Add('state_conflict');
+    ATarget.A['errors'].Add('modgroup_capacity');
+  end else if SameText(ACommand, 'messages.read') or SameText(ACommand, 'messages.export') then begin
+    if SameText(ACommand, 'messages.read') then begin
+      xeAutomationSchemaField(ATarget, 'cursor', 'string:session-snapshot-message-cursor', False);
+      xeAutomationSchemaField(ATarget, 'limit', 'integer:1..200-default-100', False);
+      xeAutomationSchemaEffects(ATarget, 'Retained session messages; expired/evicted snapshots require restart from earliest available', 'read-only bounded retained message window');
+      ATarget.A['errors'].Add('message_cursor_invalid'); ATarget.A['errors'].Add('message_cursor_expired');
+    end else begin
+      xeAutomationSchemaField(ATarget, 'outputDirectory', 'string:absolute-existing-directory', True);
+      xeAutomationSchemaField(ATarget, 'fileName', 'string:plain-txt-basename-default-xedit-messages.txt', False);
+      xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+      xeAutomationSchemaField(ATarget, 'overwrite', 'boolean:default-false', False);
+      xeAutomationSchemaEffects(ATarget, 'Explicit output root/name and retained window; consent for apply', 'immediate external UTF8 text on apply; plugins unchanged; eviction/truncation explicit');
+    end;
+  end else if SameText(ACommand, 'logs.analyze') then begin
+    xeAutomationSchemaField(ATarget, 'format', 'string:papyrus|xse-profiler', True);
+    xeAutomationSchemaField(ATarget, 'inputDirectory', 'string:absolute-existing-directory', True);
+    xeAutomationSchemaField(ATarget, 'fileName', 'string:plain-log-or-txt-basename-max80', True);
+    xeAutomationSchemaField(ATarget, 'encoding', 'string:utf-8|native-ansi-default-utf-8', False);
+    xeAutomationSchemaEffects(ATarget, 'Papyrus requires Skyrim family; xSE profiler requires TES4/FO3/FNV; captured losslessly decoded input <=256KiB', 'read-only bounded native attribution; explicit incompleteness; no plugin/log write');
+    ATarget.A['errors'].Add('unsupported_game_mode'); ATarget.A['errors'].Add('log_capacity');
+  end else if SameText(ACommand, 'scripts.list') or SameText(ACommand, 'scripts.read') or
+              SameText(ACommand, 'scripts.write') or SameText(ACommand, 'scripts.delete') or
+              SameText(ACommand, 'scripts.run') then begin
+    if SameText(ACommand, 'scripts.list') then begin
+      xeAutomationSchemaField(ATarget, 'prefix', 'string:script-id-prefix', False);
+      xeAutomationSchemaField(ATarget, 'limit', 'integer:nonnegative-native-clamped-list-limit', False);
+    end else xeAutomationSchemaField(ATarget, 'id', 'string:canonical-script-id', True);
+    if SameText(ACommand, 'scripts.write') then begin
+      xeAutomationSchemaField(ATarget, 'source', 'string:exact-script-source', True);
+      xeAutomationSchemaField(ATarget, 'overwrite', 'boolean:default-false', False);
+    end;
+    if SameText(ACommand, 'scripts.run') then begin
+      xeAutomationSchemaField(ATarget, 'targets', 'array<object:file,formId,path>:optional-native-target-scope', False);
+      xeAutomationSchemaField(ATarget, 'acceptKnownBlockers', 'boolean:default-false', False);
+      xeAutomationSchemaField(ATarget, 'timeoutMs', 'integer:0..4294967295-native-soft-budget', False);
+      xeAutomationSchemaField(ATarget, 'maxStatements', 'integer:0..4294967295-native-soft-budget', False);
+      xeAutomationSchemaEffects(ATarget, 'Consent, canonical stored script, lint/policy admission and exclusive script execution guard; native budget checks are cooperative', 'script-dependent plugin memory and possible external effects; plugin persistence requires explicit save/flush; exceptions may retain earlier changes');
+      ATarget.A['errors'].Add('script_busy');
+    end else if SameText(ACommand, 'scripts.write') or SameText(ACommand, 'scripts.delete') then
+      xeAutomationSchemaEffects(ATarget, 'Consent; canonical allowed agent-script storage path; write overwrite admission', 'immediate script file write/delete; plugins unchanged')
+    else xeAutomationSchemaEffects(ATarget, 'Canonical native script storage policy; no consent needed', 'read-only script inventory/source');
+  end else if SameText(ACommand, 'records.base_record') or SameText(ACommand, 'records.master_or_self') or
+              SameText(ACommand, 'records.winning_override') or SameText(ACommand, 'records.conflict_status') then begin
+    xeAutomationSchemaLocator(ATarget);
+    if SameText(ACommand, 'records.conflict_status') then
+      xeAutomationSchemaField(ATarget, 'limit', 'integer:positive-native-clamped-default-100', False)
+    else if not SameText(ACommand, 'records.base_record') then
+      xeAutomationSchemaField(ATarget, 'includeParents', 'boolean:default-false', False);
+    xeAutomationSchemaEffects(ATarget, 'Loaded record; base/conflict endpoints require empty root path; no consent needed', 'read-only native record/relationship/conflict access; derived conflict caches may initialize');
+  end else if SameText(ACommand, 'records.find_by_form_id') or SameText(ACommand, 'records.find_by_editor_id') then begin
+    xeAutomationSchemaField(ATarget, 'includeParents', 'boolean:default-false', False);
+    if SameText(ACommand, 'records.find_by_form_id') then begin
+      xeAutomationSchemaField(ATarget, 'formId', 'string:8-hex-load-order-formId', True);
+      xeAutomationSchemaField(ATarget, 'file', 'string:optional-loaded-plugin-scope', False);
+    end else begin
+      xeAutomationSchemaField(ATarget, 'editorId', 'string:native-editor-id', True);
+      xeAutomationSchemaField(ATarget, 'signature', 'string:optional-record-signature', False);
+    end;
+    xeAutomationSchemaEffects(ATarget, 'Loaded plugin graph; no consent needed; editor-ID search is bounded', 'read-only identity search; inspect truncated before claiming complete results');
+  end else if SameText(ACommand, 'records.list') or SameText(ACommand, 'records.apply_filter') or
+              SameText(ACommand, 'records.references') or SameText(ACommand, 'records.referenced_by') then begin
+    xeAutomationSchemaField(ATarget, 'cursor', 'string:single-use-session-query-continuation', False);
+    xeAutomationSchemaField(ATarget, 'offset', 'integer:nonnegative-default-0', False);
+    if SameText(ACommand, 'records.apply_filter') then begin
+      xeAutomationSchemaField(ATarget, 'limit', 'integer:1..100-default-100', False);
+      xeAutomationSchemaField(ATarget, 'files', 'array<string:explicit-loaded-plugin-scope>', True);
+      xeAutomationSchemaField(ATarget, 'signatures', 'array<string:record-signature>', False);
+      xeAutomationSchemaField(ATarget, 'baseSignatures', 'array<string:base-record-signature>', False);
+      xeAutomationSchemaField(ATarget, 'parentFormId', 'string:8-hex-formId', False);
+      xeAutomationSchemaField(ATarget, 'baseFormId', 'string:8-hex-formId', False);
+      xeAutomationSchemaField(ATarget, 'conflictAll', 'array<string:native-conflictAll-name>', False);
+      xeAutomationSchemaField(ATarget, 'conflictThis', 'array<string:native-conflictThis-name>', False);
+      xeAutomationSchemaField(ATarget, 'preset', 'string:conflicts', False);
+      for lField in FilterBooleans do xeAutomationSchemaField(ATarget, lField, 'boolean:presence-selects-true-or-false', False);
+      for lField in FilterPatterns do xeAutomationSchemaField(ATarget, lField, 'string-or-array<string>:glob-or-bounded-regex', False);
+      for lField in FilterLiterals do xeAutomationSchemaField(ATarget, lField, 'string:case-insensitive-literal-max1024', False);
+      ATarget.S['constraintNotes'] := 'AND across predicates, OR within arrays; same-field glob/regex exclusive; inspect records.filter_options for game/domain/index requirements';
+    end else begin
+      xeAutomationSchemaField(ATarget, 'limit', 'integer:1..500-default-100', False);
+      if SameText(ACommand, 'records.list') then begin
+        xeAutomationSchemaField(ATarget, 'file', 'string:loaded-plugin', True);
+        xeAutomationSchemaField(ATarget, 'signature', 'string:optional-record-signature', False);
+      end else begin
+        xeAutomationSchemaLocator(ATarget);
+        if SameText(ACommand, 'records.references') then
+          xeAutomationSchemaField(ATarget, 'recursive', 'boolean:default-false-native-child-roots', False);
+      end;
+    end;
+    xeAutomationSchemaEffects(ATarget, 'Loaded scope; reverse/injected/unnecessary-persistent predicates require current reference indexes; notReachable needs completed current global analysis', 'read-only paged query; single-use cursor bound to original arguments and mutation/semantic revisions');
+    ATarget.S['resultNotes'] := 'Continue with identical original arguments plus nextCursor; consume even empty pages; inspect complete/incompleteReason; never treat timeout/budget refusal as no match';
+    ATarget.A['errors'].Add('cursor_invalidated'); ATarget.A['errors'].Add('cursor_capacity');
+  end else if SameText(ACommand, 'records.create') then begin
+    xeAutomationSchemaField(ATarget, 'targetFile', 'string:loaded-writable-plugin', True);
+    xeAutomationSchemaField(ATarget, 'signature', 'string:native-creatable-record-signature', True);
+    xeAutomationSchemaField(ATarget, 'editorId', 'string:optional-supported-editor-id', False);
+    xeAutomationSchemaField(ATarget, 'parent', 'object:file,formId,subGroup?:native-parent-spec', False);
+    xeAutomationSchemaEffects(ATarget, 'Consent; enabled native signature; supported EditorID definition; owned/writable native parent preflight', 'native creation in memory; explicit save/flush; partial failure/rollback audit; parent groups/consumed IDs may remain');
+    ATarget.S['constraintNotes'] := 'Parent required by native child-record signature; inspect parent/group recipes; no caller-specified FormID allocation';
+  end else if SameText(ACommand, 'records.delete') or SameText(ACommand, 'records.mark_deleted') then begin
+    xeAutomationSchemaLocator(ATarget);
+    if SameText(ACommand, 'records.mark_deleted') then
+      xeAutomationSchemaField(ATarget, 'expectedDeleted', 'boolean:optional-current-deleted-state', False);
+    xeAutomationSchemaEffects(ATarget, 'Owned writable record root and consent; root path must be empty', 'in-memory-until-session.save-then-terminal-session.flush');
+    ATarget.S['constraintNotes'] := 'delete physically removes root and owned child group; mark_deleted sets Deleted=true only; expectedDeleted mismatch refuses before setting';
+    ATarget.A['errors'].Add('state_conflict');
+  end else if SameText(ACommand, 'records.mark_modified') or SameText(ACommand, 'records.set_reference_flags') then begin
+    xeAutomationSchemaField(ATarget, 'records', 'array<object:file,formId>:1..32-owned-roots', True);
+    xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(ATarget, 'expectedRevision', 'string:decimal-uint64', False);
+    if SameText(ACommand, 'records.set_reference_flags') then begin
+      xeAutomationSchemaField(ATarget, 'persistent', 'boolean:desired-native-flag', False);
+      xeAutomationSchemaField(ATarget, 'visibleWhenDistant', 'boolean:desired-native-flag', False);
+      ATarget.S['constraintNotes'] := 'At least one desired flag required; only REFR; each locator may include expectedPersistent/expectedVisibleWhenDistant; existing owned complete CELL destinations only';
+    end else ATarget.S['constraintNotes'] := 'Nonoverlapping roots; complete native descendant preflight <=50000 nodes/depth32; includes owned child groups';
+    xeAutomationSchemaEffects(ATarget, 'Translation off; all native writable/ownership/placement predicates checked before apply; consent for apply', 'native flags or recursive serialization markers in memory; explicit save/flush; actual changed/dirty/generation outcomes returned');
+    ATarget.A['errors'].Add('stale_revision'); ATarget.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(ACommand, 'records.set_vwd_from_mesh') then begin
+    xeAutomationSchemaField(ATarget, 'files', 'array<string:loaded-plugin>:1..8', True);
+    xeAutomationSchemaField(ATarget, 'targetFile', 'string:optional-writable-override-destination', False);
+    xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaEffects(ATarget, 'Oblivion only; translation off; native resource containers and eligible exterior REFR winners; consent for apply', 'native VWD edits/optional target overrides in memory; explicit save and terminal flush');
+    ATarget.A['errors'].Add('unsupported_game_mode');
+  end else if SameText(ACommand, 'records.replace') then begin
+    xeAutomationSchemaField(ATarget, 'source', 'object:file,formId:owned-full-record-root', True);
+    xeAutomationSchemaField(ATarget, 'target', 'object:file,formId:owned-writable-record-root', True);
+    xeAutomationSchemaField(ATarget, 'expectedRevision', 'string:decimal-uint64', True);
+    xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+    xeAutomationSchemaField(ATarget, 'addRequiredMasters', 'boolean:default-false', False);
+    xeAutomationSchemaEffects(ATarget, 'Numeric nonlocalized matching full native roots; inspect records.replacement_options exclusions; bounded full payload/master preflight; consent for apply', 'native Assign in memory; target identity retained; complete before/source/after readback; partial failure audit; explicit save/flush');
+    ATarget.A['errors'].Add('stale_revision'); ATarget.A['errors'].Add('unsupported_game_mode');
+  end else Result := False;
+end;
+
+procedure xeAutomationDescribeJobKindSchema(const AKind: string; const ATarget: TJsonObject);
+var
+  lTarget, lOptions, lSettings: TJsonObject;
+begin
+  lTarget := ATarget.O['argumentSchema'].O['properties'].O['target'];
+  lOptions := ATarget.O['argumentSchema'].O['properties'].O['options'];
+  lTarget.S['type'] := 'object'; lTarget.A['required'].Clear; lTarget.O['properties'].Clear;
+  lOptions.S['type'] := 'object'; lOptions.A['required'].Clear; lOptions.O['properties'].Clear;
+  ATarget.S['jobKind'] := AKind;
+  ATarget.B['jobSchemaAvailable'] := True;
+  ATarget.O['argumentSchema'].O['properties'].O['kind'].A['enum'].Add(AKind);
+  xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:default-true', False);
+  if SameText(AKind, 'lod.generate') then begin
+    xeAutomationSchemaField(ATarget, 'options', 'object', True);
+    xeAutomationSchemaShapeField(lTarget, 'worldspaces', 'array<object:file,formId>:1..4-WRLD-roots', True);
+    xeAutomationSchemaShapeField(lOptions, 'outputRoot', 'string:absolute-existing-output-directory-max160', True);
+    xeAutomationSchemaShapeField(lOptions, 'operation', 'string:generate|splitAtlas-default-generate', False);
+    xeAutomationSchemaShapeField(lOptions, 'objects', 'boolean:game-and-operation-default', False);
+    xeAutomationSchemaShapeField(lOptions, 'trees', 'boolean:game-and-operation-default', False);
+    xeAutomationSchemaShapeField(lOptions, 'settings', 'object', False);
+    lSettings := lOptions.O['properties'].O['settings'];
+    lSettings.O['properties'].Clear; lSettings.A['required'].Clear;
+    xeAutomationSchemaShapeField(lSettings, 'atlasWidth', 'integer:power-of-two-1024..8192-game-default', False);
+    xeAutomationSchemaShapeField(lSettings, 'atlasHeight', 'integer:power-of-two-1024..8192-game-default', False);
+    xeAutomationSchemaShapeField(lSettings, 'textureSize', 'integer:256|512|1024-default-512', False);
+    xeAutomationSchemaShapeField(lSettings, 'brightness', 'integer:-30..30-default-0', False);
+    xeAutomationSchemaShapeField(lSettings, 'alphaThreshold', 'integer:0..255-default-128', False);
+    xeAutomationSchemaShapeField(lSettings, 'trees3D', 'boolean:default-false-Skyrim-object-LOD-only', False);
+    xeAutomationSchemaShapeField(lSettings, 'noTangents', 'boolean:default-false', False);
+    xeAutomationSchemaShapeField(lSettings, 'noVertexColors', 'boolean:Fallout3-default-true-otherwise-false', False);
+    xeAutomationSchemaShapeField(lSettings, 'lodLevel', 'integer:4|8|16', False);
+    xeAutomationSchemaShapeField(lSettings, 'x', 'integer:-32768..32767', False);
+    xeAutomationSchemaShapeField(lSettings, 'y', 'integer:-32768..32767', False);
+    ATarget.S['constraintNotes'] := 'TES4/Skyrim/FO3/FNV/FO4; no FO76/SF; tree/split only Skyrim/FO3/FNV; split cannot combine object/tree flags; SSE/VR/EnderalSE objects require LODGen startup. x/y require each other and lodLevel. FO3 native forces textureSize=1024,noTangents=false,noVertexColors=true';
+    xeAutomationSchemaEffects(ATarget, 'Native resource containers, bounded owned complete WRLDs, existing output root; consent for apply; inspect LOD capability limits', 'immediate external per-worldspace LOD outputs; cancellation retains completed output; plugins unchanged');
+  end else if SameText(AKind, 'analysis.build_references') then begin
+    xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..32', False);
+    xeAutomationSchemaShapeField(lTarget, 'allLoaded', 'boolean:default-false-true-selects-full-loaded-graph', False);
+    ATarget.S['constraintNotes'] := 'Choose allLoaded:true without files, or explicit nonempty files; target.steps is reserved; no active parallel native reference build; 256 loaded-file plan limit';
+    xeAutomationSchemaEffects(ATarget, 'Numeric plugin definitions; loaded selected scope; apply rebuilds stale indexes without plugin mutation', 'derived reference index memory; cache writes suppressed; no plugin save');
+  end else if SameText(AKind, 'analysis.reachability') then begin
+    xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:report-scope-plugin>:1..32', True);
+    xeAutomationSchemaShapeField(lTarget, 'roots', 'array<object:file,formId>:0..32-additional-roots', False);
+    ATarget.S['constraintNotes'] := 'Non-TES3; whole loaded graph analyzed; files limits report only; target.steps reserved; <=1000 reported records, <=256 loaded files, <=1000000 loaded records';
+    xeAutomationSchemaEffects(ATarget, 'Loaded global graph and resolved optional root records; only succeeded current snapshots are valid', 'derived global reachability flags in memory; plugins unchanged; cancel/failure invalidates classification');
+  end else if SameText(AKind, 'cleaning.cleanup_injected_references') then begin
+    xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:source-file>:1..32', True);
+    xeAutomationSchemaField(ATarget, 'options', 'object', True);
+    xeAutomationSchemaShapeField(lOptions, 'records', 'array<object:file,formId>:1..128-explicit-roots', True);
+    xeAutomationSchemaShapeField(lOptions, 'injectionFile', 'string:optional-expected-native-injection-provider', False);
+    xeAutomationSchemaShapeField(lOptions, 'overwrite', 'boolean:default-false', False);
+    xeAutomationSchemaShapeField(lOptions, 'addRequiredMasters', 'boolean:default-true', False);
+    ATarget.S['constraintNotes'] := 'Non-TES3, translation off; same full native injection provider; explicit records belong to target.files; preserve original payload by copying before native RemoveInjected';
+    xeAutomationSchemaEffects(ATarget, 'Owned full source roots/native injection provider; complete dependency/ownership preflight; consent for apply', 'preservation copies and injected-link cleanup in memory; inspect partial/manual-review results; explicit save/flush');
+  end else begin
+    xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:nonempty', True);
+    if SameText(AKind, 'files.hygiene.batch') then begin
+      xeAutomationSchemaField(ATarget, 'options', 'object', True);
+      xeAutomationSchemaShapeField(lOptions, 'operations', 'array<string:sort_masters|clean_masters>:nonempty', True);
+      xeAutomationSchemaEffects(ATarget, 'Complete loaded writable file scope; consent for apply', 'native master hygiene in memory; explicit save/flush; prior file outcomes retained on failure/cancel');
+    end else if SameText(AKind, 'cleaning.remove_itm') or SameText(AKind, 'cleaning.undelete_and_disable_refs') then begin
+      xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..8', False);
+      lTarget.B['additionalProperties'] := False;
+      lOptions.B['additionalProperties'] := False;
+      ATarget.S['constraintNotes'] := 'Empty/omitted options only; uses native UDR session settings; <=1000 selected records; non-TES3, translation off; no master hygiene';
+      xeAutomationSchemaEffects(ATarget, 'Bounded full source records and writable targets; consent for apply; retained child-group/NAVM rules', 'isolated ITM or UDR plugin edits in memory; explicit save/flush');
+    end else if SameText(AKind, 'plugin.esl.analyze') then begin
+      xeAutomationSchemaEffects(ATarget, 'Native ESL/light-slot game predicates; loaded selected files', 'read-only native eligibility analysis; plugins unchanged');
+    end else if SameText(AKind, 'plugin.esl.apply') or SameText(AKind, 'plugin.formids.compact_for_esl') then begin
+      if SameText(AKind, 'plugin.esl.apply') then
+        xeAutomationSchemaShapeField(lOptions, 'allowAfterCompact', 'boolean:default-false', False);
+      xeAutomationSchemaEffects(ATarget, 'Native ESL/light-slot eligibility and writable targets; apply requires consent; compaction/referrer safety gates', 'native ESL flag/optional FormID compaction in memory; remaps/partial outcomes reported; explicit save/flush');
+    end else if SameText(AKind, 'validation.check_for_errors') or SameText(AKind, 'validation.check_for_itm') or
+                SameText(AKind, 'validation.check_for_deleted_refs') or SameText(AKind, 'validation.circular_leveled_lists') then begin
+      xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:always-normalized-true', False);
+      xeAutomationSchemaEffects(ATarget, 'Loaded scope and native check predicates; circular leveled-list check excludes TES3; no mutation consent needed', 'validation only; findings/derived native traversal state; plugins unchanged');
+    end else if SameText(AKind, 'cleaning.quick_clean') or SameText(AKind, 'cleaning.quick_auto_clean') or
+                SameText(AKind, 'cleaning.sort_and_clean_masters') then begin
+      xeAutomationSchemaEffects(ATarget, 'Writable selected files and native game/cleaning predicates; consent for apply', 'native cleaning/master hygiene in memory; explicit save/flush; one native file may still block a poll');
+    end else begin
+      ATarget.B['jobSchemaAvailable'] := False;
+      ATarget.S['constraintNotes'] := 'Registered future kind has no authored target/options descriptor yet';
+    end;
+  end;
+end;
+
 function xeAutomationSystemCommandSchema(const AArgs: TJsonObject): TJsonObject;
 var
-  lCommand: string;
+  lCommand, lKind, lRegisteredKind, lField: string;
   lExample, lExampleItem: TJsonObject;
   i: Integer;
-  lExampleComplete: Boolean;
+  lExampleComplete, lKnownKind: Boolean;
 begin
   lCommand := LowerCase(xeAutomationRequireStringArg(AArgs, 'command'));
   xeAutomationEnsureCapabilityCommandSurface;
   if not xeAutomationHasCommand(lCommand) then
     raise xeAutomationUnknownCommand(lCommand);
+  lKind := '';
+  if AArgs.Contains('kind') then begin
+    if lCommand <> 'jobs.start' then
+      raise xeAutomationInvalidRequest('Schema kind is only supported for jobs.start');
+    lKind := LowerCase(xeAutomationRequireStringArg(AArgs, 'kind'));
+    lKnownKind := False;
+    for lRegisteredKind in xeAutomationListJobKinds do
+      lKnownKind := lKnownKind or (lRegisteredKind = lKind);
+    if not lKnownKind then
+      raise xeAutomationNewError(xeAutomationErrorUnknownJobKind, 'Schema job kind is not registered: ' + lKind);
+  end;
   Result := TJsonObject.Create;
   Result.S['command'] := lCommand;
   Result.B['schemaAvailable'] := True;
@@ -222,6 +627,7 @@ begin
   Result.A['errors'].Add('invalid_request');
   if SameText(lCommand, 'system.command_schema') then begin
     xeAutomationSchemaField(Result, 'command', 'string:registered-command', True);
+    xeAutomationSchemaField(Result, 'kind', 'string:registered-job-kind-only-for-jobs.start', False);
     Result.S['prerequisites'] := 'None; unimplemented schemas return schemaAvailable:false';
     Result.S['persistence'] := 'read-only';
     Result.O['example'].S['command'] := lCommand;
@@ -263,6 +669,10 @@ begin
               SameText(lCommand, 'elements.children') or
               SameText(lCommand, 'records.get') then begin
     xeAutomationSchemaLocator(Result);
+    if SameText(lCommand, 'elements.conflict_status') then begin
+      xeAutomationSchemaField(Result, 'path', 'string:nonempty-existing-child-path', True);
+      xeAutomationSchemaField(Result, 'limit', 'integer:positive-native-clamped-default-100', False);
+    end;
     if SameText(lCommand, 'elements.get') or SameText(lCommand, 'elements.children') or
        SameText(lCommand, 'records.get') then
       xeAutomationSchemaField(Result, 'includeParents', 'boolean:default-false', False);
@@ -598,10 +1008,23 @@ begin
     Result.A['errors'].Add('formid_collision');
     Result.A['errors'].Add('reference_capacity');
     Result.A['errors'].Add('mutation_not_allowed');
-  end else begin
+  end else if not xeAutomationDescribeExtendedCommand(lCommand, Result) then begin
     Result.B['schemaAvailable'] := False;
     Result.S['reason'] := 'Detailed schema is not yet authored for this registered command';
     Result.Remove('argumentSchema');
+  end;
+  if (lCommand = 'jobs.start') and (lKind <> '') then
+    xeAutomationDescribeJobKindSchema(lKind, Result);
+  // These arguments are enforced by the host for every registered wire command.
+  if Result.B['schemaAvailable'] then begin
+    if not Result.O['argumentSchema'].O['properties'].Contains('expectedRevision') then
+      xeAutomationSchemaField(Result, 'expectedRevision', 'string:decimal-uint64-wire-precondition', False);
+    xeAutomationSchemaField(Result, 'fields', 'array<string:allowed-summary-projection-field>:0..32', False);
+    Result.O['argumentSchema'].O['properties'].O['fields'].I['maxItems'] := 32;
+    for lField in xeAutomationProjectionFieldNames do
+      Result.O['argumentSchema'].O['properties'].O['fields'].A['itemEnum'].Add(lField);
+    xeAutomationSchemaField(Result, 'includeRelations', 'boolean:default-true', False);
+    Result.B['errorsExhaustive'] := False;
   end;
   if Result.B['schemaAvailable'] and not Result.Contains('example') then begin
     lExample := Result.O['example'];
@@ -681,6 +1104,45 @@ begin
     Result.S['exampleNotes'] := 'Request shape only; replace illustrative files, FormIDs, paths and angle-bracket tokens with discovered session values';
 end;
 
+procedure xeAutomationWriteSchemaCoverage(const ATarget: TJsonObject);
+var
+  lArgs, lSchema: TJsonObject;
+  lCommand, lKind: string;
+  lCovered: Integer;
+begin
+  lArgs := TJsonObject.Create;
+  try
+    lCovered := 0;
+    ATarget.A['missingCommands'].Clear;
+    for lCommand in xeAutomationListCommands do begin
+      lArgs.S['command'] := lCommand;
+      lSchema := xeAutomationSystemCommandSchema(lArgs);
+      try
+        if lSchema.B['schemaAvailable'] then Inc(lCovered)
+        else ATarget.A['missingCommands'].Add(lCommand);
+      finally lSchema.Free; end;
+    end;
+    ATarget.I['coveredCommands'] := lCovered;
+    ATarget.I['registeredCommands'] := lCovered + ATarget.A['missingCommands'].Count;
+    ATarget.B['partialCoverage'] := ATarget.A['missingCommands'].Count > 0;
+    lCovered := 0;
+    ATarget.A['missingJobKinds'].Clear;
+    lArgs.S['command'] := 'jobs.start';
+    for lKind in xeAutomationListJobKinds do begin
+      lArgs.S['kind'] := lKind;
+      lSchema := xeAutomationSystemCommandSchema(lArgs);
+      try
+        if lSchema.B['jobSchemaAvailable'] then Inc(lCovered)
+        else ATarget.A['missingJobKinds'].Add(lKind);
+      finally lSchema.Free; end;
+    end;
+    ATarget.I['coveredJobKinds'] := lCovered;
+    ATarget.I['registeredJobKinds'] := lCovered + ATarget.A['missingJobKinds'].Count;
+    ATarget.B['partialJobKindCoverage'] := ATarget.A['missingJobKinds'].Count > 0;
+    ATarget.S['jobKindArgument'] := 'kind, when command:jobs.start';
+  finally lArgs.Free; end;
+end;
+
 function xeAutomationSystemCapabilities(const aArgs: TJsonObject): TJsonObject;
 var
   lCommands: TJsonArray;
@@ -703,7 +1165,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.53';
+  Result.S['contractVersion'] := '0.54';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -789,7 +1251,7 @@ begin
   Result.O['supports'].B['sortableContainerNotice'] := True;
   Result.O['supports'].O['commandSchemas'].S['command'] := 'system.command_schema';
   Result.O['supports'].O['commandSchemas'].B['onDemand'] := True;
-  Result.O['supports'].O['commandSchemas'].B['partialCoverage'] := True;
+  xeAutomationWriteSchemaCoverage(Result.O['supports'].O['commandSchemas']);
   Result.O['supports'].O['commandSchemas'].S['exampleAvailabilityField'] := 'exampleAvailable';
   Result.O['supports'].O['editExpectations'].S['revisionSource'] :=
     'session.get_dirty_state.mutationRevision';

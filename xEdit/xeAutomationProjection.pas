@@ -5,14 +5,22 @@
 *******************************************************************************}
 unit xeAutomationProjection;
 interface
-uses JsonDataObjects;
+uses JsonDataObjects, Types;
+function xeAutomationProjectionFieldNames: TStringDynArray;
 procedure xeAutomationValidateProjection(const AArgs: TJsonObject);
 procedure xeAutomationProjectResponse(const AResponse, AArgs: TJsonObject);
 implementation
-uses SysUtils, Types, xeAutomationObjectModel, xeAutomationErrors;
+uses SysUtils, xeAutomationObjectModel, xeAutomationErrors;
 
 const
   AllowedFields = ',kind,signature,formId,path,name,editorId,fullName,displayNameKey,isMaster,isDeleted,isWinningOverride,overrideCount,hasChildren,value,editValue,nativeValue,valueSummary,elementType,defType,canEdit,canRemove,previewMetadata,storageEncoding,';
+
+function xeAutomationProjectionFieldNames: TStringDynArray;
+var lFields: string;
+begin
+  lFields := Copy(AllowedFields, 2, Length(AllowedFields) - 2);
+  Result := lFields.Split([',']);
+end;
 
 procedure xeAutomationValidateProjection(const AArgs: TJsonObject);
 var

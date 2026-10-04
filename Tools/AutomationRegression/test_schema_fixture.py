@@ -1,9 +1,12 @@
 """Validate discovery evidence without executing illustrative native mutations."""
 import json
+from pathlib import Path
+import re
 import unittest
 
 from itm_fixture import Client as NativeClient
-from schema_fixture import discovery, validate_example
+from schema_fixture import discovery, validate_example, validate_shape
+from Tools.AgentCoverage.generate import pascal_code
 
 
 def schema(command="reports.cleaning"):
@@ -80,7 +83,35 @@ class DiscoveryTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             validate_example(value)
 
-    def test_discovery_queries_only_schema_endpoints_and_keeps_gaps(self):
+    def test_nested_numeric_option_ranges_types_and_finiteness(self):
+        value = schema()
+        value["argumentSchema"] = {"type": "object", "required": ["values"], "properties": {
+            "values": {"type": "object", "required": [], "minProperties": 1, "properties": {
+                "scale": {"type": "number:finite", "minimum": 0, "maximum": 10}}}}}
+        for number in (0, 2.5, 10):
+            value["example"]["args"] = {"values": {"scale": number}}
+            validate_example(value)
+        for numbers in ({}, {"scale": -1}, {"scale": 11}, {"scale": True},
+                        {"scale": float("nan")}, {"scale": float("inf")}):
+            value["example"]["args"] = {"values": numbers}
+            with self.assertRaises(AssertionError):
+                validate_example(value)
+
+    def test_discovery_rejects_inaccurate_capability_coverage_counts(self):
+        class Client:
+            def call(self, command, /, **args):
+                if command == "session.get_dirty_state":
+                    return {"dirty": False}
+                if command == "system.capabilities":
+                    return {"commands": ["reports.cleaning"], "supports": {"commandSchemas": {
+                        "registeredCommands": 1, "coveredCommands": 0, "missingCommands": [],
+                        "partialCoverage": False}}}
+                return schema(args["command"])
+
+        with self.assertRaises(AssertionError):
+            discovery(Client())
+
+    def test_discovery_queries_only_schema_and_dirty_state_endpoints(self):
         class Client:
             def __init__(self):
                 self.calls = []
@@ -89,17 +120,57 @@ class DiscoveryTests(unittest.TestCase):
                 self.calls.append((command, args))
                 if command == "system.capabilities":
                     return {"commands": ["records.copy_into", "system.command_schema",
-                                         "reports.cleaning", "scripts.run"]}
-                if args["command"] == "scripts.run":
-                    return {"command": "scripts.run", "schemaAvailable": False,
-                            "exampleAvailable": False, "reason": "not authored"}
+                                         "reports.cleaning", "scripts.run"], "supports": {
+                        "jobs": {"kinds": ["validation.check_for_itm"]}, "commandSchemas": {
+                            "registeredCommands": 4, "coveredCommands": 4, "missingCommands": [],
+                            "partialCoverage": False, "registeredJobKinds": 1, "coveredJobKinds": 1,
+                            "missingJobKinds": [], "partialJobKindCoverage": False}}}
+                if command == "session.get_dirty_state":
+                    return {"mutationRevision": "7", "dirty": False}
+                if "kind" in args:
+                    value = schema("jobs.start")
+                    value.update(jobSchemaAvailable=True, jobKind=args["kind"], exampleAvailable=False)
+                    value.pop("example")
+                    value["argumentSchema"] = {"type": "object", "required": ["kind", "target"], "properties": {
+                        "kind": {"type": "string", "enum": [args["kind"]]},
+                        "target": {"type": "object", "required": ["files"], "properties": {
+                            "files": {"type": "array<string>"}}},
+                        "options": {"type": "object", "required": [], "properties": {}}}}
+                    return value
                 return schema(args["command"])
 
         client = Client()
         result = discovery(client)
-        self.assertEqual(result["missing"], ["scripts.run"])
+        self.assertEqual(result["missing"], [])
+        self.assertEqual(result["coveredJobKinds"], ["validation.check_for_itm"])
         self.assertFalse(result["nativeMutationTestsRun"])
-        self.assertEqual({call[0] for call in client.calls}, {"system.capabilities", "system.command_schema"})
+        self.assertEqual({call[0] for call in client.calls}, {
+            "system.capabilities", "system.command_schema", "session.get_dirty_state"})
+
+    def test_nested_job_required_field_typo_and_duplicates_reject(self):
+        for required in (["missing"], ["files", "files"]):
+            value = {"type": "object", "required": ["target"], "properties": {
+                "target": {"type": "object", "required": required, "properties": {
+                    "files": {"type": "array<string>"}}}}}
+            with self.assertRaises(AssertionError):
+                validate_shape(value)
+
+    def test_every_registered_command_and_final_job_kind_has_authored_descriptor(self):
+        root = Path(__file__).resolve().parents[2]
+        text = pascal_code((root / "xEdit/xeAutomationCommandsSystem.pas").read_text())
+        body = text[text.index("function xeAutomationDescribeExtendedCommand"):
+                    text.index("procedure xeAutomationWriteSchemaCoverage")]
+        described = set(re.findall(r"SameText\((?:ACommand|lCommand), '([^']+)'", body))
+        # The existing selection branch covers exactly these four known routes.
+        described.update(("selections.inspect", "selections.copy_into", "selections.remove", "selections.create_group"))
+        registered = set()
+        for path in (root / "xEdit").glob("xeAutomationCommands*.pas"):
+            registered.update(re.findall(r"xeAutomationRegisterCommand\(\s*'([^']+)'", pascal_code(path.read_text())))
+        self.assertEqual(registered - described, set())
+        final_kinds = text.split("xeAutomationFinalJobKinds:", 1)[1].split(");", 1)[0]
+        kinds = set(re.findall(r"'([^']+)'", final_kinds))
+        described_kinds = set(re.findall(r"SameText\(AKind, '([^']+)'", body))
+        self.assertEqual(kinds - described_kinds, set())
 
 
 if __name__ == "__main__":

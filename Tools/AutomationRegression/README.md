@@ -10,21 +10,36 @@ python Tools/AutomationRegression/schema_fixture.py discovery --exe <trusted-exe
 
 This phase queries capabilities and every registered command schema without
 executing the examples. It captures each exchange plus `schema-discovery.json`,
-listing authored schemas, explicit gaps and available examples. All element
-commands and job envelopes/controls must be covered. `jobs.start` documents its
-envelope; native target/options predicates remain specific to the chosen job kind.
+listing authored schemas and available examples. All registered commands and job
+kinds must be covered. Capability coverage counts and missing arrays are computed
+from the registry and checked against the returned descriptors. Add `kind` when
+querying `jobs.start` to discover that kind's nested target/options descriptor:
+
+```json
+{"command":"system.command_schema","args":{"command":"jobs.start","kind":"lod.generate"}}
+```
+
+The runner also checks that discovery leaves plugin dirty/pending-save state
+unchanged. Schema queries for a non-job command with `kind`, or for an unknown job
+kind, must fail before descriptor construction.
 Discovery checks required arguments, example envelopes, field types/enums, boolean
 flag keys and authored nested item schemas. `exampleAvailable:false` means no
 example is advertised; illustrative file names/FormIDs and angle-bracket tokens
 must be replaced with values from the loaded session before executing any example.
 The descriptor vocabulary is an authored protocol shape, not standard JSON Schema.
 
-Contract 0.53 corrects the `elements.children` schema maximum to the native 1000,
-adds `includeParents` discovery and exposes previously missing element operations
-and job controls. `jobs.get` advances native work and can mutate a plugin or write
+Contract 0.54 covers all 109 current commands and 17 job kinds, corrects the
+`elements.children` schema maximum to the native 1000 and adds `includeParents`.
+It exposes the host's optional wire revision precondition and summary projection
+arguments, including allowed summary fields from the native projection allowlist.
+Nested job descriptors include LOD settings, native ESL options, file hygiene,
+selective cleaning, injected-reference cleanup and global analysis scopes, with
+their native game/load/persistence constraints. `jobs.get` advances native work and can mutate a plugin or write
 external output; it is not a passive status call. Plugin writes still require
-explicit save and terminal flush. Full schema coverage for remaining command
-groups and kind-specific job arguments remains pending.
+explicit save and terminal flush. Descriptors list common errors with
+`errorsExhaustive:false`; runtime target-specific predicates still require native
+preflight and element capability/choice discovery. A new unauthored command/kind
+is reported as missing and fails the complete-discovery acceptance runner.
 
 Then generate a fresh string overlay using `string_fixture.py`, run the existing
 `schema_fixture.py exercise` phase with consent, restart the daemon and run
