@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.44",
+  "contractVersion": "0.45",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -4447,12 +4447,11 @@
         }
       ],
       "profile": "explicit-masters",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "files.add_required_masters",
-        "scripts.run"
+        "files.add_masters"
       ],
-      "notes": "Provide a structured explicit-master-list operation with load-order/ownership preflight. files.add_required_masters infers dependencies and is not equivalent.",
+      "notes": "Explicit 1..32 loaded earlier native master names, default dry-run, full-list preflight including comparison refusal, native capacity and complex-slot module gates. Native add/sort remaps IDs in memory; partial outcomes retain exact before/after lists and mutation audit. Runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -11112,12 +11111,24 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "files.add_masters",
+      "kind": "command",
+      "handler": "xeAutomationFilesAddMasters",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsFiles.pas",
+        "line": 599
+      },
+      "prerequisites": "consented writable numeric plugin; all requested masters loaded earlier; no comparison files; native capacity/module gates",
+      "effect": "default dry-run; in-memory master header addition/native remap -> explicit save + terminal flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "files.add_required_masters",
       "kind": "command",
       "handler": "xeAutomationFilesAddRequiredMasters",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 517
+        "line": 598
       },
       "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11141,7 +11152,7 @@
       "handler": "xeAutomationFilesCreate",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 516
+        "line": 597
       },
       "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11153,7 +11164,7 @@
       "handler": "xeAutomationFilesGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 515
+        "line": 596
       },
       "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
       "effect": "read-only; no plugin persistence",
@@ -11189,7 +11200,7 @@
       "handler": "xeAutomationFilesList",
       "source": {
         "file": "xEdit/xeAutomationCommandsFiles.pas",
-        "line": 514
+        "line": 595
       },
       "prerequisites": "Loaded plugin; writes require consent/editable non-protected target; flag creation/mutation depends on game support.",
       "effect": "read-only; no plugin persistence",

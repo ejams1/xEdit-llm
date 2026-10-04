@@ -614,7 +614,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.44';
+  Result.S['contractVersion'] := '0.45';
   with Result.O['supports'].O['comparisons'] do begin
     S['recordsCommand'] := 'comparisons.records'; S['loadCommand'] := 'comparisons.load';
     S['scope'] := 'explicit ordered columns, common payload path, native sibling leaf classification';

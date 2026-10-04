@@ -27,6 +27,8 @@ uses
   xeMainForm,
   xeAutomationMutationPolicy,
   xeAutomationObjectModel,
+  xeAutomationMutationAudit,
+  xeAutomationRecordQueries,
   xeAutomationRegistry;
 
 const
@@ -509,12 +511,92 @@ begin
   end;
 end;
 
+function xeAutomationFilesAddMasters(const Args: TJsonObject): TJsonObject;
+var Target, Master: IwbFile; Names: TStringDynArray;
+  Requested, Before, After, ToAdd: TStringList; Name, Ext, Denied: string;
+  Dry, Specified: Boolean; i: Integer; Snapshot: TxeAutomationMutationSnapshot;
+begin
+  if wbIsMorrowind or wbTranslationMode then
+    raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode, 'Explicit master edits require numeric plugin definitions and translation mode off');
+  Target := xeAutomationRequirePluginFile(xeAutomationRequireStringArg(Args, 'targetFile'));
+  xeAutomationRequireWritableTargetFile(Target);
+  Names := xeAutomationReadStringArrayArg(Args, 'masters');
+  if (Length(Names) < 1) or (Length(Names) > 32) then
+    raise xeAutomationInvalidRequest('masters must contain 1..32 explicit loaded plugin names');
+  Dry := xeAutomationReadBooleanArg(Args, 'dryRun', Specified);
+  if not Specified then Dry := True;
+  if not Dry and not xeAutomationMutationPolicyConsentSatisfied(Denied) then
+    Exit(xeAutomationErrorsBuildConsentRequired('files.add_masters', 'files-mutation', Denied));
+  Requested := TStringList.Create; Before := TStringList.Create;
+  After := TStringList.Create; ToAdd := TStringList.Create;
+  try
+    Requested.CaseSensitive := False; Before.CaseSensitive := False; After.CaseSensitive := False;
+    xeAutomationCaptureFileMasters(Target, Before);
+    // Native AddMasters can partially mutate on capacity/type failures. Validate
+    // the entire request against the same gates before its first header write.
+    for Name in Names do begin
+      if (Name <> ExtractFileName(Name)) or (Pos(':', Name) > 0) then
+        raise xeAutomationInvalidRequest('masters accepts plugin names, not paths');
+      if Requested.IndexOf(Name) >= 0 then raise xeAutomationInvalidRequest('Duplicate requested master: ' + Name);
+      Master := xeAutomationRequirePluginFile(Name);
+      if Master.Equals(Target) then raise xeAutomationInvalidTarget('A plugin cannot master itself');
+      if fsIsCompareLoad in Master.FileStates then raise xeAutomationInvalidTarget('Comparison-only files cannot be masters');
+      if Master.LoadOrder >= Target.LoadOrder then raise xeAutomationInvalidTarget('Requested masters must load before targetFile');
+      Ext := ExtractFileExt(Master.FileName);
+      if not (SameText(Ext, '.esm') or SameText(Ext, '.esp') or
+        (wbIsLightSupported and SameText(Ext, '.esl'))) then
+        raise xeAutomationInvalidTarget('Native master addition does not admit this plugin extension');
+      Requested.AddObject(Master.FileName, TObject(Pointer(Master)));
+      if Before.IndexOf(Master.FileName) < 0 then ToAdd.AddObject(Master.FileName, TObject(Pointer(Master)));
+    end;
+    if Before.Count + ToAdd.Count > Succ(TwbFileID.MaxFullSlot) then
+      raise xeAutomationInvalidTarget('Requested additions exceed the native master capacity');
+    if (ToAdd.Count > 0) and wbStarfieldReverseEngineeringIncomplete and wbComplexFileFileID then begin
+      if Target.ModuleType <> mtFull then raise xeAutomationInvalidTarget('Native complex-slot master edits require a full target');
+      for i := 0 to Target.MasterCount[True] - 1 do
+        if Target.Masters[i, True].ModuleType <> mtFull then raise xeAutomationInvalidTarget('Every existing master must be full');
+      for Name in ToAdd do
+        if xeAutomationRequirePluginFile(Name).ModuleType <> mtFull then raise xeAutomationInvalidTarget('Every added master must be full');
+    end;
+    ToAdd.CustomSort(xeAutomationCompareFileLoadOrder);
+    Result := TJsonObject.Create;
+    try
+      Result.B['dryRun'] := Dry; Result.S['targetFile'] := Target.FileName;
+      Result.S['persistence'] := 'in-memory header and native FormID remap; explicit session.save and terminal session.flush';
+      for Name in Before do Result.A['mastersBefore'].Add(Name);
+      for Name in ToAdd do Result.A['planned'].Add(Name);
+      for Name in Requested do if Before.IndexOf(Name) >= 0 then Result.A['alreadyPresent'].Add(Name);
+      Result.A['added']; Result.A['notAdded'];
+      Snapshot := xeAutomationCaptureMutationSnapshot;
+      if not Dry and (ToAdd.Count > 0) then begin
+        try Target.AddMastersIfMissing(ToAdd, True, True);
+        except on E: Exception do begin
+          Result.O['failure'].S['code'] := xeAutomationErrorInvalidTarget;
+          Result.O['failure'].S['message'] := E.Message;
+          Result.O['failure'].S['phase'] := 'native-add-and-sort';
+        end; end;
+        xeAutomationInvalidateRecordQueries;
+      end;
+      xeAutomationCaptureFileMasters(Target, After);
+      for Name in After do Result.A['mastersAfter'].Add(Name);
+      if not Dry then for Name in ToAdd do
+        if After.IndexOf(Name) >= 0 then Result.A['added'].Add(Name) else Result.A['notAdded'].Add(Name);
+      xeAutomationWriteMutationAudit(Result.O['mutationState'], Snapshot);
+      Result.B['changed'] := Result.O['mutationState'].B['mutationsObserved'];
+      Result.B['dirty'] := Target.Modified; Result.B['requiresSave'] := Result.B['changed'];
+      Result.B['complete'] := not Result.Contains('failure') and (Result.A['notAdded'].Count = 0);
+      Result.B['partial'] := not Result.B['complete'] and Result.B['changed'];
+    except Result.Free; raise; end;
+  finally ToAdd.Free; After.Free; Before.Free; Requested.Free; end;
+end;
+
 procedure xeAutomationRegisterFilesCommands;
 begin
   xeAutomationRegisterCommand('files.list', xeAutomationFilesList);
   xeAutomationRegisterCommand('files.get', xeAutomationFilesGet);
   xeAutomationRegisterCommand('files.create', xeAutomationFilesCreate);
   xeAutomationRegisterCommand('files.add_required_masters', xeAutomationFilesAddRequiredMasters);
+  xeAutomationRegisterCommand('files.add_masters', xeAutomationFilesAddMasters);
 end;
 
 end.
