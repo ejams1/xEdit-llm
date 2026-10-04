@@ -601,10 +601,13 @@
       ]
     },
     "diagnostics": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Audit hidden/Test/Bandit Fix/race-LVLI actions per conditional build/game. Provide supported native diagnostics as explicit operations or document intentional exclusion.",
-      "effect": "game/build-specific mutation or diagnostics",
+      "status": "intentionally-excluded",
+      "routes": [
+        "system.diagnostics",
+        "system.run_diagnostic"
+      ],
+      "notes": "Source-audited hidden Test/Bandit Fix/race LVLI experiments have implicit hardcoded selections/naming and mutation assumptions. Catalog returns native visibility/game/build caveats, reasons and supported alternatives; run explicitly rejects in every game/build. Runtime nonmutation verification pending.",
+      "effect": "read-only catalog or structured unsupported_diagnostic refusal; no GUI callbacks",
       "scriptSymbols": []
     },
     "logs": {
@@ -1552,6 +1555,12 @@
     "records.set_reference_flags": {
       "effect": "default dry-run or native flags/CELL-group migration in memory -> explicit save + flush",
       "prerequisites": "consented writable owned complete nondeleted REFR; numeric nontranslation game; existing destination CELLs and expected states"
+    },
+    "system.diagnostics": {
+      "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error"
+    },
+    "system.run_diagnostic": {
+      "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error"
     }
   }
 }
