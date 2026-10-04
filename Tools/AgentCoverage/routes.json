@@ -76,7 +76,7 @@
         "cleaning.quick_clean",
         "cleaning.quick_auto_clean"
       ],
-      "notes": "dryRun defaults safe; apply has consent/native target gates. Jobs combine ITM and deleted-reference work; no standalone UDR-only/ITM-only apply selector.",
+      "notes": "Combined jobs retain full-file preorder collection and bounded ITM/UDR record steps; master sort/clean use separate indivisible native calls. Partial operation counts, audits and aggregate findings survive cancellation. Selective ITM/UDR jobs have their own smaller scope. Native runtime acceptance pending.",
       "effect": "plugin mutation on apply -> session.save + terminal session.flush",
       "scriptSymbols": []
     },
@@ -1451,13 +1451,13 @@
       "effect": "read-only; no plugin persistence"
     },
     "cleaning.quick_auto_clean": {
-      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+      "effect": "dry-run reads; retained full-file master/ITM/UDR phases; separate indivisible master calls, bounded record steps; partial counts/audits/findings on cancel/failure; apply mutates plugins -> save + flush"
     },
     "cleaning.quick_clean": {
-      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+      "effect": "dry-run reads; retained full-file preorder ITM/UDR collection and bounded record steps; partial counts/audits/findings on cancel/failure; apply mutates plugins -> save + flush"
     },
     "cleaning.sort_and_clean_masters": {
-      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+      "effect": "dry-run reads; separate indivisible native sort/clean polls; partial master outcomes/audit on cancel/failure; apply mutates plugins -> save + flush"
     },
     "files.hygiene.batch": {
       "effect": "dry-run reads; apply mutates plugins -> save + flush"
