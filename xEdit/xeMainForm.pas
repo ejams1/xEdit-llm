@@ -1314,6 +1314,7 @@ implementation
 uses
   JsonDataObjects,
   xeAutomationRecordQueries,
+  xeAutomationCommandsMessages,
   xeAutomationRecordComparison,
   xeAutomationErrors,
   DDetours,
@@ -2311,6 +2312,7 @@ begin
   if Length(Strs) < 1 then
     SetLength(Strs, 1);
   for var t in Strs do begin
+    xeAutomationCaptureMessage(t);
     mmoMessages.Lines.Add(t);
     stbMain.Panels[0].Text := t;
   end;
@@ -18339,6 +18341,11 @@ begin
     end;
 
   if Assigned(NewMessages) and (NewMessages.Count > 0) then begin
+    // Posted loader/script messages reach the memo in this batched seam rather
+    // than AddMessage. Capture only on main-thread delivery, once per line.
+    for var MessageText in NewMessages do
+      for var MessageLine in MessageText.Split(CRLF) do
+        xeAutomationCaptureMessage(MessageLine);
     mmoMessages.Lines.AddStrings(NewMessages);
     NewMessages.Clear;
     ScrollToTheLastMessage;

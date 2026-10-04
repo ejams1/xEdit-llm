@@ -15,7 +15,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, StdCtrls, ExtCtrls, VirtualTrees, VirtualEditTree, wbInterface,
-  Vcl.Mask;
+  Vcl.Mask, JsonDataObjects;
 
 type
   TLogType = (
@@ -108,10 +108,12 @@ type
     property Limit: Integer read FLimit write FLimit;
   end;
 
+function xeAutomationAnalyzeLog(const Lines: TStrings; LogType: TLogType): TJsonObject;
+
 implementation
 
 uses
-  xeMainForm;
+  xeMainForm, wbLoadOrder, xeAutomationErrors;
 
 {$R *.dfm}
 
@@ -710,6 +712,77 @@ end;
 procedure TfrmLogAnalyzer.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   Action := caFree;
+end;
+
+function xeAutomationAnalyzeLog(const Lines: TStrings; LogType: TLogType): TJsonObject;
+var Form: TfrmLogAnalyzer; Files: TwbFiles; Module: PwbModuleInfo;
+  Entry, Line: string; i, j, Processed, Recognized: Integer; Deadline: UInt64;
+  Row: TJsonObject; RecordRef: IwbMainRecord;
+  procedure Parse(const Text: string);
+  begin
+    if Length(Text) > 8192 then raise xeAutomationNewError('log_capacity', 'Native log entry exceeds 8192 characters');
+    Inc(Recognized);
+    if LogType = ltTES5Papyrus then Form.ParsePapyrusData(Text)
+    else if not Form.ParseRuntimeScriptProfilerData(Text) then
+      raise xeAutomationInvalidRequest('Native runtime profiler parser rejected an entry');
+    if Length(Form.LogEntries) > 512 then raise xeAutomationNewError('log_capacity', 'Native log analysis exceeds 512 attributed records');
+  end;
+begin
+  // Own a hidden analyzer solely for its established parsing/record-attribution
+  // methods. Never call FormShow/btnAnalyze or pump GUI messages; the caller has
+  // captured a bounded immutable file snapshot instead of TTextStream truncation.
+  if not Assigned(frmMain) then raise xeAutomationStateConflict('Native log attribution requires a loaded main-form session');
+  Form := TfrmLogAnalyzer.Create(nil);
+  Result := TJsonObject.Create;
+  try
+    try
+      for Module in wbModulesByLoadOrder do if (mfHasFile in Module.miFlags) and Assigned(Module._File) then begin
+        SetLength(Files, Length(Files)+1); Files[High(Files)] := Module._File;
+      end;
+      Form.PFiles := @Files; Form.ltLog := LogType;
+      Deadline := GetTickCount64 + 250; Processed := 0; Recognized := 0; Entry := '';
+      Result.B['complete'] := True;
+      for i := 0 to Lines.Count - 1 do begin
+        if GetTickCount64 >= Deadline then begin
+          Result.B['complete'] := False; Result.S['incompleteReason'] := 'native-parse-time-budget'; Break;
+        end;
+        Line := Lines[i]; Inc(Processed);
+        if LogType = ltTES5Papyrus then begin
+          if (Length(Line) > 25) and (Line[1] = '[') and CharInSet(Line[2], ['0'..'9']) then begin
+            if Entry <> '' then Parse(Entry);
+            Entry := Line;
+          end else begin
+            if Entry <> '' then Entry := Entry + #13#10;
+            Entry := Entry + Line;
+          end;
+          if Length(Entry) > 8192 then raise xeAutomationNewError('log_capacity', 'Native log entry exceeds 8192 characters');
+        end else if (Length(Line) > 9) and IsHexStr(Copy(Line,1,8)) and (Line[9] = #9) then Parse(Line);
+      end;
+      if (LogType = ltTES5Papyrus) and Result.B['complete'] and (Entry <> '') then Parse(Entry);
+      Result.I['processedLines'] := Processed; Result.I['inputLines'] := Lines.Count;
+      Result.I['parsedEntries'] := Recognized; Result.I['unknownFormIDs'] := Form.FormIDErrors;
+      Result.I['attributedRecords'] := Length(Form.LogEntries);
+      Result.B['nativeParserPermissive'] := True;
+      Result.S['unknownPolicy'] := 'native unknown non-save FormIDs counted and omitted; load order must match the log';
+      Result.S['scope'] := 'native parser conventions; snapshot load-order attribution; not general text/error detection';
+      Result.A['records'];
+      for j := Low(Form.LogEntries) to High(Form.LogEntries) do begin
+        Row := Result.A['records'].AddObject;
+        Row.S['formId'] := Form.LogEntries[j].FormID.ToString(False);
+        Row.B['saveGame'] := Form.LogEntries[j].LoadOrder = $FF;
+        if Supports(Form.LogEntries[j].Element, IwbMainRecord, RecordRef) then begin
+          Row.S['file'] := RecordRef._File.FileName; Row.S['editorId'] := RecordRef.EditorID;
+        end;
+        if LogType = ltTES5Papyrus then begin
+          Row.I['errors'] := Round(Form.LogEntries[j].Value1); Row.I['warnings'] := Round(Form.LogEntries[j].Value2);
+          Row.S['text'] := Form.LogEntries[j].Text;
+        end else begin
+          Row.I['executions'] := Round(Form.LogEntries[j].Value1);
+          Row.F['totalMs'] := Form.LogEntries[j].Value2; Row.F['maxMs'] := Form.LogEntries[j].Value3;
+        end;
+      end;
+    except Result.Free; raise; end;
+  finally Form.PFiles := nil; Form.Free; end;
 end;
 
 procedure TfrmLogAnalyzer.FormCreate(Sender: TObject);
