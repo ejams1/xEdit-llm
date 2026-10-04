@@ -99,7 +99,7 @@ class Client:
         self.sequence = 0
         artifacts.mkdir(parents=True, exist_ok=True)
 
-    def call(self, command, **args):
+    def call(self, command, /, **args):
         envelope = self.request(json.dumps({"command": command, "args": args}))
         if not envelope.get("ok"):
             raise RuntimeError(envelope)

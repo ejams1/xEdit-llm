@@ -206,6 +206,8 @@ function xeAutomationSystemCommandSchema(const AArgs: TJsonObject): TJsonObject;
 var
   lCommand: string;
   lExample, lExampleItem: TJsonObject;
+  i: Integer;
+  lExampleComplete: Boolean;
 begin
   lCommand := LowerCase(xeAutomationRequireStringArg(AArgs, 'command'));
   xeAutomationEnsureCapabilityCommandSurface;
@@ -216,11 +218,14 @@ begin
   Result.B['schemaAvailable'] := True;
   Result.O['argumentSchema'].S['type'] := 'object';
   Result.O['argumentSchema'].A['required'].Clear;
+  Result.O['argumentSchema'].O['properties'].Clear;
   Result.A['errors'].Add('invalid_request');
   if SameText(lCommand, 'system.command_schema') then begin
     xeAutomationSchemaField(Result, 'command', 'string:registered-command', True);
     Result.S['prerequisites'] := 'None; unimplemented schemas return schemaAvailable:false';
     Result.S['persistence'] := 'read-only';
+    Result.O['example'].S['command'] := lCommand;
+    Result.O['example'].O['args'].S['command'] := 'elements.set_value';
   end else if SameText(lCommand, 'elements.set_value') or
      SameText(lCommand, 'elements.set_native_value') then begin
     xeAutomationSchemaLocator(Result);
@@ -244,30 +249,88 @@ begin
     Result.A['errors'].Add('mutation_not_allowed');
     lExample := Result.O['example'];
     lExample.S['command'] := lCommand;
-    if SameText(lCommand, 'system.command_schema') then
-      lExample.O['args'].S['command'] := 'elements.set_value';
     lExample.O['args'].S['file'] := 'MyPatch.esp';
     lExample.O['args'].S['formId'] := '01000800';
     lExample.O['args'].S['path'] := 'EDID';
     lExample.O['args'].S['expectedRevision'] := '<session.get_dirty_state.mutationRevision>';
     lExample.O['args'].S['expectedValue'] := '<elements.get_value.values.editValue>';
     lExample.O['args'].S['value'] := 'ReplacementEditorId';
-  end else if SameText(lCommand, 'elements.get_value') or
+  end else if SameText(lCommand, 'elements.get') or
+              SameText(lCommand, 'elements.get_value') or
+              SameText(lCommand, 'elements.conflict_status') or
+              SameText(lCommand, 'elements.required_masters') or
+              SameText(lCommand, 'elements.assign_templates') or
               SameText(lCommand, 'elements.children') or
               SameText(lCommand, 'records.get') then begin
     xeAutomationSchemaLocator(Result);
+    if SameText(lCommand, 'elements.get') or SameText(lCommand, 'elements.children') or
+       SameText(lCommand, 'records.get') then
+      xeAutomationSchemaField(Result, 'includeParents', 'boolean:default-false', False);
+    if SameText(lCommand, 'elements.assign_templates') then
+      xeAutomationSchemaField(Result, 'targetIndex', 'integer:default-append', False);
     if SameText(lCommand, 'elements.children') then begin
       xeAutomationSchemaField(Result, 'offset', 'integer:nonnegative-default-0', False);
-      xeAutomationSchemaField(Result, 'limit', 'integer:1..500-default-200', False);
+      xeAutomationSchemaField(Result, 'limit', 'integer:1..1000-default-200', False);
       Result.S['resultNotes'] := 'Immediate native children are paged; use offset until truncated=false';
     end else if SameText(lCommand, 'elements.get_value') then
       Result.S['resultNotes'] := 'Full edit/native value with exact whitespace, bounded to 1048576 characters';
     Result.S['prerequisites'] := 'Loaded file and record; no mutation consent needed';
     Result.S['persistence'] := 'read-only';
-  end else if SameText(lCommand, 'session.get_dirty_state') then begin
+  end else if SameText(lCommand, 'session.get_dirty_state') or
+              SameText(lCommand, 'session.get_gui_snapshot') or
+              SameText(lCommand, 'system.ping') or SameText(lCommand, 'system.describe') or
+              SameText(lCommand, 'system.capabilities') then begin
     Result.S['prerequisites'] := 'Loaded session';
     Result.S['persistence'] := 'read-only';
-    Result.S['resultNotes'] := 'mutationRevision is the optimistic edit token';
+    if SameText(lCommand, 'session.get_dirty_state') then
+      Result.S['resultNotes'] := 'mutationRevision is the optimistic edit token';
+  end else if SameText(lCommand, 'jobs.start') then begin
+    xeAutomationSchemaField(Result, 'kind', 'string:system.capabilities.supports.jobs.kinds', True);
+    xeAutomationSchemaField(Result, 'target', 'object:kind-specific-explicit-scope', True);
+    xeAutomationSchemaField(Result, 'options', 'object:kind-specific-options', False);
+    xeAutomationSchemaField(Result, 'dryRun', 'boolean:kind-specific-default', False);
+    Result.S['prerequisites'] := 'Loaded session; no competing active job; apply needs mutation consent and kind-specific preflight';
+    Result.S['persistence'] := 'queues native work; plugin apply remains in memory until explicit save/flush; LOD may write external output';
+    Result.S['constraintNotes'] := 'Target/options are specific to the chosen kind; this schema documents the start envelope only';
+    Result.A['errors'].Add('job_busy');
+    Result.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(lCommand, 'jobs.get') or SameText(lCommand, 'jobs.findings') or
+              SameText(lCommand, 'jobs.cancel') or SameText(lCommand, 'jobs.discard') then begin
+    xeAutomationSchemaField(Result, 'jobId', 'string:retained-session-job-id', True);
+    if SameText(lCommand, 'jobs.findings') then begin
+      xeAutomationSchemaField(Result, 'offset', 'integer:nonnegative-default-0', False);
+      xeAutomationSchemaField(Result, 'limit', 'integer:positive-clamped-500-default-100', False);
+    end;
+    Result.S['prerequisites'] := 'Retained job in this session; discard requires terminal state';
+    Result.S['persistence'] := 'session-only job lifecycle; get advances native work and may mutate plugins or write external output';
+    Result.S['constraintNotes'] := 'Cancellation yields between native steps; jobs.get is not a passive status probe';
+    Result.O['example'].S['command'] := lCommand;
+    Result.O['example'].O['args'].S['jobId'] := '<jobs.start.jobId>';
+  end else if SameText(lCommand, 'elements.set_to_default') or SameText(lCommand, 'elements.clear') or
+              SameText(lCommand, 'elements.remove_child') or SameText(lCommand, 'elements.move_up') or
+              SameText(lCommand, 'elements.move_down') or SameText(lCommand, 'elements.next_member') or
+              SameText(lCommand, 'elements.previous_member') then begin
+    xeAutomationSchemaLocator(Result);
+    if SameText(lCommand, 'elements.remove_child') then
+      xeAutomationSchemaField(Result, 'path', 'string:nonempty-existing-child-path', True);
+    xeAutomationSchemaField(Result, 'expectedRevision', 'string:decimal-uint64', False);
+    xeAutomationSchemaField(Result, 'expectedValue', 'string:exact-edit-value', False);
+    Result.S['prerequisites'] := 'Owned writable target, mutation consent and native operation predicate; inspect elements.edit_capabilities';
+    Result.S['persistence'] := 'in-memory-until-session.save-then-terminal-session.flush';
+    Result.S['constraintNotes'] := 'remove_child requires a nonempty child path; structural edits can invalidate indexed paths; re-enumerate afterward';
+    Result.A['errors'].Add('stale_revision');
+    Result.A['errors'].Add('stale_value');
+    Result.A['errors'].Add('mutation_not_allowed');
+  end else if SameText(lCommand, 'elements.copy_child_to') then begin
+    xeAutomationSchemaField(Result, 'source', 'object:file,formId,path:existing-child', True);
+    xeAutomationSchemaField(Result, 'target', 'object:file,formId,path:owned-container', True);
+    xeAutomationSchemaField(Result, 'targetIndex', 'integer:default-append', False);
+    xeAutomationSchemaField(Result, 'addRequiredMasters', 'boolean:default-false', False);
+    xeAutomationSchemaField(Result, 'expectedRevision', 'string:decimal-uint64', False);
+    Result.S['prerequisites'] := 'Loaded source child; owned writable target, consent, native CanAssign and required masters';
+    Result.S['persistence'] := 'in-memory-until-session.save-then-terminal-session.flush';
+    Result.S['constraintNotes'] := 'Source/target are nested locators; no expectedValue support on this command; re-enumerate after sorted assignment';
+    Result.A['errors'].Add('mutation_not_allowed');
   end else if SameText(lCommand, 'elements.edit_capabilities') then begin
     xeAutomationSchemaLocator(Result);
     xeAutomationSchemaField(Result, 'targetIndex', 'integer:default-append', False);
@@ -318,8 +381,10 @@ begin
     Result.S['prerequisites'] := 'Clean saved/flushed loaded sources/masters; non-TES3, translation mode off; BOSS only gmTES4; consent for output apply';
     Result.S['persistence'] := 'read-only-plugin-scan; optional-immediate-atomic-external-UTF8-output';
     Result.S['constraintNotes'] := '<=1000 records, <=64 MiB/source; source disk CRC matches loaded snapshot; nonempty child-group parents retained; master disk files not rehashed';
-    Result.O['example'].S['format'] := 'loot';
-    Result.O['example'].A['files'].Add('Patch.esp');
+    Result.O['example'].S['command'] := lCommand;
+    Result.O['example'].O['args'].S['format'] := 'loot';
+    Result.O['example'].O['args'].A['files'].Add('Patch.esp');
+    Result.O['example'].O['args'].B['dryRun'] := True;
     Result.A['errors'].Add('state_conflict');
     Result.A['errors'].Add('report_capacity');
     Result.A['errors'].Add('unsupported_game_mode');
@@ -342,12 +407,16 @@ begin
     xeAutomationSchemaField(Result, 'rowLimit', 'integer:1..256-default-256', False);
     xeAutomationSchemaField(Result, 'depth', 'integer:0..8-default-8', False);
     Result.S['effect'] := 'read-only plugin payload; derived native alignment; explicit column order';
+    Result.S['prerequisites'] := 'Compatible loaded numeric records; non-TES3, translation off; bounded owned payload paths';
+    Result.S['persistence'] := 'read-only plugin payload; derived alignment only';
   end else if SameText(lCommand, 'comparisons.load') then begin
     xeAutomationSchemaField(Result, 'sourceFile', 'string:ordinary-full-loaded-baseline', True);
     xeAutomationSchemaField(Result, 'inputPath', 'string:absolute-existing-plugin', True);
     xeAutomationSchemaField(Result, 'fileName', 'string:new-simple-esp-session-name', True);
     xeAutomationSchemaField(Result, 'dryRun', 'boolean:default-true', False);
     Result.S['effect'] := 'session-only native comparison load; no disk copy; changes override graph';
+    Result.S['prerequisites'] := 'Nonlocalized full numeric baseline and captured comparison; earlier loaded full dependencies; apply requires consent';
+    Result.S['persistence'] := 'session-only comparison graph; restart removes comparison; no plugin or external output write';
   end else if SameText(lCommand, 'batch.rows') then begin
     xeAutomationSchemaField(Result, 'items', 'array<object:mode,target,source?>', True);
     Result.O['argumentSchema'].O['properties'].O['items'].I['minItems'] := 1;
@@ -591,6 +660,25 @@ begin
       lExample.O['args'].B['dryRun'] := True;
     end;
   end;
+  // Never advertise a request example with missing required fields. Generic
+  // locator examples cannot describe every command's nested selectors.
+  lExampleComplete := Result.B['schemaAvailable'] and Result.Contains('example');
+  if lExampleComplete then begin
+    lExample := Result.O['example'];
+    lExampleComplete := (lExample.S['command'] = lCommand) and
+      (not lExample.Contains('args') or (lExample.Types['args'] = jdtObject));
+    if lExampleComplete then begin
+      lExampleItem := lExample.O['args'];
+      for i := 0 to Pred(Result.O['argumentSchema'].A['required'].Count) do
+        if not lExampleItem.Contains(Result.O['argumentSchema'].A['required'].S[i]) then
+          lExampleComplete := False;
+    end;
+  end;
+  if not lExampleComplete then
+    Result.Remove('example');
+  Result.B['exampleAvailable'] := lExampleComplete;
+  if lExampleComplete then
+    Result.S['exampleNotes'] := 'Request shape only; replace illustrative files, FormIDs, paths and angle-bracket tokens with discovered session values';
 end;
 
 function xeAutomationSystemCapabilities(const aArgs: TJsonObject): TJsonObject;
@@ -615,7 +703,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.52';
+  Result.S['contractVersion'] := '0.53';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -702,6 +790,7 @@ begin
   Result.O['supports'].O['commandSchemas'].S['command'] := 'system.command_schema';
   Result.O['supports'].O['commandSchemas'].B['onDemand'] := True;
   Result.O['supports'].O['commandSchemas'].B['partialCoverage'] := True;
+  Result.O['supports'].O['commandSchemas'].S['exampleAvailabilityField'] := 'exampleAvailable';
   Result.O['supports'].O['editExpectations'].S['revisionSource'] :=
     'session.get_dirty_state.mutationRevision';
   Result.O['supports'].O['editExpectations'].S['valueSource'] :=

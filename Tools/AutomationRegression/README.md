@@ -1,5 +1,40 @@
 # Automation regression fixtures
 
+## Issue #18: command schema discovery audit
+
+On a freshly compiled LiteDebug daemon run:
+
+```powershell
+python Tools/AutomationRegression/schema_fixture.py discovery --exe <trusted-exe> --pid <daemon-pid> --artifacts <new-capture-directory>
+```
+
+This phase queries capabilities and every registered command schema without
+executing the examples. It captures each exchange plus `schema-discovery.json`,
+listing authored schemas, explicit gaps and available examples. All element
+commands and job envelopes/controls must be covered. `jobs.start` documents its
+envelope; native target/options predicates remain specific to the chosen job kind.
+Discovery checks required arguments, example envelopes, field types/enums, boolean
+flag keys and authored nested item schemas. `exampleAvailable:false` means no
+example is advertised; illustrative file names/FormIDs and angle-bracket tokens
+must be replaced with values from the loaded session before executing any example.
+The descriptor vocabulary is an authored protocol shape, not standard JSON Schema.
+
+Contract 0.53 corrects the `elements.children` schema maximum to the native 1000,
+adds `includeParents` discovery and exposes previously missing element operations
+and job controls. `jobs.get` advances native work and can mutate a plugin or write
+external output; it is not a passive status call. Plugin writes still require
+explicit save and terminal flush. Full schema coverage for remaining command
+groups and kind-specific job arguments remains pending.
+
+Then generate a fresh string overlay using `string_fixture.py`, run the existing
+`schema_fixture.py exercise` phase with consent, restart the daemon and run
+`verify` with a fresh PID/artifact directory. Exercise validates the now-authored
+`records.copy_into` schema, optimistic revision/value refusals and edit readback;
+verify checks persisted full values. Run with no consent for discovery and inspect
+that no plugin dirty state or pending-save state changes. Native build, discovery,
+mutations and game-backed persistence have not been run locally; Python checks
+only validate the fixture/audit logic.
+
 ## Issue #37: multiple structural rows
 
 `batch.rows` accepts `items` (1..16), mandatory `expectedRevision` from
