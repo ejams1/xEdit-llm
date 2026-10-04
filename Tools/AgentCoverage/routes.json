@@ -577,11 +577,12 @@
       "scriptSymbols": []
     },
     "reference-index": {
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "analysis.build_references",
+        "analysis.reference_status"
       ],
-      "notes": "Verify admitted BuildRef recipe or add a progress-aware command with scope, completeness and index revision reporting.",
+      "notes": "Default-dry-run scoped or all-loaded native BuildRef job, progress/cancel between files, completion-generation freshness per file and all-loaded snapshot. Current indexes are reused; stale indexes rebuilt, cache writes suppressed. Native runtime not verified.",
       "effect": "analysis/index mutation",
       "scriptSymbols": [
         "BuildRef"
@@ -914,6 +915,10 @@
     "comparisons": {
       "prerequisites": "Numeric records, translation off; matching native definitions. Load ordinary full baseline/nonlocalized input; dependencies loaded earlier; apply session consent.",
       "effect": "read-only payload comparison or session-only native comparison graph load; no plugin save"
+    },
+    "analysis": {
+      "prerequisites": "loaded native modules; numeric game gate for reference-index jobs",
+      "effect": "derived memory analysis/index state; no plugin persistence"
     }
   },
   "requiredProfiles": [
@@ -1535,6 +1540,14 @@
     "files.add_masters": {
       "effect": "default dry-run; in-memory master header addition/native remap -> explicit save + terminal flush",
       "prerequisites": "consented writable numeric plugin; all requested masters loaded earlier; no comparison files; native capacity/module gates"
+    },
+    "analysis.build_references": {
+      "effect": "derived reference indexes in memory; native cache writes suppressed; no plugin save",
+      "prerequisites": "numeric games; explicit 1..32 plugin scope or allLoaded:true up to 256 files; no concurrent native indexing"
+    },
+    "analysis.reference_status": {
+      "effect": "read-only per-file freshness/all-loaded completeness snapshot",
+      "prerequisites": "loaded native modules"
     }
   }
 }
