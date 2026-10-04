@@ -1409,7 +1409,8 @@
       "effect": "read-only; no plugin persistence"
     },
     "records.references": {
-      "effect": "read-only; no plugin persistence"
+      "effect": "read-only; no plugin persistence",
+      "limitations": "Root payload first; retained scoped child-root selection/sort; <=100000 roots/1000000 selection units/100000 payload units/depth128/shared64MiB; 5000 work units and soft100ms checkpoints per page; native calls indivisible; native acceptance pending"
     },
     "records.winning_override": {
       "effect": "read-only; no plugin persistence"

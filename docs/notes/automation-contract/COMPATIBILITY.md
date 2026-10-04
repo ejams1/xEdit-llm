@@ -15,9 +15,19 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Current: **0.23** (accepted lifecycle readback, flush, and script-safety closeout)
+Source contract: **0.60** (retained recursive relationship selection/sort).
+The accepted lifecycle baseline documented here remains **0.23**; subsequent
+draft PRs and native acceptance instructions are recorded in
+`Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
+
+- **0.60: recursive relationship paging follow-up** — retained child selection
+  and in-place sort inside page checkpoints; root payload first, scoped highest
+  child version and native FormID order; later parent groups included even with
+  no root group. Adds traversal counters, `semanticRevision`, `cursorRetained`,
+  explicit setup limits, and safe active-query ownership during invalidation.
+  Native acceptance pending.
 
 - 0.6: Phase 6A jobs/file-hygiene
 - 0.7-0.9: Phase 6B/6C/6D + 6E freeze

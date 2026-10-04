@@ -454,27 +454,34 @@ metadata:
 }
 ```
 
-## references recursive descent (0.15)
+## references recursive descent (0.15; retained paging in 0.60)
 
 Phase 15C extends `records.references` with one optional argument:
 
 - `recursive` (boolean, default `false`): when omitted or false, the command keeps
   the pre-0.15 shallow behavior and scans only the addressed record's own element
-  tree. When true and the addressed record has a populated ChildGroup, xEdit walks
-  ChildGroup-owned records with `wbGetSiblingRecords`, collects each child
-  record's outgoing references, and unions them with the parent record's own hits.
+  tree. When true, xEdit selects child roots using native `wbGetSiblingRecords`
+  semantics: the root's own child group plus later parent overrides, highest
+  scoped file version per FormID. Root payload precedes selected child payload
+  in native FormID order. Selection stops at main records and does not follow
+  links transitively or replace children with outside-scope global winners.
 
 The `supports.referencesRecursive` block advertises:
 
 - `defaultRecursive: false`
 - `appliesTo: ["CELL", "WRLD", "DIAL", "QUST"]`
-- `dedupBy: "loadOrderFormId"`
+- `dedupBy: "file-and-loadOrderFormId"`
 - `limitSemantics: "post-union-post-dedup"`
 
-Limit semantics are aggregate: deduplication happens across the parent and all
-descended child-record hits, then the existing `limit` cap is applied to the final
-`hits` array. Supplying `recursive:true` for a record with no populated ChildGroup
-is a silent no-op and returns the same shape as `recursive:false`.
+Deduplication spans all pages. `limit` is a page size (1..500); drain identical
+arguments plus `nextCursor`, including empty continuation pages, until
+`complete:true`. Contract 0.60 retains selection and incremental sorting within
+5,000 work units / soft 100 ms per page, and reports `traversal` phase/counters,
+`semanticRevision`, and `cursorRetained`. No own child group does not exclude
+later parent override groups. Native calls remain indivisible; exceeding root,
+selection, payload, depth or retained-memory limits ends with explicit
+`incomplete:true` and a reason, never a complete prefix. See
+`Tools/AutomationRegression/README.md` for limits and native acceptance commands.
 
 Example:
 
