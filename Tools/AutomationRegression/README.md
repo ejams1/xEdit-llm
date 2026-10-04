@@ -598,25 +598,67 @@ recursive child-overrides, duplicate forward/reverse links, missing/rebuilt
 reference index, regex pathological patterns and projection of nested element
 wrappers in the MO2 test pass. Compilation and these native cases are pending.
 
-## Issue #14: incremental job progress
+## Issue #14: retained validation steps (contract 0.55)
 
-`jobs.get` advances one target file per request on xEdit's main thread. Its
-`progress` object reports completed/total/remaining target files and the next
-file. `jobs.findings` and read-only session probes work between steps; loaded
-graph mutations, save, flush, and scripts return `job_busy` while a job is
-active. `jobs.cancel` retains completed summaries/findings and stops before the
-next file. Apply jobs preflight writability of every target before the first
-file can change. A retained terminal job releases its native file references.
+`validation.check_for_errors`, `validation.check_for_itm` and
+`validation.check_for_deleted_refs` retain a preorder traversal cursor within a
+file. Each `jobs.get` performs at most 128 traversal actions, checking a soft
+20ms budget between native calls. Native initialization, element checks and ITM
+comparisons remain indivisible; a slow native call can exceed that budget.
+Traversal depth is capped at 64. No full child list is built or subtree rescanned.
+`system.capabilities.supports.jobs.stepping` derives its kinds from the registry.
 
+`progress.completed` counts fully traversed target files; `progress.detail`
+reports the current/last file, visited elements, checked records, retained depth,
+step count and last work count. Detail depth describes the last traversal step;
+`cursorRetained` becomes false when terminal cleanup releases the cursor. Per-file result rows have `complete:false` while
+partially traversed. Summary counts accumulate once across polls. A no-findings
+informational result is emitted only after an entire file finishes.
+`findingsComplete` is true only for succeeded jobs, including findings pages.
+Cancellation/failure preserves partial rows and admitted findings. The durable
+finding sink admits each finding before retaining it, with limits of 5000 entries
+and 1MiB of compact UTF-8 JSON. A capacity failure keeps earlier findings and marks
+the job failed, never successful. Message previews over 4096 characters report
+`messageTruncated` and `originalMessageCharacters`; locator paths are retained.
+
+Read-only probes and `jobs.findings` work between steps. Loaded graph mutations,
+save, flush and scripts return `job_busy` while a job is active. Apply jobs
+preflight every target's writability before mutation. Cancellation, failure,
+success and discard release the retained traversal interfaces; terminal JSON
+results remain available. Reentrant polling/discard is refused during a native
+step, and reentrant cancellation waits until that step returns.
+
+Compile LiteDebug using the maintainer's licensed Delphi setup, then generate a
+fresh MO2 overlay and launch a fresh FO4 daemon with the two generated plugins:
+
+```powershell
+python Tools/AutomationRegression/validation_step_fixture.py generate --overlay <new-MO2-mod-folder>
+python Tools/AutomationRegression/validation_step_fixture.py exercise --exe <trusted-exe> --pid <daemon-pid> --artifacts <new-capture-folder>
+```
+
+The 3200-record fixture alternates identical overrides and header-only changes.
+The runner requires within-file yields for all three validation kinds, cancels
+with retained ITM findings, checks read-only access and write blocking, restarts
+to completion and compares the full ITM identity set without duplicates. It
+checks complete rows, counters, paging and unchanged dirty state. The deleted
+reference pass checks the no-findings completion path, not positive deleted
+reference classification. Error-check findings must preserve their prefix across
+cancel/restart; dedicated malformed-record classification remains native work.
+`validation-steps.json` records every poll duration including client process/IPC
+time; it does not assert a hard native latency bound.
+
+In a separate fresh overlay/process, repeat both commands with `--capacity`.
+This creates 6000 identical overrides. The runner requires a durable
+`job_capacity` failure with earlier findings and an incomplete file row.
+Never overwrite the first fixture or mix these variants in one loaded session.
 Run `job_fixture.py --exe <exe> --pid <pid> --artifacts <folder> --files
-<small-plugin> <second-plugin>` against two disposable loaded plugins. It
-checks one-file advancement, progress, findings paging, safe cancellation,
-read-only probes, write blocking, restart, aggregation, and discard. Capture
-request timings and inspect dirty state after a separate apply/cancel test;
-that test needs a fixture where the first file actually changes. Native work
-within a single file is still atomic. Large single-file validation scans,
-compaction, and cleaning need finer steppers before latency can be guaranteed.
-Compilation and game-backed execution remain pending.
+<plugin-one> <plugin-two>` for cross-file aggregation and cancellation, using two
+disposable loaded plugins.
+
+Python integrity/runner tests pass independently of xEdit. Delphi compilation
+and the above game-backed phases have **not** run locally. Issue #14 remains
+open: circular lists, cleaning, compaction, reference construction, reachability
+and LOD still contain larger native units, and no hard latency guarantee is made.
 
 ## Issue #25: injected-reference cleanup
 

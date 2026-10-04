@@ -13,7 +13,22 @@ interface
 uses
   JsonDataObjects;
 
+const
+  xeAutomationJobStepWorkLimit = 128;
+  xeAutomationJobStepBudgetMs = 20;
+  xeAutomationJobStepDepthLimit = 64;
+
 type
+  // Main-thread cooperative work: native calls cannot be preempted. A stepper
+  // retains its cursor and interfaces until its current target is complete.
+  TxeAutomationJobStepper = class
+  public
+    function Advance(const AFindings: TJsonArray;
+      const ASummary, AResult, AFailure: TJsonObject): Boolean; virtual; abstract;
+    procedure WriteProgress(const AProgress: TJsonObject); virtual; abstract;
+  end;
+  TxeAutomationJobStepperFactory = function(const AKind: string;
+    const ATarget, AOptions: TJsonObject): TxeAutomationJobStepper;
   TxeAutomationJobStartValidator = procedure(var ADryRun: Boolean; const ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject);
   TxeAutomationJobHandler = procedure(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject;
     const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
@@ -21,8 +36,13 @@ type
 procedure xeAutomationRegisterJobKind(const AKind: string; const AHandler: TxeAutomationJobHandler);
 procedure xeAutomationRegisterJobKindWithValidator(const AKind: string; const AHandler: TxeAutomationJobHandler;
   const AValidator: TxeAutomationJobStartValidator; const AWorkKey: string = 'files');
+procedure xeAutomationRegisterJobStepper(const AKind: string; const AFactory: TxeAutomationJobStepperFactory);
+// Ownership transfers only after successful admission; earlier findings survive
+// a capacity failure. Steppers must use this sink instead of AddObject.
+procedure xeAutomationAppendJobFinding(const AFindings: TJsonArray; const AFinding: TJsonObject);
 procedure xeAutomationAssertJobCommandAllowed(const ACommand: string);
 function xeAutomationListJobKinds: TArray<string>;
+function xeAutomationListSteppedJobKinds: TArray<string>;
 function xeAutomationStartJob(const AKind: string; const ADryRun, ADryRunSpecified: Boolean; const ATarget, AOptions: TJsonObject): TJsonObject;
 function xeAutomationGetJob(const AJobId: string): TJsonObject;
 function xeAutomationGetJobFindings(const AJobId: string; const AOffset, ALimit: Integer): TJsonObject;
@@ -52,6 +72,7 @@ type
     Handler: TxeAutomationJobHandler;
     Validator: TxeAutomationJobStartValidator;
     WorkKey: string;
+    StepperFactory: TxeAutomationJobStepperFactory;
   end;
 
   TxeAutomationJobState = (xajsQueued, xajsRunning, xajsSucceeded, xajsFailed, xajsCancelRequested, xajsCanceled);
@@ -76,6 +97,10 @@ type
     StartMutation: TxeAutomationMutationSnapshot;
     ExpectedRevision, ExpectedSemanticRevision: UInt64;
     PreflightDone: Boolean;
+    Stepper: TxeAutomationJobStepper;
+    StepProgress: TJsonObject;
+    Executing: Boolean;
+    FindingBytes: Integer;
     constructor Create;
     destructor Destroy; override;
     function IsTerminal: Boolean;
@@ -117,10 +142,14 @@ begin
   ResultData := TJsonObject.Create;
   FailureData := TJsonObject.Create;
   Findings := TJsonArray.Create;
+  StepProgress := TJsonObject.Create;
+  FindingBytes := 2; // JSON array brackets
 end;
 
 destructor TxeAutomationJob.Destroy;
 begin
+  Stepper.Free;
+  StepProgress.Free;
   Findings.Free;
   FailureData.Free;
   ResultData.Free;
@@ -137,8 +166,8 @@ end;
 
 function TxeAutomationJob.IsCancelable: Boolean;
 begin
-  // Native xEdit operations are advanced only on the main request path. Once a
-  // handler is running there is no safe mid-operation interrupt point to expose.
+  // Cancellation takes effect between cooperative steps/native calls; an
+  // executing native operation cannot be interrupted by freeing its cursor.
   Result := State in [xajsQueued, xajsRunning, xajsCancelRequested];
 end;
 
@@ -191,11 +220,50 @@ begin
     raise Exception.CreateFmt('Automation job kind already registered: %s', [AKind]);
 
   lRegistration.Handler := AHandler;
+  lRegistration.StepperFactory := nil;
   lRegistration.Validator := AValidator;
   if (AWorkKey <> 'files') and (AWorkKey <> 'worldspaces') and (AWorkKey <> 'steps') then
     raise Exception.Create('Unsupported automation job work key');
   lRegistration.WorkKey := AWorkKey;
   xeAutomationGetJobKinds.Add(lKind, lRegistration);
+end;
+
+procedure xeAutomationRegisterJobStepper(const AKind: string; const AFactory: TxeAutomationJobStepperFactory);
+var
+  lKind: string;
+  lRegistration: TxeAutomationJobKindRegistration;
+begin
+  lKind := xeAutomationNormalizeJobKind(AKind);
+  if not Assigned(AFactory) or not xeAutomationGetJobKinds.TryGetValue(lKind, lRegistration) then
+    raise Exception.Create('A stepper requires a factory and a registered job kind');
+  if Assigned(lRegistration.StepperFactory) then
+    raise Exception.CreateFmt('Automation job stepper already registered: %s', [AKind]);
+  lRegistration.StepperFactory := AFactory;
+  xeAutomationGetJobKinds.AddOrSetValue(lKind, lRegistration);
+end;
+
+procedure xeAutomationAppendJobFinding(const AFindings: TJsonArray; const AFinding: TJsonObject);
+var
+  lBytes, lRetainedBytes: Integer;
+  lDurable: Boolean;
+begin
+  lDurable := Assigned(xeAutomationActiveJob);
+  if lDurable then
+    lDurable := AFindings = xeAutomationActiveJob.Findings;
+  if lDurable then
+    lRetainedBytes := xeAutomationActiveJob.FindingBytes
+  else
+    lRetainedBytes := TEncoding.UTF8.GetByteCount(AFindings.ToJSON(True));
+  // Compact serialization makes incremental accounting exact: two brackets,
+  // each serialized object and one comma between objects, without indentation.
+  lBytes := TEncoding.UTF8.GetByteCount(AFinding.ToJSON(True));
+  if AFindings.Count > 0 then Inc(lBytes);
+  if (AFindings.Count >= xeAutomationMaxJobFindings) or
+     (lRetainedBytes + lBytes > xeAutomationMaxJobFindingBytes) then
+    raise xeAutomationNewError('job_capacity', 'Job findings exceed the retained result budget');
+  AFindings.Add(AFinding);
+  if lDurable then
+    Inc(xeAutomationActiveJob.FindingBytes, lBytes);
 end;
 
 procedure xeAutomationRegisterJobKind(const AKind: string; const AHandler: TxeAutomationJobHandler);
@@ -218,6 +286,24 @@ begin
     SetLength(Result, lKinds.Count);
     for i := 0 to Pred(lKinds.Count) do
       Result[i] := lKinds[i];
+  finally
+    lKinds.Free;
+  end;
+end;
+
+function xeAutomationListSteppedJobKinds: TArray<string>;
+var
+  lKinds: TList<string>;
+  lKind: string;
+  lRegistration: TxeAutomationJobKindRegistration;
+begin
+  lKinds := TList<string>.Create;
+  try
+    for lKind in xeAutomationListJobKinds do begin
+      lRegistration := xeAutomationGetJobKinds.Items[lKind];
+      if Assigned(lRegistration.StepperFactory) then lKinds.Add(lKind);
+    end;
+    Result := lKinds.ToArray;
   finally
     lKinds.Free;
   end;
@@ -259,10 +345,13 @@ begin
   Result.B['dryRunSpecified'] := AJob.DryRunSpecified;
   Result.L['sequence'] := AJob.Sequence;
   Result.I['findingCount'] := AJob.Findings.Count;
+  Result.B['findingsComplete'] := AJob.State = xajsSucceeded;
+  Result.B['cursorRetained'] := Assigned(AJob.Stepper);
   with Result.O['progress'] do begin
     I['completed'] := AJob.WorkIndex;
     I['total'] := AJob.TotalWork;
     I['remaining'] := AJob.TotalWork - AJob.WorkIndex;
+    if AJob.StepProgress.Count > 0 then O['detail'].Assign(AJob.StepProgress);
     if AJob.WorkKey = 'files' then begin
       S['unit'] := 'target-file';
       if AJob.WorkIndex < AJob.TotalWork then S['nextFile'] := AJob.Target.A['files'].S[AJob.WorkIndex];
@@ -290,6 +379,7 @@ begin
   ATarget.B['terminal'] := AJob.IsTerminal;
   ATarget.B['cancelable'] := AJob.IsCancelable;
   ATarget.B['dryRun'] := AJob.DryRun;
+  ATarget.B['findingsComplete'] := AJob.State = xajsSucceeded;
 end;
 
 procedure xeAutomationAddFindingCopy(const ADest: TJsonArray; const ASource: TJsonArray; const AIndex: Integer);
@@ -344,7 +434,36 @@ var
   lTarget, lSummary, lResult, lFailure: TJsonObject;
   lFindings: TJsonArray;
   i: Integer;
+  lComplete: Boolean;
 begin
+  if Assigned(ARegistration.StepperFactory) then begin
+    if not Assigned(AJob.Stepper) then begin
+      lTarget := AJob.Target.Clone;
+      try
+        lTarget.A[AJob.WorkKey].Clear;
+        if AJob.WorkKey = 'files' then
+          lTarget.A['files'].Add(AJob.Target.A['files'].S[AJob.WorkIndex])
+        else
+          lTarget.A[AJob.WorkKey].AddObject.Assign(AJob.Target.A[AJob.WorkKey].O[AJob.WorkIndex]);
+        AJob.Stepper := ARegistration.StepperFactory(AJob.Kind, lTarget, AJob.Options);
+        if not Assigned(AJob.Stepper) then
+          raise Exception.Create('Automation job stepper factory returned nil');
+      finally
+        lTarget.Free;
+      end;
+    end;
+    try
+      lComplete := AJob.Stepper.Advance(AJob.Findings, AJob.SummaryData, AJob.ResultData, AJob.FailureData);
+    finally
+      AJob.StepProgress.Clear;
+      AJob.Stepper.WriteProgress(AJob.StepProgress);
+    end;
+    if lComplete and (AJob.FailureData.Count = 0) then begin
+      FreeAndNil(AJob.Stepper);
+      Inc(AJob.WorkIndex);
+    end;
+    Exit;
+  end;
   lTarget := AJob.Target.Clone;
   lSummary := TJsonObject.Create;
   lResult := TJsonObject.Create;
@@ -366,6 +485,7 @@ begin
     xeAutomationMergeJobObject(AJob.ResultData, lResult);
     for i := 0 to lFindings.Count - 1 do
       xeAutomationAddFindingCopy(AJob.Findings, lFindings, i);
+    AJob.FindingBytes := TEncoding.UTF8.GetByteCount(AJob.Findings.ToJSON(True));
     if lFailure.Count > 0 then
       AJob.FailureData.Assign(lFailure)
     else
@@ -406,6 +526,7 @@ procedure xeAutomationFinishActiveJobIfTerminal(const AJob: TxeAutomationJob);
 begin
   if (AJob = xeAutomationActiveJob) and AJob.IsTerminal then begin
     // The retained result must not pin plugin interfaces after the plan ends.
+    FreeAndNil(AJob.Stepper);
     AJob.StartMutation.Files := nil;
     xeAutomationActiveJob := nil;
     xeAutomationPruneTerminalJobs;
@@ -440,6 +561,8 @@ var
 begin
   if not Assigned(AJob) or AJob.IsTerminal then
     Exit;
+  if AJob.Executing then
+    raise xeAutomationNewError('job_busy', 'A native job step is already executing');
 
   // Jobs are deliberately poll-driven from jobs.get instead of using a worker
   // thread; xEdit's loaded plugin graph is UI/main-thread state and many native
@@ -455,80 +578,84 @@ begin
 
   lSnapshot := AJob.StartMutation;
   AJob.State := xajsRunning;
+  AJob.Executing := True;
   try
-    if (wbGlobalModifedGeneration <> AJob.ExpectedRevision) or
-       (xeAutomationQuerySemanticRevision <> AJob.ExpectedSemanticRevision) then
-      raise xeAutomationNewError('job_state_changed', 'Loaded graph changed outside this job; restart planning');
-    if not AJob.PreflightDone then begin
-      xeAutomationPreflightJobTargets(AJob);
-      AJob.PreflightDone := True;
-    end;
-    if not xeAutomationGetJobKinds.TryGetValue(AJob.Kind, lRegistration) then
-      raise xeAutomationNewError(xeAutomationErrorUnknownJobKind, Format('Automation job kind not registered: %s', [AJob.Kind]));
-    // One registered work unit per poll is the safe yield point. Legacy kinds
-    // use files; LOD uses worlds. A native unit runs on the main thread.
-    xeAutomationRunNextFile(AJob, lRegistration);
-    AJob.ExpectedRevision := wbGlobalModifedGeneration;
-    AJob.ExpectedSemanticRevision := xeAutomationQuerySemanticRevision;
-    if AJob.State = xajsCancelRequested then
-      AJob.State := xajsCanceled
-    else if AJob.FailureData.Count > 0 then begin
-      AJob.State := xajsFailed;
-      if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
-      else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
-      else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
-      xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
-      if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
-        AJob.FailureData.B['partial'] := True;
-        AJob.FailureData.B['partialKnown'] := True;
-      end else begin
-        AJob.FailureData['partial'] := nil;
-        AJob.FailureData.B['partialKnown'] := False;
+    try
+      if (wbGlobalModifedGeneration <> AJob.ExpectedRevision) or
+         (xeAutomationQuerySemanticRevision <> AJob.ExpectedSemanticRevision) then
+        raise xeAutomationNewError('job_state_changed', 'Loaded graph changed outside this job; restart planning');
+      if not AJob.PreflightDone then begin
+        xeAutomationPreflightJobTargets(AJob);
+        AJob.PreflightDone := True;
       end;
-    end
-    else if AJob.WorkIndex >= AJob.TotalWork then
-      AJob.State := xajsSucceeded;
-  except
-    on E: ExeAutomationError do begin
-      // Accepted jobs report execution failures in durable job state instead of
-      // turning a later poll into a transport-level error envelope.
-      if Assigned(E.Details) then
-        AJob.FailureData.O['details'].Assign(E.Details);
-      AJob.FailureData.S['code'] := E.Code;
-      AJob.FailureData.S['message'] := E.Message;
-      AJob.FailureData.S['phase'] := 'execution';
-      if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
-      else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
-      else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
-      xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
-      if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
-        AJob.FailureData.B['partial'] := True;
-        AJob.FailureData.B['partialKnown'] := True;
-      end else begin
-        // Generic exceptions cannot establish absence of external-file writes.
-        AJob.FailureData['partial'] := nil;
-        AJob.FailureData.B['partialKnown'] := False;
+      if not xeAutomationGetJobKinds.TryGetValue(AJob.Kind, lRegistration) then
+        raise xeAutomationNewError(xeAutomationErrorUnknownJobKind, Format('Automation job kind not registered: %s', [AJob.Kind]));
+      // Steppers yield inside a target; legacy handlers still use whole native units.
+      xeAutomationRunNextFile(AJob, lRegistration);
+      AJob.ExpectedRevision := wbGlobalModifedGeneration;
+      AJob.ExpectedSemanticRevision := xeAutomationQuerySemanticRevision;
+      if AJob.State = xajsCancelRequested then
+        AJob.State := xajsCanceled
+      else if AJob.FailureData.Count > 0 then begin
+        AJob.State := xajsFailed;
+        if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
+        else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
+        else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
+        xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
+        if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
+          AJob.FailureData.B['partial'] := True;
+          AJob.FailureData.B['partialKnown'] := True;
+        end else begin
+          AJob.FailureData['partial'] := nil;
+          AJob.FailureData.B['partialKnown'] := False;
+        end;
+      end
+      else if AJob.WorkIndex >= AJob.TotalWork then
+        AJob.State := xajsSucceeded;
+    except
+      on E: ExeAutomationError do begin
+        // Accepted jobs report execution failures in durable job state instead of
+        // turning a later poll into a transport-level error envelope.
+        if Assigned(E.Details) then
+          AJob.FailureData.O['details'].Assign(E.Details);
+        AJob.FailureData.S['code'] := E.Code;
+        AJob.FailureData.S['message'] := E.Message;
+        AJob.FailureData.S['phase'] := 'execution';
+        if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
+        else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
+        else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
+        xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
+        if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
+          AJob.FailureData.B['partial'] := True;
+          AJob.FailureData.B['partialKnown'] := True;
+        end else begin
+          // Generic exceptions cannot establish absence of external-file writes.
+          AJob.FailureData['partial'] := nil;
+          AJob.FailureData.B['partialKnown'] := False;
+        end;
+        AJob.State := xajsFailed;
       end;
-      AJob.State := xajsFailed;
-    end;
-    on E: Exception do begin
-      AJob.FailureData.S['code'] := xeAutomationErrorInternalError;
-      AJob.FailureData.S['message'] := E.Message;
-      AJob.FailureData.S['phase'] := 'execution';
-      if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
-      else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
-      else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
-      xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
-      if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
-        AJob.FailureData.B['partial'] := True;
-        AJob.FailureData.B['partialKnown'] := True;
-      end else begin
-        // Generic exceptions cannot establish absence of external-file writes.
-        AJob.FailureData['partial'] := nil;
-        AJob.FailureData.B['partialKnown'] := False;
+      on E: Exception do begin
+        AJob.FailureData.S['code'] := xeAutomationErrorInternalError;
+        AJob.FailureData.S['message'] := E.Message;
+        AJob.FailureData.S['phase'] := 'execution';
+        if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
+        else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
+        else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
+        xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
+        if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
+          AJob.FailureData.B['partial'] := True;
+          AJob.FailureData.B['partialKnown'] := True;
+        end else begin
+          // Generic exceptions cannot establish absence of external-file writes.
+          AJob.FailureData['partial'] := nil;
+          AJob.FailureData.B['partialKnown'] := False;
+        end;
+        AJob.State := xajsFailed;
       end;
-      AJob.State := xajsFailed;
     end;
+  finally
+    AJob.Executing := False;
   end;
 
   xeAutomationFinishActiveJobIfTerminal(AJob);
@@ -624,14 +751,15 @@ begin
   if lJob.IsTerminal then
     Exit(xeAutomationNewJobSnapshot(lJob));
 
-  if lJob.State in [xajsQueued, xajsRunning] then begin
+  if lJob.State in [xajsQueued, xajsRunning, xajsCancelRequested] then begin
     lJob.State := xajsCancelRequested;
-    if lJob.WorkIndex > 0 then begin
+    if (lJob.WorkIndex > 0) or Assigned(lJob.Stepper) then begin
       xeAutomationWriteMutationAudit(lJob.FailureData.O['mutationState'], lJob.StartMutation);
       lJob.SummaryData.B['partialChanges'] := lJob.FailureData.O['mutationState'].B['mutationsObserved'] or
         lJob.SummaryData.B['externalOutputWritten'];
     end;
-    xeAutomationAdvanceJob(lJob);
+    // Reentrant cancellation must not free a cursor whose native call is active.
+    if not lJob.Executing then xeAutomationAdvanceJob(lJob);
   end else
     raise xeAutomationNewError(xeAutomationErrorOperationNotCancelable, Format('Automation job is not cancelable: %s', [AJobId]));
 
@@ -643,6 +771,8 @@ var
   lJob: TxeAutomationJob;
 begin
   lJob := xeAutomationRequireJob(AJobId);
+  if lJob.Executing then
+    raise xeAutomationNewError('job_busy', 'A native job step is already executing');
   if not lJob.IsTerminal then
     raise xeAutomationNewError(xeAutomationErrorJobNotTerminal, Format('Automation job is not terminal: %s', [AJobId]));
 
