@@ -10,6 +10,13 @@ unit xeAutomationCommandsElements;
 
 interface
 
+const
+  xeAutomationSubtreeMaxNodes = 256;
+  xeAutomationSubtreeMaxDepth = 8;
+  xeAutomationSubtreeVisitLimit = 1024;
+  xeAutomationSubtreeResponseBytes = 1048576;
+  xeAutomationChildGroupSignatureLimit = 32;
+
 procedure xeAutomationRegisterElementsCommands;
 
 implementation
@@ -26,6 +33,7 @@ uses
   xeAutomationErrors,
   xeAutomationMutationPolicy,
   xeAutomationObjectModel,
+  xeAutomationProjection,
   xeAutomationValues,
   xeAutomationRegistry;
 
@@ -111,10 +119,15 @@ begin
     ARecord.LoadOrderFormID.ToString(False),
     ''
   );
-  xeAutomationWriteMainRecordSummary(Result.O['object'], ARecord);
-  // Main records reached while walking a ChildGroup re-enter the existing record
-  // locator contract so every other records.* / elements.* verb can use them unchanged.
-  xeAutomationAddChildrenRelation(Result);
+  try
+    xeAutomationWriteMainRecordSummary(Result.O['object'], ARecord);
+    // Main records reached while walking a ChildGroup re-enter the existing record
+    // locator contract so every other records.* / elements.* verb can use them unchanged.
+    xeAutomationAddChildrenRelation(Result);
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 function xeAutomationGroupGridLabel(const AGroup: IwbGroupRecord): string;
@@ -170,7 +183,9 @@ end;
 function xeAutomationNewChildGroupStub(
   const AOwnerRecord: IwbMainRecord;
   const AGroup: IwbGroupRecord;
-  const ASynthPath: string): TJsonObject;
+  const ASynthPath: string;
+  const ASignatureLimit: Integer = xeAutomationChildGroupSignatureLimit;
+  const AIncludeEmpty: Boolean = False): TJsonObject;
 var
   lContainer: IwbContainer;
   lChildElement: IwbElement;
@@ -178,7 +193,7 @@ var
   lSeen: TStringList;
   lSignatures: TJsonArray;
   lSig: string;
-  i: Integer;
+  i, lTotal, lScanCount: Integer;
 begin
   Result := nil;
   if not Assigned(AOwnerRecord) or not Assigned(AGroup) then
@@ -187,7 +202,8 @@ begin
     Exit;
   // Empty ChildGroups are suppressed so callers never receive dangling
   // navigation affordances that immediately resolve to no visible contents.
-  if lContainer.ElementCount = 0 then
+  lTotal := lContainer.ElementCount;
+  if (lTotal = 0) and not AIncludeEmpty then
     Exit;
 
   Result := TJsonObject.Create;
@@ -199,13 +215,20 @@ begin
     Result.O['object'].S['kind'] := 'child_group';
     Result.O['object'].S['name'] := xeAutomationBoundedText(AGroup.ShortName);
     Result.O['object'].I['groupType'] := AGroup.GroupType;
-    Result.O['object'].I['count'] := lContainer.ElementCount;
+    Result.O['object'].I['count'] := lTotal;
+    lScanCount := lTotal;
+    if lScanCount > ASignatureLimit then lScanCount := ASignatureLimit;
+    Result.O['object'].I['signatureScanCount'] := lScanCount;
+    Result.O['object'].I['signatureScanLimit'] := ASignatureLimit;
+    Result.O['object'].B['signaturesComplete'] := lScanCount = lTotal;
 
     lSeen := TStringList.Create;
     try
       lSeen.Sorted := True;
       lSeen.Duplicates := dupIgnore;
-      for i := 0 to Pred(lContainer.ElementCount) do begin
+      // Signature hints must not scan every sibling behind a small child page.
+      // The count remains exact; the hints explicitly report incomplete scope.
+      for i := 0 to Pred(lScanCount) do begin
         lChildElement := lContainer.Elements[i];
         if not Assigned(lChildElement) then
           Continue;
@@ -286,9 +309,14 @@ begin
     ARecord.LoadOrderFormID.ToString(False),
     lLocatorPath
   );
-  xeAutomationWriteElementSummary(Result.O['object'], AElement, lLocatorPath);
-  if xeAutomationElementHasChildren(AElement) then
-    xeAutomationAddChildrenRelation(Result);
+  try
+    xeAutomationWriteElementSummary(Result.O['object'], AElement, lLocatorPath);
+    if xeAutomationElementHasChildren(AElement) then
+      xeAutomationAddChildrenRelation(Result);
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 procedure xeAutomationAppendParentsForElementResponse(const AResponse: TJsonObject;
@@ -510,6 +538,207 @@ begin
     lElement,
     xeAutomationSnapshotElementConflict(lElement, xeAutomationReadSearchLimit(AArgs))
   );
+end;
+
+function xeAutomationSubtreeBoundedArg(const AArgs: TJsonObject;
+  const AName: string; const ADefault, AMin, AMax: Integer): Integer;
+var
+  value: UInt64;
+begin
+  Result := ADefault;
+  if not AArgs.Contains(AName) then Exit;
+  if not (AArgs.Types[AName] in [jdtInt, jdtLong, jdtULong]) then
+    raise xeAutomationInvalidRequest(AName + ' must be an integer');
+  if (AArgs.Types[AName] <> jdtULong) and (AArgs.L[AName] < AMin) then
+    raise xeAutomationInvalidRequest(AName + ' is outside the supported subtree range');
+  value := AArgs.U[AName];
+  if (value < UInt64(AMin)) or (value > UInt64(AMax)) then
+    raise xeAutomationInvalidRequest(Format('%s must be between %d and %d', [AName, AMin, AMax]));
+  Result := Integer(value);
+end;
+
+function xeAutomationElementsSubtree(const AArgs: TJsonObject): TJsonObject;
+var
+  locator: TxeAutomationLocator;
+  recordRef, rootMain: IwbMainRecord;
+  rootGroup: IwbGroupRecord;
+  element: IwbElement;
+  response: TJsonObject;
+  nodes, reasons: TJsonArray;
+  maxNodes, maxDepth, visits, retainedBytes: Integer;
+  revision: UInt64;
+  stopped, includeParents, complete: Boolean;
+  rootPath: string;
+
+  procedure Truncate(const reason: string; const stop: Boolean);
+  var i: Integer;
+  begin
+    if stop then stopped := True;
+    for i := 0 to Pred(reasons.Count) do
+      if reasons.S[i] = reason then Exit;
+    reasons.Add(reason);
+  end;
+
+  function CanVisit: Boolean;
+  begin
+    Result := False;
+    if stopped then Exit;
+    if nodes.Count >= maxNodes then begin Truncate('maxNodes', True); Exit; end;
+    if visits >= xeAutomationSubtreeVisitLimit then begin Truncate('visitLimit', True); Exit; end;
+    Result := True;
+  end;
+
+  function Walk(const current: IwbElement; const owner: IwbMainRecord;
+    const synthPath: string; const depth, parentIndex: Integer): Boolean;
+  var
+    node: TJsonObject;
+    main, childMain, currentOwner: IwbMainRecord;
+    container, virtualContainer: IwbContainer;
+    group, childGroup, virtualGroup: IwbGroupRecord;
+    child: IwbElement;
+    index, childCount, nodeIndex, byteCount, signatureBudget: Integer;
+    childPath: string;
+    nodeComplete: Boolean;
+  begin
+    Result := False;
+    if not CanVisit then Exit;
+    Inc(visits); // Enter one node; native getters remain indivisible.
+    currentOwner := owner;
+    virtualGroup := nil;
+    group := nil;
+    node := nil;
+    try
+      if Supports(current, IwbMainRecord, main) then begin
+        currentOwner := main;
+        node := xeAutomationNewMainRecordElementResponse(main);
+        virtualGroup := main.ChildGroup;
+        if Assigned(virtualGroup) and
+           (not Supports(virtualGroup, IwbContainer, virtualContainer) or
+            (virtualContainer.ElementCount = 0)) then virtualGroup := nil;
+      end else if (synthPath <> '') and Supports(current, IwbGroupRecord, group) then begin
+        signatureBudget := xeAutomationSubtreeVisitLimit - visits;
+        if signatureBudget > xeAutomationChildGroupSignatureLimit then
+          signatureBudget := xeAutomationChildGroupSignatureLimit;
+        node := xeAutomationNewChildGroupStub(owner, group, synthPath, signatureBudget, True);
+        Inc(visits, node.O['object'].I['signatureScanCount']);
+      end else
+        node := xeAutomationNewElementResponse(owner, current);
+      childCount := 0;
+      if Supports(current, IwbContainer, container) then childCount := container.ElementCount;
+      node.I['depth'] := depth;
+      node.I['parentIndex'] := parentIndex;
+      node.I['childSlots'] := childCount + Ord(Assigned(virtualGroup));
+      node.B['complete'] := False;
+      if includeParents then xeAutomationAppendParentsForElementResponse(node, currentOwner, current);
+      // Project each node before byte admission, not after a full subtree exists.
+      xeAutomationProjectResponse(node, AArgs);
+      byteCount := TEncoding.UTF8.GetByteCount(node.ToJSON(False)) + 1;
+      // Reserve response metadata and final compact serialization overhead.
+      if retainedBytes + byteCount > xeAutomationSubtreeResponseBytes - 8192 then begin
+        Truncate('responseBytes', True);
+        Exit;
+      end;
+      nodeIndex := nodes.Count;
+      nodes.Add(node);
+      Inc(retainedBytes, byteCount);
+      node := nil;
+    finally
+      node.Free;
+    end;
+    node := nodes.O[nodeIndex]; // Durable response owns it from this point.
+    nodeComplete := True;
+    if (depth >= maxDepth) and ((childCount > 0) or Assigned(virtualGroup)) then begin
+      Truncate('maxDepth', False);
+      nodeComplete := False;
+    end else begin
+      for index := 0 to Pred(childCount) do begin
+        if not CanVisit then begin nodeComplete := False; Break; end;
+        Inc(visits); // Fetch one native child slot, including nil/suppressed slots.
+        child := container.Elements[index];
+        if not Assigned(child) then Continue;
+        childPath := '';
+        // Match elements.children: real records use flat identities; contextual
+        // group paths belong to the owner, and WRLD's duplicate CELL group hides.
+        if not Supports(child, IwbMainRecord, childMain) and Assigned(group) and
+           Supports(child, IwbGroupRecord, childGroup) then begin
+          if xeAutomationSuppressContextualChildGroup(group, childGroup) then Continue;
+          childPath := synthPath + '\' + xeAutomationChildGroupSynthLabel(group, childGroup);
+          if childPath = synthPath + '\' then Continue;
+          if Supports(childGroup, IwbContainer, virtualContainer) and
+             (virtualContainer.ElementCount = 0) then Continue;
+        end;
+        if not Walk(child, currentOwner, childPath, depth + 1, nodeIndex) then nodeComplete := False;
+        if stopped then Break;
+      end;
+      if Assigned(virtualGroup) then begin
+        if CanVisit then begin
+          if not Walk(virtualGroup, currentOwner, '\Child Group', depth + 1, nodeIndex) then nodeComplete := False;
+        end else nodeComplete := False;
+      end;
+    end;
+    node.B['complete'] := nodeComplete;
+    Result := nodeComplete;
+  end;
+begin
+  maxNodes := xeAutomationSubtreeBoundedArg(AArgs, 'maxNodes', 64, 1, xeAutomationSubtreeMaxNodes);
+  maxDepth := xeAutomationSubtreeBoundedArg(AArgs, 'maxDepth', 4, 0, xeAutomationSubtreeMaxDepth);
+  xeAutomationValidateProjection(AArgs);
+  includeParents := xeAutomationReadIncludeParentsArg(AArgs);
+  revision := wbGlobalModifedGeneration;
+  if AArgs.Contains('expectedRevision') then begin
+    if AArgs.Types['expectedRevision'] <> jdtString then
+      raise xeAutomationInvalidRequest('expectedRevision must be a string');
+    if AArgs.S['expectedRevision'] <> UIntToStr(revision) then
+      raise xeAutomationNewError('stale_revision', 'Loaded revision differs before subtree read');
+  end;
+  locator := xeAutomationParseLocator(AArgs, True, True);
+  element := xeAutomationRequireElement(locator, recordRef);
+  rootPath := '';
+  if Supports(element, IwbMainRecord, rootMain) then
+    recordRef := rootMain
+  else if Supports(element, IwbGroupRecord, rootGroup) then begin
+    if not xeAutomationPathStartsWithChildGroupPrefix(locator.Path) then
+      raise xeAutomationInvalidRequest('Subtree group roots require a contextual Child Group locator');
+    rootPath := locator.Path;
+  end else begin
+    // A contextual alias can resolve through a group into a child's payload.
+    // Switch to the actual record owner before emitting any flat field locator.
+    rootMain := element.ContainingMainRecord;
+    if Assigned(rootMain) then recordRef := rootMain;
+  end;
+  Result := TJsonObject.Create;
+  try
+    response := Result;
+    response.O['root'].S['file'] := recordRef._File.FileName;
+    response.O['root'].S['formId'] := recordRef.LoadOrderFormID.ToString(False);
+    if rootPath <> '' then response.O['root'].S['path'] := rootPath
+    else if Supports(element, IwbMainRecord, rootMain) then response.O['root'].S['path'] := ''
+    else response.O['root'].S['path'] := xeAutomationElementLocatorPath(element);
+    nodes := response.A['nodes']; nodes.Clear;
+    reasons := response.A['truncationReasons']; reasons.Clear;
+    visits := 0; retainedBytes := 0; stopped := False;
+    complete := Walk(element, recordRef, rootPath, 0, -1);
+    if wbGlobalModifedGeneration <> revision then
+      raise xeAutomationNewError('stale_revision', 'Loaded revision changed during subtree read; retry with fresh locators');
+    response.I['count'] := nodes.Count;
+    response.B['complete'] := complete;
+    response.B['truncated'] := not complete;
+    response.I['visitedUnits'] := visits;
+    response.S['mutationRevision'] := UIntToStr(revision);
+    response.S['scope'] := 'elements.children logical tree: native payload then contextual ChildGroup';
+    response.S['order'] := 'preorder';
+    response.B['nativeCallsPreemptible'] := False;
+    response.O['limits'].I['maxNodes'] := maxNodes;
+    response.O['limits'].I['maxDepth'] := maxDepth;
+    response.O['limits'].I['visitLimit'] := xeAutomationSubtreeVisitLimit;
+    response.O['limits'].I['responseBytes'] := xeAutomationSubtreeResponseBytes;
+    response.O['limits'].I['signatureScanLimit'] := xeAutomationChildGroupSignatureLimit;
+    if TEncoding.UTF8.GetByteCount(response.ToJSON(False)) > xeAutomationSubtreeResponseBytes then
+      raise xeAutomationNewError('result_too_large', 'Subtree metadata exceeds the response budget; use narrower locators/projection');
+  except
+    Result.Free;
+    raise;
+  end;
 end;
 
 function xeAutomationElementHasSortableContainer(const AElement: IwbElement): Boolean;
@@ -1538,6 +1767,7 @@ begin
   xeAutomationRegisterCommand('elements.get', xeAutomationElementsGet);
   xeAutomationRegisterCommand('elements.get_value', xeAutomationElementsGetValue);
   xeAutomationRegisterCommand('elements.children', xeAutomationElementsChildren);
+  xeAutomationRegisterCommand('elements.subtree', xeAutomationElementsSubtree);
   xeAutomationRegisterCommand('elements.conflict_status', xeAutomationElementsConflictStatus);
   xeAutomationRegisterCommand('elements.required_masters', xeAutomationElementsRequiredMasters);
   xeAutomationRegisterCommand('elements.edit_capabilities', xeAutomationElementsEditCapabilities);

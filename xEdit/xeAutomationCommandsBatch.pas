@@ -89,7 +89,8 @@ begin
       lItem := lItems.O[i];
       lCommand := xeAutomationRequireStringArg(lItem, 'command');
       if not (SameText(lCommand, 'records.get') or SameText(lCommand, 'elements.get') or
-              SameText(lCommand, 'elements.get_value') or SameText(lCommand, 'elements.children')) then
+              SameText(lCommand, 'elements.get_value') or SameText(lCommand, 'elements.children') or
+              SameText(lCommand, 'elements.subtree')) then
         raise xeAutomationInvalidRequest(Format('Automation batch read command is unsupported: %s', [lCommand]));
       lArgs := xeAutomationRequireBatchItemArgs(lItem);
       xeAutomationValidateProjection(lArgs);
@@ -101,6 +102,12 @@ begin
         if xeAutomationReadChildrenLimitArg(lArgs, 'limit', 50) > 50 then
           raise xeAutomationInvalidRequest('Automation batch children limit must be at most 50');
       end;
+      if SameText(lCommand, 'elements.subtree') then begin
+        if not lArgs.Contains('maxNodes') then
+          raise xeAutomationInvalidRequest('Automation batch subtree requires explicit maxNodes of at most 50');
+        if xeAutomationReadChildrenLimitArg(lArgs, 'maxNodes', 50) > 50 then
+          raise xeAutomationInvalidRequest('Automation batch subtree maxNodes must be at most 50');
+      end;
       lValue := xeAutomationExecuteCommand(lCommand, lArgs);
       try
         xeAutomationProjectResponse(lValue, lArgs);
@@ -109,6 +116,8 @@ begin
         lEntry.S['command'] := lCommand;
         lEntry.O['result'] := lValue;
         lValue := nil;
+        if SameText(lCommand, 'elements.subtree') and not lEntry.O['result'].B['complete'] then
+          Result.B['complete'] := False;
         xeAutomationRequireBatchResponseBudget(Result);
       finally
         lValue.Free;

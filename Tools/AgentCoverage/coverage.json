@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.58",
+  "contractVersion": "0.59",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -11079,7 +11079,7 @@
       "handler": "xeAutomationBatchEdit",
       "source": {
         "file": "xEdit/xeAutomationCommandsBatch.pas",
-        "line": 525
+        "line": 534
       },
       "prerequisites": "Loaded records/elements; read accepts bounded allowlisted commands; edit requires consent, matching revision/value and writable owned elements.",
       "effect": "preflighted in-memory element writes; partial failures report completed steps -> session.save + terminal session.flush",
@@ -11091,10 +11091,10 @@
       "handler": "xeAutomationBatchRead",
       "source": {
         "file": "xEdit/xeAutomationCommandsBatch.pas",
-        "line": 524
+        "line": 533
       },
       "prerequisites": "Loaded records/elements; read accepts bounded allowlisted commands; edit requires consent, matching revision/value and writable owned elements.",
-      "effect": "bounded projected read-only results; no plugin persistence",
+      "effect": "bounded projected immediate and subtree reads; aggregate complete false for incomplete subtree items; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -11103,7 +11103,7 @@
       "handler": "xeAutomationBatchRows",
       "source": {
         "file": "xEdit/xeAutomationCommandsBatch.pas",
-        "line": 526
+        "line": 535
       },
       "prerequisites": "Loaded records/elements; read accepts bounded allowlisted commands; edit requires consent, matching revision/value and writable owned elements.",
       "effect": "default dry-run preflight; bounded structural in-memory row mutations with partial outcomes -> explicit save + terminal flush",
@@ -11139,7 +11139,7 @@
       "handler": "xeAutomationElementsAddChild",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1549
+        "line": 1779
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11151,7 +11151,7 @@
       "handler": "xeAutomationElementsAssignTemplates",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1544
+        "line": 1774
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -11163,10 +11163,10 @@
       "handler": "xeAutomationElementsChildren",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1540
+        "line": 1769
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
-      "effect": "read-only; no plugin persistence",
+      "effect": "read-only native child pages with bounded group signature hints and explicit hint completeness; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -11175,7 +11175,7 @@
       "handler": "xeAutomationElementsClear",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1547
+        "line": 1777
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11187,7 +11187,7 @@
       "handler": "xeAutomationElementsConflictStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1541
+        "line": 1771
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -11199,7 +11199,7 @@
       "handler": "xeAutomationElementsCopyChildTo",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1551
+        "line": 1781
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11211,7 +11211,7 @@
       "handler": "xeAutomationElementsEditCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1543
+        "line": 1773
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -11223,7 +11223,7 @@
       "handler": "xeAutomationElementsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1538
+        "line": 1767
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -11235,7 +11235,7 @@
       "handler": "xeAutomationElementsGetValue",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1539
+        "line": 1768
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; full edit/native values; no plugin persistence",
@@ -11247,7 +11247,7 @@
       "handler": "xeAutomationElementsMoveDown",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1553
+        "line": 1783
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11259,7 +11259,7 @@
       "handler": "xeAutomationElementsMoveUp",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1552
+        "line": 1782
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11271,7 +11271,7 @@
       "handler": "xeAutomationElementsNextMember",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1554
+        "line": 1784
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11283,7 +11283,7 @@
       "handler": "xeAutomationElementsPreviousMember",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1555
+        "line": 1785
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11295,7 +11295,7 @@
       "handler": "xeAutomationElementsRemoveChild",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1550
+        "line": 1780
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11307,7 +11307,7 @@
       "handler": "xeAutomationElementsRequiredMasters",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1542
+        "line": 1772
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "read-only; no plugin persistence",
@@ -11319,7 +11319,7 @@
       "handler": "xeAutomationElementsSetNativeValue",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1548
+        "line": 1778
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11331,7 +11331,7 @@
       "handler": "xeAutomationElementsSetToDefault",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1546
+        "line": 1776
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
@@ -11343,10 +11343,22 @@
       "handler": "xeAutomationElementsSetValue",
       "source": {
         "file": "xEdit/xeAutomationCommandsElements.pas",
-        "line": 1545
+        "line": 1775
       },
       "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
       "effect": "in-memory plugin mutation -> session.save + terminal session.flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "elements.subtree",
+      "kind": "command",
+      "handler": "xeAutomationElementsSubtree",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsElements.pas",
+        "line": 1770
+      },
+      "prerequisites": "Loaded record/element; writes require consent and native schema/CanAssign/editability/removability/union/reorder predicates.",
+      "effect": "read-only bounded projected logical subtree preorder; depth/node/visit/byte limits expose partial completeness; request-scoped native references; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -12303,7 +12315,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1804
+        "line": 1823
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12315,7 +12327,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1803
+        "line": 1822
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand descriptors for all current commands and job-kind-specific target/options; registry-derived coverage, wire preconditions/projection and explicit example availability; future unauthored routes remain explicit; no plugin persistence",
@@ -12327,7 +12339,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1802
+        "line": 1821
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12339,7 +12351,7 @@
       "handler": "xeAutomationSystemDiagnostics",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1805
+        "line": 1824
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12351,7 +12363,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1801
+        "line": 1820
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12363,7 +12375,7 @@
       "handler": "xeAutomationSystemRunDiagnostic",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1806
+        "line": 1825
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
