@@ -286,11 +286,11 @@
       "scriptSymbols": []
     },
     "flags": {
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.set_reference_flags"
       ],
-      "notes": "SetIsPersistent/SetIsVisibleWhenDistant match primitive flag setters; verify native child-group relocation and REFR-specific GUI scope.",
+      "notes": "Preflighted bounded REFR flag batch using native setters and verified CELL/group placement; existing owned complete destination CELLs only; expected state/revision; explicit save; runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetIsPersistent",
@@ -589,11 +589,11 @@
       ]
     },
     "record-flags": {
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.set_reference_flags"
       ],
-      "notes": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route.",
+      "notes": "Preflighted bounded REFR flag batch using native setters and verified CELL/group placement; existing owned complete destination CELLs only; expected state/revision; explicit save; runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetIsPersistent",
@@ -1548,6 +1548,10 @@
     "analysis.reference_status": {
       "effect": "read-only per-file freshness/all-loaded completeness snapshot",
       "prerequisites": "loaded native modules"
+    },
+    "records.set_reference_flags": {
+      "effect": "default dry-run or native flags/CELL-group migration in memory -> explicit save + flush",
+      "prerequisites": "consented writable owned complete nondeleted REFR; numeric nontranslation game; existing destination CELLs and expected states"
     }
   }
 }

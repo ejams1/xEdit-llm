@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.46",
+  "contractVersion": "0.47",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -4126,11 +4126,11 @@
         }
       ],
       "profile": "record-flags",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.set_reference_flags"
       ],
-      "notes": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route.",
+      "notes": "Preflighted bounded REFR flag batch using native setters and verified CELL/group placement; existing owned complete destination CELLs only; expected state/revision; explicit save; runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetIsPersistent",
@@ -4167,11 +4167,11 @@
         }
       ],
       "profile": "record-flags",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.set_reference_flags"
       ],
-      "notes": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route.",
+      "notes": "Preflighted bounded REFR flag batch using native setters and verified CELL/group placement; existing owned complete destination CELLs only; expected state/revision; explicit save; runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetIsPersistent",
@@ -4208,11 +4208,11 @@
         }
       ],
       "profile": "record-flags",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.set_reference_flags"
       ],
-      "notes": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route.",
+      "notes": "Preflighted bounded REFR flag batch using native setters and verified CELL/group placement; existing owned complete destination CELLs only; expected state/revision; explicit save; runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetIsPersistent",
@@ -4249,11 +4249,11 @@
         }
       ],
       "profile": "record-flags",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.set_reference_flags"
       ],
-      "notes": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route.",
+      "notes": "Preflighted bounded REFR flag batch using native setters and verified CELL/group placement; existing owned complete destination CELLs only; expected state/revision; explicit save; runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetIsPersistent",
@@ -8254,11 +8254,11 @@
         }
       ],
       "profile": "record-flags",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.set_reference_flags"
       ],
-      "notes": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route.",
+      "notes": "Preflighted bounded REFR flag batch using native setters and verified CELL/group placement; existing owned complete destination CELLs only; expected state/revision; explicit save; runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetIsPersistent",
@@ -8303,11 +8303,11 @@
         }
       ],
       "profile": "record-flags",
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "scripts.run"
+        "records.set_reference_flags"
       ],
-      "notes": "Verify admitted setters and native REFR child-group migration; add structured flag operations with expected state if scripts cannot provide a reliable route.",
+      "notes": "Preflighted bounded REFR flag batch using native setters and verified CELL/group placement; existing owned complete destination CELLs only; expected state/revision; explicit save; runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": [
         "SetIsPersistent",
@@ -11712,12 +11712,24 @@
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
+      "name": "records.set_reference_flags",
+      "kind": "command",
+      "handler": "SetReferenceFlags",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsVWD.pas",
+        "line": 287
+      },
+      "prerequisites": "consented writable owned complete nondeleted REFR; numeric nontranslation game; existing destination CELLs and expected states",
+      "effect": "default dry-run or native flags/CELL-group migration in memory -> explicit save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
       "name": "records.set_vwd_from_mesh",
       "kind": "command",
       "handler": "SetFromMesh",
       "source": {
         "file": "xEdit/xeAutomationCommandsVWD.pas",
-        "line": 162
+        "line": 286
       },
       "prerequisites": "Loaded plugin/record; writes require consent and native ownership/copy/editability/signature/parent gates.",
       "effect": "default dry-run resource/target plans; apply flags or override copies in memory -> explicit save + terminal flush; partial outcomes audited",
