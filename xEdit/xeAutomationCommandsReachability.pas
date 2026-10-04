@@ -12,7 +12,8 @@ function xeAutomationReachabilityIsCurrent: Boolean;
 implementation
 uses SysUtils, Classes, JsonDataObjects, wbInterface, wbImplementation,
   wbLoadOrder, xeMainForm, xeAutomationJobs, xeAutomationErrors,
-  xeAutomationDataLookup, xeAutomationObjectModel, xeAutomationRecordQueries;
+  xeAutomationDataLookup, xeAutomationObjectModel, xeAutomationRecordQueries,
+  xeAutomationRegistry;
 
 var ReachabilityComplete: Boolean;
     ReachabilityGeneration, ReachabilitySemanticRevision: UInt64;
@@ -196,8 +197,100 @@ begin
   end;
 end;
 
+function xeReferenceStatus(const Args: TJsonObject): TJsonObject;
+var Module: PwbModuleInfo; FileRef: IwbFile; Row: TJsonObject; Current: Boolean;
+begin
+  Result := TJsonObject.Create;
+  Result.B['allLoadedCurrent'] := True;
+  Result.S['mutationRevision'] := UIntToStr(wbGlobalModifedGeneration);
+  Result.S['indexRevision'] := UIntToStr(xeAutomationQuerySemanticRevision);
+  Result.S['validity'] := 'current snapshot only; rebuild after graph changes';
+  for Module in wbModulesByLoadOrder do begin
+    if not (mfHasFile in Module.miFlags) then Continue;
+    FileRef := Module._File;
+    if not Assigned(FileRef) then Continue;
+    Current := wbAutomationReferenceIndexIsCurrent(FileRef);
+    Row := Result.A['files'].AddObject;
+    Row.S['file'] := FileRef.FileName; Row.B['current'] := Current;
+    Row.S['generation'] := IntToStr(FileRef.ElementGeneration);
+    Result.B['allLoadedCurrent'] := Result.B['allLoadedCurrent'] and Current;
+  end;
+  Result.I['loadedFiles'] := Result.A['files'].Count;
+end;
+
+procedure xeReferenceValidate(var Dry: Boolean; const Specified: Boolean;
+  const Target, Options: TJsonObject);
+var AllLoaded, Present: Boolean; Files: TxeAutomationFiles; Module: PwbModuleInfo;
+  FileRef: IwbFile; i: Integer;
+begin
+  if not Specified then Dry := True;
+  if wbIsMorrowind then raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode, 'Reference-index jobs require numeric record definitions');
+  if Target.Contains('steps') then raise xeAutomationInvalidRequest('target.steps is reserved for the native plan');
+  AllLoaded := xeAutomationReadBooleanArg(Target, 'allLoaded', Present);
+  if AllLoaded then begin
+    if Target.Contains('files') then raise xeAutomationInvalidRequest('Choose allLoaded:true or explicit files');
+    for Module in wbModulesByLoadOrder do begin
+      if not (mfHasFile in Module.miFlags) then Continue;
+      FileRef := Module._File;
+      if Assigned(FileRef) then xeReachStep(Target.A['steps'], 'references', FileRef.FileName);
+    end;
+  end else begin
+    Files := xeAutomationRequirePluginFiles(xeAutomationReadStringArrayArg(Target, 'files'));
+    if (Length(Files) < 1) or (Length(Files) > 32) then raise xeAutomationInvalidRequest('target.files must contain 1..32 loaded plugin names');
+    for i := Low(Files) to High(Files) do xeReachStep(Target.A['steps'], 'references', Files[i].FileName);
+  end;
+  if (Target.A['steps'].Count < 1) or (Target.A['steps'].Count > 256) then
+    raise xeAutomationInvalidRequest('Reference plan must contain 1..256 loaded files');
+  {$IFDEF USE_PARALLEL_BUILD_REFS}
+  if wbBuildingRefsParallel then raise xeAutomationStateConflict('Parallel reference indexing is still active');
+  {$ENDIF}
+  xeReachStep(Target.A['steps'], 'complete', '');
+end;
+
+procedure xeReferenceRun(const JobID: string; const Dry, Specified: Boolean;
+  const Target, Options: TJsonObject; const Findings: TJsonArray;
+  const Summary, Output, Failure: TJsonObject);
+var Step, Row, Status: TJsonObject; Module: PwbModuleInfo; FileRef: IwbFile;
+  PreviousCacheSave: Boolean; PreviousProgress: TwbProgressCallback;
+begin
+  Step := Target.A['steps'].O[0]; Row := Output.A['steps'].AddObject; Row.Assign(Step);
+  Summary.S['persistence'] := 'derived index memory only; cache writes suppressed; plugins unchanged';
+  Summary.S['cancelBoundary'] := 'between loaded files; one native BuildRef may block';
+  if Dry then begin Row.S['outcome'] := 'planned'; Exit; end;
+  PreviousCacheSave := wbDontCacheSave; PreviousProgress := _wbProgressCallback;
+  wbDontCacheSave := True; _wbProgressCallback := xeReachProgress;
+  try
+    try
+      if Step.S['phase'] = 'complete' then begin
+        Status := xeReferenceStatus(nil);
+        try Output.O['status'].Assign(Status); finally Status.Free; end;
+        Summary.B['selectedScopeComplete'] := True;
+      end else begin
+        Module := wbModuleByName(Step.S['file']);
+        if not Assigned(Module) or not (mfHasFile in Module.miFlags) then raise xeAutomationStateConflict('Planned loaded file is unavailable');
+        FileRef := Module._File;
+        // Native BuildRef refreshes stale indexes and leaves current ones alone.
+        // It sets csRefsBuild before walking, so check completion generation too.
+        Row.B['currentBefore'] := wbAutomationReferenceIndexIsCurrent(FileRef);
+        xeAutomationInvalidateRecordQueries;
+        FileRef.BuildRef;
+        if not wbAutomationReferenceIndexIsCurrent(FileRef) then raise xeAutomationStateConflict('Native reference traversal did not produce a current index');
+        Row.B['currentAfter'] := True;
+        Summary.I['indexedFiles'] := 1;
+      end;
+      Row.S['outcome'] := 'completed';
+    except on E: Exception do begin
+      Row.S['outcome'] := 'failed'; Failure.S['code'] := 'reference_index_failed';
+      Failure.S['message'] := E.Message; Failure.S['file'] := Step.S['file'];
+      Failure.B['selectedScopeIncomplete'] := True;
+    end; end;
+  finally _wbProgressCallback := PreviousProgress; wbDontCacheSave := PreviousCacheSave; end;
+end;
+
 procedure xeAutomationRegisterReachabilityJobs;
 begin
   xeAutomationRegisterJobKindWithValidator('analysis.reachability', xeReachRun, xeReachValidate, 'steps');
+  xeAutomationRegisterJobKindWithValidator('analysis.build_references', xeReferenceRun, xeReferenceValidate, 'steps');
+  xeAutomationRegisterCommand('analysis.reference_status', xeReferenceStatus);
 end;
 end.

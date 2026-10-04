@@ -48,7 +48,7 @@ uses
   xeAutomationRegistry;
 
 const
-  xeAutomationFinalJobKinds: array[0..15] of string = (
+  xeAutomationFinalJobKinds: array[0..16] of string = (
     'files.hygiene.batch',
     'plugin.esl.analyze',
     'plugin.esl.apply',
@@ -64,6 +64,7 @@ const
     'cleaning.sort_and_clean_masters',
     'cleaning.cleanup_injected_references',
     'analysis.reachability',
+    'analysis.build_references',
     'lod.generate'
   );
 
@@ -614,7 +615,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.45';
+  Result.S['contractVersion'] := '0.46';
   with Result.O['supports'].O['comparisons'] do begin
     S['recordsCommand'] := 'comparisons.records'; S['loadCommand'] := 'comparisons.load';
     S['scope'] := 'explicit ordered columns, common payload path, native sibling leaf classification';
