@@ -568,12 +568,11 @@
       "scriptSymbols": []
     },
     "explicit-masters": {
-      "status": "script-candidate",
+      "status": "direct",
       "routes": [
-        "files.add_required_masters",
-        "scripts.run"
+        "files.add_masters"
       ],
-      "notes": "Provide a structured explicit-master-list operation with load-order/ownership preflight. files.add_required_masters infers dependencies and is not equivalent.",
+      "notes": "Explicit 1..32 loaded earlier native master names, default dry-run, full-list preflight including comparison refusal, native capacity and complex-slot module gates. Native add/sort remaps IDs in memory; partial outcomes retain exact before/after lists and mutation audit. Runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
@@ -1532,6 +1531,10 @@
     "records.filter_options": {
       "effect": "read-only predicate/preset/exclusion discovery; no persistence",
       "prerequisites": "registered command; reports native game/domain gates"
+    },
+    "files.add_masters": {
+      "effect": "default dry-run; in-memory master header addition/native remap -> explicit save + terminal flush",
+      "prerequisites": "consented writable numeric plugin; all requested masters loaded earlier; no comparison files; native capacity/module gates"
     }
   }
 }
