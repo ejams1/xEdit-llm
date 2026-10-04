@@ -590,6 +590,50 @@ begin
   finally ToAdd.Free; After.Free; Before.Free; Requested.Free; end;
 end;
 
+function xeAutomationFilesMarkWithoutOnam(const Args: TJsonObject): TJsonObject;
+var Files: TxeAutomationFiles; FileRef: IwbFile; Dry, Specified: Boolean;
+  Denied: string; Row: TJsonObject; i, BeforeGeneration: Integer; Snapshot: TxeAutomationMutationSnapshot;
+begin
+  if wbTranslationMode then raise xeAutomationMutationNotAllowed('Header mark is unavailable in translation mode');
+  Files := xeAutomationRequirePluginFiles(xeAutomationReadStringArrayArg(Args, 'files'));
+  if (Length(Files) < 1) or (Length(Files) > 32) then raise xeAutomationInvalidRequest('files must contain 1..32 explicit loaded plugins');
+  for FileRef in Files do xeAutomationRequireWritableTargetFile(FileRef);
+  Dry := xeAutomationReadBooleanArg(Args, 'dryRun', Specified); if not Specified then Dry := True;
+  if not Dry and not xeAutomationMutationPolicyConsentSatisfied(Denied) then
+    Exit(xeAutomationErrorsBuildConsentRequired('files.mark_without_onam', 'plugin-mutation', Denied));
+  if Args.Contains('expectedRevision') and (xeAutomationRequireStringArg(Args, 'expectedRevision') <> UIntToStr(wbGlobalModifedGeneration)) then
+    raise xeAutomationNewError('stale_revision', 'Header mark revision changed');
+  Result := TJsonObject.Create;
+  try
+    Result.B['dryRun'] := Dry; Result.S['scope'] := 'native HasONAM:false; MarkHeaderModified only';
+    Result.S['persistence'] := 'header serialization marker in memory; explicit save + terminal flush';
+    Snapshot := xeAutomationCaptureMutationSnapshot;
+    for i := Low(Files) to High(Files) do begin
+      FileRef := Files[i]; Row := Result.A['files'].AddObject;
+      Row.S['file'] := FileRef.FileName; Row.B['hasONAM'] := FileRef.HasONAM;
+      Row.B['modifiedBefore'] := FileRef.Modified; BeforeGeneration := FileRef.ElementGeneration;
+      Row.S['outcome'] := 'skipped-onam';
+      if not Row.B['hasONAM'] then begin
+        Row.S['outcome'] := 'planned';
+        if not Dry then begin
+          try FileRef.MarkHeaderModified; Row.S['outcome'] := 'called';
+          except on E: Exception do begin
+            Row.S['outcome'] := 'failed'; Result.O['failure'].S['code'] := 'mark_header_failed';
+            Result.O['failure'].S['message'] := E.Message; Result.O['failure'].I['index'] := i;
+          end; end;
+        end;
+      end;
+      Row.B['modifiedAfter'] := FileRef.Modified; Row.B['generationChanged'] := FileRef.ElementGeneration <> BeforeGeneration;
+      Result.B['requiresSave'] := Result.B['requiresSave'] or (not Dry and not Row.B['hasONAM'] and FileRef.Modified);
+      if Result.Contains('failure') then Break;
+    end;
+    xeAutomationWriteMutationAudit(Result.O['mutationState'], Snapshot);
+    Result.B['changed'] := Result.O['mutationState'].B['mutationsObserved'];
+    Result.B['complete'] := not Result.Contains('failure'); Result.B['partial'] := not Result.B['complete'] and Result.B['changed'];
+    if Result.B['changed'] then xeAutomationInvalidateRecordQueries;
+  except Result.Free; raise; end;
+end;
+
 procedure xeAutomationRegisterFilesCommands;
 begin
   xeAutomationRegisterCommand('files.list', xeAutomationFilesList);
@@ -597,6 +641,7 @@ begin
   xeAutomationRegisterCommand('files.create', xeAutomationFilesCreate);
   xeAutomationRegisterCommand('files.add_required_masters', xeAutomationFilesAddRequiredMasters);
   xeAutomationRegisterCommand('files.add_masters', xeAutomationFilesAddMasters);
+  xeAutomationRegisterCommand('files.mark_without_onam', xeAutomationFilesMarkWithoutOnam);
 end;
 
 end.
