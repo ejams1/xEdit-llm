@@ -598,14 +598,16 @@ recursive child-overrides, duplicate forward/reverse links, missing/rebuilt
 reference index, regex pathological patterns and projection of nested element
 wrappers in the MO2 test pass. Compilation and these native cases are pending.
 
-## Issue #14: retained validation steps (contract 0.55)
+## Issue #14: retained validation steps (contract 0.56)
 
 `validation.check_for_errors`, `validation.check_for_itm` and
 `validation.check_for_deleted_refs` retain a preorder traversal cursor within a
 file. Each `jobs.get` performs at most 128 traversal actions, checking a soft
 20ms budget between native calls. Native initialization, element checks and ITM
 comparisons remain indivisible; a slow native call can exceed that budget.
-Traversal depth is capped at 64. No full child list is built or subtree rescanned.
+Element traversal depth is capped at 64. No full child list is built or subtree rescanned.
+Circular validation also uses retained steps; its graph limits and fixture are
+described under issue #20 below.
 `system.capabilities.supports.jobs.stepping` derives its kinds from the registry.
 
 `progress.completed` counts fully traversed target files; `progress.detail`
@@ -657,7 +659,7 @@ disposable loaded plugins.
 
 Python integrity/runner tests pass independently of xEdit. Delphi compilation
 and the above game-backed phases have **not** run locally. Issue #14 remains
-open: circular lists, cleaning, compaction, reference construction, reachability
+open: cleaning, compaction, reference construction, reachability
 and LOD still contain larger native units, and no hard latency guarantee is made.
 
 ## Issue #25: injected-reference cleanup
@@ -760,24 +762,71 @@ missing-master additions, overrides in later files, locked/protected targets,
 light/medium ranges, mapping batches, native partial failures and game gates.
 Needs testing before merging: Delphi compilation and game-backed runs are pending.
 
-## Issue #20: circular leveled-list validation
+## Issue #20 / #14: retained circular leveled-list validation
 
-`validation.circular_leveled_lists` is a read-only job over explicit target
-files. It runs xEdit's native `wbLeveledListCheckCircular` on winning LVLI,
-LVLC, LVLN and LVSP records. Findings include source, root locator, native
-message and a bounded ordered `cyclePathNames` array. Summaries report checked
-records, cycles and dirty-state change; `jobs.get.progress` advances by target
-file. TES3 is rejected because it has no plugin GRUP hierarchy. The native
-checker uses transient tags, which the job clears before and after each file
-scan; verify GUI tag interactions in the final native pass.
+`validation.circular_leveled_lists` scans winning LVLI/LVLC/LVLN/LVSP roots
+with the same native entry-path, same-signature and winning-override selection
+helpers as the GUI checker. Automation retains its own graph stack, active-path
+index and visited winning FormIDs, without reading/writing shared native tags or
+resetting every loaded file. Active-path detection precedes the visited check,
+matching the native cycle detector. A detected cycle aborts that root while
+keeping its visited set for subsequent roots, as a native cycle exception does.
+Each target file starts a new visited set, preserving the prior automation scope.
+TES3 is rejected. Other games still require native acceptance testing.
 
-Run `circular_fixture.py generate --overlay <MO2-mod>` and load its FO4 plugin.
-Then run `circular_fixture.py exercise --overlay <MO2-mod> --exe <exe>
---pid <pid> --artifacts <folder>`. It expects LVLI/LVLN/LVSP cycles, an
-acyclic control, structured paths, one-file progress, and unchanged plugin
-dirty state/revision. Test LVLC in a supported older game, duplicate cycles,
-cross-file links, multiple target files, cancellation and the TES3 gate in
-separate profiles. Native compilation and game-backed runs remain pending.
+The root scan, graph walk, cycle diagnostic construction and stack unwind all
+yield between at most 128 actions and soft 20ms checkpoints. Native data
+initialization and lookup calls remain indivisible. Retained graph depth is
+limited to 1024 frames and visited winning records to 100000 per target file;
+exceeding either fails with `job_capacity`, retaining previous findings and an
+incomplete file row. These are explicit capacity refusals, not successful
+truncated scans. `progress.detail` reports phase, checked roots, visited records,
+traversed entries and last traversal depth. `cursorRetained` is false after
+terminal cleanup. Summary counts include only admitted cycles and completed
+files. Canceled/failed findings remain incomplete.
+
+Findings retain the checked root's winning locator even when a cycle starts
+deeper in that graph. `cyclePathNames` and new `cyclePath` locator arrays are
+ordered from the cycle's first record through its repeated closing record.
+Paths are capped at 100 entries, names at 160 characters and message previews at
+4096 characters. `cyclePathLength`, `cyclePathTruncated`, `messageTruncated` and
+`originalMessageCharacters` make truncation explicit. No partial cycle finding
+is published while a diagnostic is still being built. The retained finding sink
+also applies the 5000-entry/1MiB compact UTF-8 JSON budget.
+
+Build LiteDebug with licensed Delphi, generate into a fresh MO2 overlay, and load
+all three generated files in a fresh FO4 daemon, with the winner after its master:
+
+```powershell
+python Tools/AutomationRegression/circular_step_fixture.py generate --overlay <new-MO2-mod-folder>
+python Tools/AutomationRegression/circular_step_fixture.py exercise --exe <trusted-exe> --pid <daemon-pid> --artifacts <new-capture-folder>
+```
+
+The fixture includes three short signature cycles, a 513-record acyclic chain,
+a 400-record long cycle and master/override cases. The runner requires a deep
+within-file yield with earlier findings, cancels without advancing the graph,
+checks read-only access and write blocking, then restarts to completion. It
+checks exact root/path identities, no acyclic false positive, bounded long-cycle
+previews, stable finding prefixes, aggregation, cursor release and dirty state.
+Later winning overrides must break one master cycle and preserve another, whose
+root/path locators identify the actual winning owner files. `circular-steps.json`
+records poll durations including client startup and IPC, without claiming a
+hard native latency guarantee.
+
+In a separate fresh overlay/process, repeat both commands with
+`--depth-capacity`. The 1100-record chain must fail at the explicit depth budget,
+retain its earlier cycle findings and leave the file incomplete. Repeat the
+smaller original `circular_fixture.py generate/exercise` runner (with its required
+`--overlay`, `--exe`, `--pid`, `--artifacts` arguments) as a compatibility check.
+Test LVLC and the Oblivion direct-entry path in supported older-game profiles,
+multiple target files, the visited-record limit, and the TES3 refusal separately.
+The GUI recursive checker remains synchronous; verify its findings after the
+shared helper extraction and verify that automation does not alter GUI tags.
+
+Python fixture-integrity and assertion tests pass independently of xEdit.
+Delphi compilation and these game-backed phases have **not** run locally. Issue
+#14 still has larger native units in cleaning, compaction, reference construction,
+reachability and LOD; no issue is closed based on these source-only checks.
 
 ## Issue #18: command discovery and stale edit expectations
 

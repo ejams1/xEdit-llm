@@ -10,6 +10,10 @@ unit xeAutomationCommandsValidation;
 
 interface
 
+const
+  xeAutomationCircularDepthLimit = 1024;
+  xeAutomationCircularVisitedLimit = 100000;
+
 procedure xeAutomationRegisterValidationCommands;
 
 implementation
@@ -23,7 +27,6 @@ uses
   xeAutomationRecordComparison,
   wbInterface,
   wbHelpers,
-  wbLoadOrder,
   xeAutomationDataLookup,
   xeAutomationErrors,
   xeAutomationJobs,
@@ -34,133 +37,6 @@ const
   xeAutomationValidationCheckForItmKind = 'validation.check_for_itm';
   xeAutomationValidationCheckForDeletedRefsKind = 'validation.check_for_deleted_refs';
   xeAutomationValidationCircularListsKind = 'validation.circular_leveled_lists';
-
-procedure xeAutomationResetCircularCheckTags;
-var
-  lModules: TwbModuleInfos;
-  lFile: IwbFile;
-  i: Integer;
-begin
-  lModules := wbModulesByLoadOrder;
-  for i := Low(lModules) to High(lModules) do begin
-    lFile := xeAutomationTryPluginFileFromModule(lModules[i]);
-    if Assigned(lFile) then
-      lFile.ResetTags;
-  end;
-end;
-
-procedure xeAutomationWriteCircularPath(const ATarget: TJsonArray; const AMessage: string;
-  const ATruncated: TJsonObject);
-const
-  Prefix = 'Circular Leveled List found: ';
-var
-  lRemaining: string;
-  lPart: string;
-  lSeparator: Integer;
-begin
-  lRemaining := Copy(AMessage, Length(Prefix) + 1, MaxInt);
-  while lRemaining <> '' do begin
-    if ATarget.Count >= 100 then begin
-      ATruncated.B['cyclePathTruncated'] := True;
-      Break;
-    end;
-    lSeparator := Pos(' -> ', lRemaining);
-    if lSeparator = 0 then begin
-      lPart := lRemaining;
-      if Length(lPart) > 160 then
-        ATruncated.B['cyclePathTruncated'] := True;
-      ATarget.Add(Copy(lPart, 1, 160));
-      Break;
-    end;
-    lPart := Copy(lRemaining, 1, lSeparator - 1);
-    if Length(lPart) > 160 then
-      ATruncated.B['cyclePathTruncated'] := True;
-    ATarget.Add(Copy(lPart, 1, 160));
-    Delete(lRemaining, 1, lSeparator + 3);
-  end;
-end;
-
-procedure xeAutomationCircularListsJob(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean;
-  const ATarget, AOptions: TJsonObject; const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
-const
-  Signatures: array[0..3] of string = ('LVLI', 'LVLC', 'LVLN', 'LVSP');
-var
-  lFile: IwbFile;
-  lGroup: IwbGroupRecord;
-  lRecord, lWinning: IwbMainRecord;
-  lFinding, lFileResult: TJsonObject;
-  lSignature: string;
-  lDirtyBefore: Boolean;
-  i, j, lChecked, lCycles: Integer;
-begin
-  if wbGameMode = gmTES3 then
-    raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode,
-      'Circular leveled-list checking requires a plugin game with GRUP records');
-  ASummary.S['kind'] := xeAutomationValidationCircularListsKind;
-  ASummary.B['validationOnly'] := True;
-  ASummary.I['fileCount'] := ATarget.A['files'].Count;
-  ASummary.I['checkedRecords'] := 0;
-  ASummary.I['cycleCount'] := 0;
-  ASummary.B['dirtyChanged'] := False;
-  AResult.A['files'].Clear;
-  for i := 0 to ATarget.A['files'].Count - 1 do begin
-    lFile := xeAutomationRequirePluginFile(Trim(ATarget.A['files'].S[i]));
-    lDirtyBefore := lFile.Modified;
-    lChecked := 0;
-    lCycles := 0;
-    // Native checker uses transient tags to avoid revisiting graph branches.
-    // Reset around each file scan, including error paths, as the GUI does.
-    xeAutomationResetCircularCheckTags;
-    try
-      for lSignature in Signatures do begin
-        lGroup := lFile.GroupBySignature[lSignature];
-        if not Assigned(lGroup) then
-          Continue;
-        for j := 0 to Pred(lGroup.ElementCount) do begin
-          if not Supports(lGroup.Elements[j], IwbMainRecord, lRecord) then
-            Continue;
-          lWinning := lRecord.WinningOverride;
-          if not Assigned(lWinning) then
-            Continue;
-          Inc(lChecked);
-          try
-            wbLeveledListCheckCircular(lWinning, nil);
-          except
-            on E: Exception do begin
-              if Pos('Circular Leveled List found: ', E.Message) <> 1 then
-                raise;
-              Inc(lCycles);
-              lFinding := AFindings.AddObject;
-              lFinding.S['source'] := xeAutomationValidationCircularListsKind;
-              lFinding.S['severity'] := 'error';
-              lFinding.S['code'] := 'circular_leveled_list';
-              lFinding.S['message'] := Copy(E.Message, 1, 4096);
-              lFinding.O['target'].S['file'] := lWinning._File.FileName;
-              lFinding.O['target'].S['formId'] := lWinning.LoadOrderFormID.ToString(False);
-              lFinding.O['target'].S['signature'] := lWinning.Signature;
-              lFinding.O['target'].S['path'] := '';
-              lFinding.O['action'].S['kind'] := 'none';
-              xeAutomationWriteCircularPath(lFinding.A['cyclePathNames'], E.Message, lFinding);
-            end;
-          end;
-        end;
-      end;
-    finally
-      xeAutomationResetCircularCheckTags;
-    end;
-    lFileResult := AResult.A['files'].AddObject;
-    lFileResult.S['fileName'] := lFile.FileName;
-    lFileResult.I['checkedRecords'] := lChecked;
-    lFileResult.I['cycleCount'] := lCycles;
-    lFileResult.B['dirtyBefore'] := lDirtyBefore;
-    lFileResult.B['dirtyAfter'] := lFile.Modified;
-    lFileResult.B['dirtyChanged'] := lDirtyBefore <> lFile.Modified;
-    ASummary.I['checkedRecords'] := ASummary.I['checkedRecords'] + lChecked;
-    ASummary.I['cycleCount'] := ASummary.I['cycleCount'] + lCycles;
-    ASummary.B['dirtyChanged'] := ASummary.B['dirtyChanged'] or lFileResult.B['dirtyChanged'];
-  end;
-  ASummary.I['findingCount'] := AFindings.Count;
-end;
 
 function xeAutomationValidationKindName(const AKind: string): string;
 begin
@@ -266,6 +142,332 @@ end;
 function xeAutomationRecordBelongsToFile(const AFile: IwbFile; const ARecord: IwbMainRecord): Boolean;
 begin
   Result := Assigned(AFile) and Assigned(ARecord) and Assigned(ARecord._File) and SameText(ARecord._File.FileName, AFile.FileName);
+end;
+
+const
+  xeAutomationCircularMessageLimit = 4096;
+  xeAutomationCircularPathLimit = 100;
+
+type
+  TxeAutomationCircularPhase = (xacScanRoots, xacWalk, xacCycle, xacUnwind, xacDone);
+
+  TxeAutomationCircularFrame = class
+  public
+    Record_: IwbMainRecord;
+    Entries: IwbContainerElementRef;
+    RefPath: string;
+    Entered: Boolean;
+    NextEntry: Integer;
+    constructor Create(const ARecord: IwbMainRecord);
+  end;
+
+  TxeAutomationCircularStepper = class(TxeAutomationJobStepper)
+  private
+    FFileName: string;
+    FFile: IwbFile;
+    FGroup: IwbGroupRecord;
+    FRoot: IwbMainRecord;
+    FStack: TObjectList<TxeAutomationCircularFrame>;
+    // All edges resolve to WinningOverride, so a FormID identifies the native
+    // record whose tag the GUI checker would set. No shared tags are modified.
+    FVisited: TDictionary<Cardinal, Boolean>;
+    FActivePath: TDictionary<Cardinal, Integer>;
+    FPhase: TxeAutomationCircularPhase;
+    FRow, FPendingFinding: TJsonObject;
+    FSignatureIndex, FRootIndex, FChecked, FCycles, FTraversedEntries: Integer;
+    FSteps, FLastWorkUnits, FFindingsBefore: Integer;
+    FCycleNext, FMessageCharacters: Integer;
+    FComplete: Boolean;
+    procedure PopFrame;
+    procedure StartCycle(const AStart: Integer);
+    procedure AdvanceOne(const AFindings: TJsonArray);
+  public
+    constructor Create(const AFileName: string);
+    destructor Destroy; override;
+    function Advance(const AFindings: TJsonArray;
+      const ASummary, AResult, AFailure: TJsonObject): Boolean; override;
+    procedure WriteProgress(const AProgress: TJsonObject); override;
+  end;
+
+constructor TxeAutomationCircularFrame.Create(const ARecord: IwbMainRecord);
+begin
+  inherited Create;
+  Record_ := ARecord;
+end;
+
+constructor TxeAutomationCircularStepper.Create(const AFileName: string);
+begin
+  inherited Create;
+  FFileName := AFileName;
+  FStack := TObjectList<TxeAutomationCircularFrame>.Create(True);
+  FVisited := TDictionary<Cardinal, Boolean>.Create;
+  FActivePath := TDictionary<Cardinal, Integer>.Create;
+end;
+
+destructor TxeAutomationCircularStepper.Destroy;
+begin
+  FPendingFinding.Free;
+  FActivePath.Free;
+  FVisited.Free;
+  FStack.Free;
+  FRoot := nil;
+  FGroup := nil;
+  FFile := nil;
+  inherited;
+end;
+
+procedure TxeAutomationCircularStepper.PopFrame;
+begin
+  if FStack.Last.Entered then
+    FActivePath.Remove(FStack.Last.Record_.LoadOrderFormID.ToCardinal);
+  FStack.Delete(FStack.Count - 1);
+end;
+
+procedure TxeAutomationCircularStepper.StartCycle(const AStart: Integer);
+const
+  Prefix = 'Circular Leveled List found: ';
+begin
+  FPendingFinding := TJsonObject.Create;
+  FPendingFinding.S['source'] := xeAutomationValidationCircularListsKind;
+  FPendingFinding.S['severity'] := 'error';
+  FPendingFinding.S['code'] := 'circular_leveled_list';
+  FPendingFinding.S['message'] := Prefix;
+  FMessageCharacters := Length(Prefix);
+  // As in the GUI handler, target is the checked root's winning override, even
+  // when the actual cycle starts deeper in that root's dependency graph.
+  xeAutomationWriteValidationTarget(FPendingFinding.O['target'], FRoot._File, FRoot, '');
+  FPendingFinding.O['target'].S['formId'] := FRoot.LoadOrderFormID.ToString(False);
+  FPendingFinding.O['action'].S['kind'] := 'none';
+  FPendingFinding.O['action'].S['reason'] := 'validation_only';
+  FPendingFinding.A['cyclePathNames'].Clear;
+  FPendingFinding.A['cyclePath'].Clear;
+  FCycleNext := AStart;
+  FPhase := xacCycle;
+end;
+
+procedure TxeAutomationCircularStepper.AdvanceOne(const AFindings: TJsonArray);
+const
+  Signatures: array[0..3] of string = ('LVLI', 'LVLC', 'LVLN', 'LVSP');
+var
+  lFrame: TxeAutomationCircularFrame;
+  lRecord, lTarget: IwbMainRecord;
+  lFormId: Cardinal;
+  lCycleStart: Integer;
+  lName, lPart: string;
+  lPathItem: TJsonObject;
+begin
+  case FPhase of
+    xacScanRoots: begin
+      if FSignatureIndex > High(Signatures) then begin
+        FPhase := xacDone;
+        Exit;
+      end;
+      if not Assigned(FGroup) then begin
+        FGroup := FFile.GroupBySignature[Signatures[FSignatureIndex]];
+        if not Assigned(FGroup) then Inc(FSignatureIndex);
+        Exit;
+      end;
+      if FRootIndex >= FGroup.ElementCount then begin
+        FGroup := nil;
+        FRootIndex := 0;
+        Inc(FSignatureIndex);
+        Exit;
+      end;
+      if Supports(FGroup.Elements[FRootIndex], IwbMainRecord, lRecord) then begin
+        FRoot := lRecord.WinningOverride;
+        if Assigned(FRoot) then begin
+          Inc(FChecked);
+          FStack.Add(TxeAutomationCircularFrame.Create(FRoot));
+          FPhase := xacWalk;
+        end;
+      end;
+      Inc(FRootIndex);
+    end;
+    xacWalk: begin
+      if FStack.Count = 0 then begin
+        FRoot := nil;
+        FPhase := xacScanRoots;
+        Exit;
+      end;
+      lFrame := FStack.Last;
+      lFormId := lFrame.Record_.LoadOrderFormID.ToCardinal;
+      if not lFrame.Entered then begin
+        // Native checker compares the active path BEFORE its tagged/visited
+        // test. Reversing these tests would silently miss every back-edge.
+        if FActivePath.TryGetValue(lFormId, lCycleStart) then begin
+          StartCycle(lCycleStart);
+          Exit;
+        end;
+        if FVisited.ContainsKey(lFormId) then begin
+          PopFrame;
+          Exit;
+        end;
+        if FVisited.Count >= xeAutomationCircularVisitedLimit then
+          raise xeAutomationNewError('job_capacity', 'Circular validation exceeds the retained visited-record budget');
+        FVisited.Add(lFormId, True);
+        FActivePath.Add(lFormId, FStack.Count - 1);
+        lFrame.Entered := True;
+        lFrame.RefPath := wbLeveledListEntryReferencePath(lFrame.Record_.Signature);
+        wbLeveledListEntries(lFrame.Record_, lFrame.Entries);
+      end else if Assigned(lFrame.Entries) and (lFrame.NextEntry < lFrame.Entries.ElementCount) then begin
+        Inc(FTraversedEntries);
+        if wbLeveledListEntryTarget(lFrame.Record_, lFrame.Entries, lFrame.NextEntry, lFrame.RefPath, lTarget) then begin
+          if not Assigned(lTarget) then
+            raise xeAutomationNewError(xeAutomationErrorInternalError, 'A linked leveled list has no winning override');
+          if FStack.Count >= xeAutomationCircularDepthLimit then
+            raise xeAutomationNewError('job_capacity', 'Circular validation exceeds the retained graph-depth budget');
+          FStack.Add(TxeAutomationCircularFrame.Create(lTarget));
+        end;
+        Inc(lFrame.NextEntry);
+      end else
+        PopFrame;
+    end;
+    xacCycle: begin
+      // Diagnostic construction also yields: one name/locator per work unit.
+      // The repeated closing record is included, matching the native message.
+      if FCycleNext < FStack.Count then begin
+        lRecord := FStack[FCycleNext].Record_;
+        lName := lRecord.Name;
+        lPart := '';
+        if FPendingFinding.I['cyclePathLength'] > 0 then lPart := ' -> ';
+        Inc(FMessageCharacters, Length(lPart) + Length(lName));
+        if Length(FPendingFinding.S['message']) < xeAutomationCircularMessageLimit then
+          FPendingFinding.S['message'] := FPendingFinding.S['message'] +
+            Copy(lPart + lName, 1, xeAutomationCircularMessageLimit - Length(FPendingFinding.S['message']));
+        if FMessageCharacters > xeAutomationCircularMessageLimit then begin
+          FPendingFinding.B['messageTruncated'] := True;
+          FPendingFinding.I['originalMessageCharacters'] := FMessageCharacters;
+        end;
+        if FPendingFinding.A['cyclePathNames'].Count < xeAutomationCircularPathLimit then begin
+          FPendingFinding.A['cyclePathNames'].Add(Copy(lName, 1, 160));
+          if Length(lName) > 160 then FPendingFinding.B['cyclePathTruncated'] := True;
+          lPathItem := FPendingFinding.A['cyclePath'].AddObject;
+          xeAutomationWriteValidationTarget(lPathItem, lRecord._File, lRecord, '');
+          lPathItem.S['formId'] := lRecord.LoadOrderFormID.ToString(False);
+        end else
+          FPendingFinding.B['cyclePathTruncated'] := True;
+        FPendingFinding.I['cyclePathLength'] := FPendingFinding.I['cyclePathLength'] + 1;
+        Inc(FCycleNext);
+      end else begin
+        xeAutomationAppendJobFinding(AFindings, FPendingFinding);
+        FPendingFinding := nil;
+        Inc(FCycles);
+        // A native cycle exception aborts this root, retaining its visited tags.
+        // Keep the same behavior but unwind one frame at a time.
+        FPhase := xacUnwind;
+      end;
+    end;
+    xacUnwind: begin
+      if FStack.Count > 0 then PopFrame
+      else begin
+        FRoot := nil;
+        FPhase := xacScanRoots;
+      end;
+    end;
+    xacDone: FComplete := True;
+  end;
+end;
+
+function TxeAutomationCircularStepper.Advance(const AFindings: TJsonArray;
+  const ASummary, AResult, AFailure: TJsonObject): Boolean;
+var
+  lTimer: TStopwatch;
+  lCheckedBefore, lCyclesBefore: Integer;
+begin
+  Result := FComplete;
+  if FComplete then Exit;
+  lTimer := TStopwatch.StartNew;
+  Inc(FSteps);
+  FLastWorkUnits := 0;
+  lCheckedBefore := FChecked;
+  lCyclesBefore := FCycles;
+  try
+    if not Assigned(FFile) then begin
+      if wbGameMode = gmTES3 then
+        raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode,
+          'Circular leveled-list checking requires a plugin game with GRUP records');
+      FFile := xeAutomationRequirePluginFile(FFileName);
+      FFindingsBefore := AFindings.Count;
+      FRow := AResult.A['files'].AddObject;
+      FRow.S['fileName'] := FFile.FileName;
+      FRow.B['dirtyBefore'] := FFile.Modified;
+      FRow.B['complete'] := False;
+      ASummary.S['kind'] := xeAutomationValidationCircularListsKind;
+      ASummary.B['validationOnly'] := True;
+      if not ASummary.Contains('fileCount') then ASummary.I['fileCount'] := 0;
+      Inc(FLastWorkUnits);
+    end;
+    while not FComplete and (FLastWorkUnits < xeAutomationJobStepWorkLimit) and
+          (lTimer.ElapsedMilliseconds < xeAutomationJobStepBudgetMs) do begin
+      Inc(FLastWorkUnits);
+      AdvanceOne(AFindings);
+    end;
+    if FComplete then ASummary.I['fileCount'] := ASummary.I['fileCount'] + 1;
+    Result := FComplete;
+  finally
+    ASummary.I['checkedRecords'] := ASummary.I['checkedRecords'] + FChecked - lCheckedBefore;
+    ASummary.I['cycleCount'] := ASummary.I['cycleCount'] + FCycles - lCyclesBefore;
+    ASummary.I['findingCount'] := AFindings.Count;
+    if Assigned(FRow) then begin
+      FRow.B['complete'] := FComplete;
+      FRow.I['checkedRecords'] := FChecked;
+      FRow.I['cycleCount'] := FCycles;
+      FRow.I['visitedRecords'] := FVisited.Count;
+      FRow.I['traversedEntries'] := FTraversedEntries;
+      FRow.I['findingCount'] := AFindings.Count - FFindingsBefore;
+      FRow.B['dirtyAfter'] := FFile.Modified;
+      FRow.B['dirtyChanged'] := FRow.B['dirtyBefore'] <> FFile.Modified;
+      ASummary.B['dirtyChanged'] := ASummary.B['dirtyChanged'] or FRow.B['dirtyChanged'];
+    end;
+  end;
+end;
+
+procedure TxeAutomationCircularStepper.WriteProgress(const AProgress: TJsonObject);
+const
+  PhaseNames: array[TxeAutomationCircularPhase] of string = ('roots', 'graph', 'cycle-report', 'unwind', 'complete');
+begin
+  AProgress.S['fileName'] := FFileName;
+  AProgress.B['fileComplete'] := FComplete;
+  AProgress.S['phase'] := PhaseNames[FPhase];
+  AProgress.I['checkedRecords'] := FChecked;
+  AProgress.I['cycleCount'] := FCycles;
+  AProgress.I['visitedElements'] := FVisited.Count;
+  AProgress.I['traversedEntries'] := FTraversedEntries;
+  AProgress.I['retainedDepth'] := FStack.Count;
+  AProgress.I['depthLimit'] := xeAutomationCircularDepthLimit;
+  AProgress.I['visitedLimit'] := xeAutomationCircularVisitedLimit;
+  AProgress.I['steps'] := FSteps;
+  AProgress.I['lastWorkUnits'] := FLastWorkUnits;
+  AProgress.I['workLimit'] := xeAutomationJobStepWorkLimit;
+  AProgress.I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
+  AProgress.B['nativeCallsPreemptible'] := False;
+  AProgress.B['usesSharedNativeTags'] := False;
+  if Assigned(FRoot) then
+    xeAutomationWriteValidationTarget(AProgress.O['root'], FRoot._File, FRoot, '');
+end;
+
+function xeAutomationCreateCircularStepper(const AKind: string;
+  const ATarget, AOptions: TJsonObject): TxeAutomationJobStepper;
+begin
+  Result := TxeAutomationCircularStepper.Create(Trim(ATarget.A['files'].S[0]));
+end;
+
+procedure xeAutomationCircularListsJob(const AJobId: string; const ADryRun, ADryRunSpecified: Boolean;
+  const ATarget, AOptions: TJsonObject; const AFindings: TJsonArray; const ASummary, AResult, AFailure: TJsonObject);
+var
+  lStepper: TxeAutomationJobStepper;
+  i: Integer;
+begin
+  // Compatibility handler shares the cursor implementation; jobs attach the
+  // factory and advance it once per poll instead of draining it here.
+  for i := 0 to Pred(ATarget.A['files'].Count) do begin
+    lStepper := TxeAutomationCircularStepper.Create(ATarget.A['files'].S[i]);
+    try
+      while not lStepper.Advance(AFindings, ASummary, AResult, AFailure) do begin end;
+    finally
+      lStepper.Free;
+    end;
+  end;
 end;
 
 type
@@ -526,6 +728,7 @@ begin
   xeAutomationRegisterJobStepper(xeAutomationValidationCheckForDeletedRefsKind, xeAutomationCreateValidationStepper);
   xeAutomationRegisterJobKindWithValidator(xeAutomationValidationCircularListsKind, xeAutomationCircularListsJob,
     xeAutomationValidateValidationStart);
+  xeAutomationRegisterJobStepper(xeAutomationValidationCircularListsKind, xeAutomationCreateCircularStepper);
 end;
 
 end.
