@@ -515,7 +515,7 @@
         "cleaning.remove_itm",
         "cleaning.undelete_and_disable_refs"
       ],
-      "notes": "Distinct bounded default-dry-run jobs with native eligibility and concrete outcomes; ITM retains parents with children, UDR skips deleted NAVM, injected/missing bases and FNV LOD TREE. No implicit master cleanup; native session UDR settings reported. Native runtime not verified.",
+      "notes": "Distinct retained default-dry-run plan/apply jobs with native eligibility and immutable event findings. ITM retains child-group parents; UDR skips NAVM/injected/missing bases/FNV LOD TREE and rechecks native settings. Within-file cancellation retains prior writes; no master cleanup. Native runtime not verified.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
@@ -917,7 +917,7 @@
       "effect": "list/read pure; script storage writes immediate; run may mutate plugins -> save + flush"
     },
     "jobs": {
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for errors/ITM/deleted-ref/circular validation; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "validation/analysis/dry-run reads; cleaning/hygiene/ESL apply mutates plugins -> save + flush"
     },
     "localization": {
@@ -1534,11 +1534,11 @@
     },
     "cleaning.remove_itm": {
       "prerequisites": "1..8 loaded target files, <=1000 records; non-TES3, translation mode off; apply requires consent and writable targets; no duplicate files/options.",
-      "effect": "isolated ITM removal or native UDR in memory with record outcomes, partial audit and between-file cancellation -> explicit save + terminal flush"
+      "effect": "retained per-record plan/apply with immutable events, partial rows and mutation audit; between-record cancellation, no rollback -> explicit save + terminal flush"
     },
     "cleaning.undelete_and_disable_refs": {
       "prerequisites": "1..8 loaded target files, <=1000 records; non-TES3, translation mode off; apply requires consent and writable targets; no duplicate files/options.",
-      "effect": "isolated ITM removal or native UDR in memory with record outcomes, partial audit and between-file cancellation -> explicit save + terminal flush"
+      "effect": "retained per-record plan/apply with immutable events, partial rows and mutation audit; between-record cancellation, no rollback -> explicit save + terminal flush"
     },
     "selections.inspect": {
       "prerequisites": "<=16 nonoverlapping selectors, <=128 records including implicit copy owners, <=2048 nodes/depth 8; native predicates. Copy target later than sources, full nondeleted/nonpartial payloads and partial creation off.",

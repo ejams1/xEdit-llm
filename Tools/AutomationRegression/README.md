@@ -168,13 +168,17 @@ game definitions, deleted/partial/internal/skipped records, capacity/consent
 refusals, overwrite relocation, and injected partial failures. Delphi/native
 execution remains pending; source fixtures are support checks only.
 
-## Issue #35: isolated ITM/UDR jobs
+## Issue #35 / #14: retained selective ITM/UDR jobs (contract 0.57)
 
 Start `jobs.start` with `kind:cleaning.remove_itm` or
 `kind:cleaning.undelete_and_disable_refs` and `target.files` (1..8 loaded plugins,
 <=1000 total records). `dryRun` defaults true. Duplicate targets, unknown options,
 TES3 and translation mode reject; apply preflights every writable target before
-any file changes. One target file advances per `jobs.get`; cancel between files.
+any file changes. Each file retains master metadata, classification and apply
+cursors. Classification finishes before that file's first write, and a completed
+planning snapshot is exposed before apply begins. A poll advances <=128 actions
+and <=16 native mutation calls with soft 20ms checkpoints. Native comparison,
+mutation and audit calls are indivisible and can exceed that time budget.
 There is no master sorting/cleanup or plugin save inside either selector.
 
 Both operations use shared native eligibility. ITM retains header flag changes,
@@ -182,24 +186,66 @@ injected masters and equal parents with nonempty child groups; partial-form
 conversion is excluded. UDR refuses deleted NAVM, injected/missing base records
 and FNV LOD TREE cases. It shares the native mutation with combined cleaning:
 undelete/initially-disable and native session Z, XESP, scale and MSTT settings,
-which each file result reports. Results contain root identities, plans, skips,
-completed writes, failure locator and mutation audit. Partial writes remain in
-memory with no rollback; explicitly save changed files, flush and relaunch.
+which each file result reports. UDR settings are rechecked before each apply call;
+if they change between planning and apply, the job fails rather than applying
+settings different from its report. Native writable/record eligibility checks
+also repeat immediately before mutation.
 
-Generate `selective_cleaning_fixture.py generate --overlay <fresh-MO2-overlay>`;
-load Fallout4.esm + AutomationReportBase.esm + AutomationSelectiveITM.esp +
-AutomationSelectiveUDR.esp + AutomationReport'Clean.esp. Run `exercise` with
-`--overlay`, `--exe`, `--pid`, `--artifacts`; relaunch fresh and run `verify`.
-It independently checks ITM-only versus UDR-only effects, flag-only retention,
-child parent/reference retention, deleted NAVM refusal, dry-run parity, repeat
-no-op, invalid/protected later targets, duplicate/shape refusal, two-file dry-run aggregation, cancellation after one apply,
-native Z/XESP/scale readback,
-unchanged master lists, explicit persistence and raw saved flags. Also run
-TES4/Skyrim/FO3/FNV/FO76/Starfield supported definitions, native setting variants,
-partial forms, injected/missing bases, FNV LOD TREE and injected partial-write
-failures. Before the consent-enabled exercise, a separate daemon started without
-`-IKnowWhatImDoing` can run `no-consent` with the same fixture to check both
-apply refusals and allowed dry-runs. Delphi/native execution is pending.
+`progress.detail` reports phase, scanned/total records, completed planning,
+planned/applied/skipped counts, remaining planned records, step work and mutation
+calls. Per-file rows remain `complete:false` until terminal counts are admitted.
+`planningComplete` distinguishes a partial scan from an unapplied complete plan.
+Cancel can stop within a file before further native calls. Earlier writes remain
+in memory, with per-file/global mutation audit and `requiresSave`/`dirtyFiles`;
+there is no rollback. Completed writes, skipped records and failing locators are
+retained in `result.files.records`. Terminal cleanup releases pinned plans and
+snapshots, reported by `cursorRetained:false`.
+
+Findings are immutable `selective_cleaning_record` events for planned/skipped
+classification and successfully applied records, followed by a per-file
+`selective_cleaning_counts` finding on completion. A planned event remains a
+historical plan after apply; the result row contains its latest outcome. Earlier
+finding pages keep a stable prefix. `findingsComplete` is true only on success.
+The retained finding sink enforces 5000 events/1MiB compact UTF-8 JSON. If event
+admission fails after a native write, the applied row/count and audit remain;
+the job fails with an incomplete file, never a rollback or success claim.
+
+Build LiteDebug with licensed Delphi and generate a fresh MO2 overlay:
+
+```powershell
+python Tools/AutomationRegression/selective_step_fixture.py generate --overlay <new-MO2-mod-folder>
+python Tools/AutomationRegression/selective_step_fixture.py exercise --overlay <new-MO2-mod-folder> --exe <trusted-exe> --pid <consent-enabled-daemon-pid> --artifacts <new-capture-folder>
+```
+
+Load Fallout4.esm and all three generated plugins. The fixture has 400 keyword
+overrides (200 ITM and 200 header-only changes), 400 deleted references and a
+NAVM control. Exercise checks omitted/explicit dry-run behavior, cancellation
+during classification, an observable completed plan before writes, then
+cancellation after 1..16 within-file mutations with exact loaded identities and
+stable findings. It restarts to finish the remaining records without replaying
+earlier writes, checks native flags and unchanged master lists, then explicitly
+saves/flushes. Source bytes must remain unchanged until that save. Inspect
+`selective-steps.json` timings, which include client startup/IPC and do not prove a
+hard native latency limit. Relaunch a fresh daemon and run `verify` with a new
+PID/artifact directory; this checks loaded state and raw saved keyword/reference
+flags independently. Always use disposable source fixtures.
+
+Also run the original `selective_cleaning_fixture.py` generate/exercise/verify
+phases in a separate overlay/process, for equal-parent retention, NAVM refusal,
+two-file aggregation, cancellation after the first file, repeat no-op, protected
+later targets and explicit persistence. Its polling runner now allows within-file
+steps. A separate daemon without `-IKnowWhatImDoing` can run its `no-consent`
+phase for apply refusals and allowed dry-runs. Run schema discovery and previous
+validation/circular fixtures to check the extended factory signature, which now
+receives the normalized stored dryRun/dryRunSpecified flags.
+
+Delphi compilation and game-backed execution have **not** run locally. Python
+checks verify generated bytes and runner assertions, not the native stepper.
+Still test supported older/newer-game definitions, native setting variants,
+partial forms, injected/missing bases, FNV LOD TREE, changes to settings between
+polls, admission failures after writes and injected partial native-write failures.
+Issue #14 remains open for combined cleaning, compaction, reference construction,
+reachability and LOD native units and for native acceptance across the PR stack.
 
 ## Issue #34: BOSS/LOOT cleaning reports
 
@@ -598,7 +644,7 @@ recursive child-overrides, duplicate forward/reverse links, missing/rebuilt
 reference index, regex pathological patterns and projection of nested element
 wrappers in the MO2 test pass. Compilation and these native cases are pending.
 
-## Issue #14: retained validation steps (contract 0.56)
+## Issue #14: retained validation steps (contract 0.57)
 
 `validation.check_for_errors`, `validation.check_for_itm` and
 `validation.check_for_deleted_refs` retain a preorder traversal cursor within a
