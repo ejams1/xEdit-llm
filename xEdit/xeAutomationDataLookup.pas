@@ -79,6 +79,16 @@ type
     IsDeleted: Boolean;
     HasIsInjected: Boolean;
     IsInjected: Boolean;
+    HasNotReachable, NotReachable: Boolean;
+    HasReferencesInjected, ReferencesInjected: Boolean;
+    HasPersistent, Persistent, HasVWD, VWD: Boolean;
+    HasVWDMesh, VWDMesh, HasPrecombinedMesh, PrecombinedMesh: Boolean;
+    HasScaledActor, ScaledActor, HasPositionChanged, PositionChanged: Boolean;
+    HasUnnecessaryPersistent, UnnecessaryPersistent: Boolean;
+    HasMasterTemporary, MasterTemporary, IncludeMasters: Boolean;
+    ElementValueContains, EditorIDContains, NameContains,
+      BaseEditorIDContains, BaseNameContains: string;
+    ElementVisits: Integer;
     ConflictAll: TConflictAllSet;
     UseConflictAll: Boolean;
     ConflictThis: TConflictThisSet;
@@ -140,7 +150,8 @@ uses
   JclStrings,
   wbHelpers,
   xeAutomationConflictSnapshot,
-  xeAutomationErrors;
+  xeAutomationErrors,
+  Math, xeMainForm;
 
 const
   xeAutomationRecordSearchLimit = 100;
@@ -997,6 +1008,16 @@ begin
       Exit(True);
 end;
 
+function xeAutomationLiteralFilterArg(const Args: TJsonObject; const Name: string): string;
+begin
+  Result := '';
+  if not Args.Contains(Name) then Exit;
+  if Args.Types[Name] <> jdtString then raise xeAutomationInvalidRequest(Name + ' must be a string');
+  Result := Args.S[Name]; // Leading/trailing whitespace participates in a literal match.
+  if (Length(Result) = 0) or (Length(Result) > 1024) then
+    raise xeAutomationInvalidRequest(Name + ' must contain 1..1024 characters');
+end;
+
 function xeAutomationReadRecordFilter(const AArgs: TJsonObject): TxeAutomationRecordFilter;
 var
   lEditorIDRegexPatterns: TArray<string>;
@@ -1004,6 +1025,8 @@ var
   lFullNameRegexPatterns: TArray<string>;
   lBaseEditorIDRegexPatterns: TArray<string>;
   lBaseDisplayNameRegexPatterns: TArray<string>;
+  lIncludeMastersPresent: Boolean;
+  lPreset: string;
 begin
   if not Assigned(AArgs) then
     raise xeAutomationInvalidRequest('Automation command args are required');
@@ -1062,8 +1085,52 @@ begin
   Result.IsWinningOverride := xeAutomationReadBooleanArg(AArgs, 'isWinningOverride', Result.HasIsWinningOverride);
   Result.IsDeleted := xeAutomationReadBooleanArg(AArgs, 'isDeleted', Result.HasIsDeleted);
   Result.IsInjected := xeAutomationReadBooleanArg(AArgs, 'isInjected', Result.HasIsInjected);
+  Result.NotReachable := xeAutomationReadBooleanArg(AArgs, 'notReachable', Result.HasNotReachable);
+  Result.ReferencesInjected := xeAutomationReadBooleanArg(AArgs, 'referencesInjected', Result.HasReferencesInjected);
+  Result.Persistent := xeAutomationReadBooleanArg(AArgs, 'isPersistent', Result.HasPersistent);
+  Result.VWD := xeAutomationReadBooleanArg(AArgs, 'isVisibleWhenDistant', Result.HasVWD);
+  Result.VWDMesh := xeAutomationReadBooleanArg(AArgs, 'hasVWDMesh', Result.HasVWDMesh);
+  Result.PrecombinedMesh := xeAutomationReadBooleanArg(AArgs, 'hasPrecombinedMesh', Result.HasPrecombinedMesh);
+  Result.ScaledActor := xeAutomationReadBooleanArg(AArgs, 'scaledActor', Result.HasScaledActor);
+  Result.PositionChanged := xeAutomationReadBooleanArg(AArgs, 'persistentPositionChanged', Result.HasPositionChanged);
+  Result.UnnecessaryPersistent := xeAutomationReadBooleanArg(AArgs, 'unnecessaryPersistent', Result.HasUnnecessaryPersistent);
+  Result.MasterTemporary := xeAutomationReadBooleanArg(AArgs, 'masterIsTemporary', Result.HasMasterTemporary);
+  Result.IncludeMasters := xeAutomationReadBooleanArg(AArgs, 'includeMasters', lIncludeMastersPresent);
+  // includeMasters is the native masterIsTemporary exception, not the general
+  // isMaster selector. Keep its presence independent of the existing selector.
+  Result.ElementValueContains := xeAutomationLiteralFilterArg(AArgs, 'elementValueContains');
+  Result.EditorIDContains := xeAutomationLiteralFilterArg(AArgs, 'editorIdContains');
+  Result.NameContains := xeAutomationLiteralFilterArg(AArgs, 'displayNameContains');
+  Result.BaseEditorIDContains := xeAutomationLiteralFilterArg(AArgs, 'baseEditorIdContains');
+  Result.BaseNameContains := xeAutomationLiteralFilterArg(AArgs, 'baseDisplayNameContains');
+  Result.ElementVisits := 0;
+  if Result.HasPositionChanged and (not Result.HasPersistent or not Result.Persistent) then
+    raise xeAutomationInvalidRequest('persistentPositionChanged requires isPersistent:true');
+  if Result.HasUnnecessaryPersistent and (not Result.HasPersistent or not Result.Persistent) then
+    raise xeAutomationInvalidRequest('unnecessaryPersistent requires isPersistent:true');
+  if Result.HasMasterTemporary and (not Result.HasUnnecessaryPersistent or not Result.UnnecessaryPersistent) then
+    raise xeAutomationInvalidRequest('masterIsTemporary requires unnecessaryPersistent:true');
+  if Result.IncludeMasters and (not Result.HasMasterTemporary or not Result.MasterTemporary) then
+    raise xeAutomationInvalidRequest('includeMasters requires masterIsTemporary:true');
+  if wbIsMorrowind and (Result.HasPersistent or Result.HasVWD or Result.HasVWDMesh or
+     Result.HasPrecombinedMesh or Result.HasScaledActor or Result.HasPositionChanged or
+     Result.HasUnnecessaryPersistent or Result.HasMasterTemporary or Result.HasNotReachable) then
+    raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode, 'Reference/reachability filters require numeric TES4 records');
+  if Result.HasPrecombinedMesh and not (wbIsFallout4 or wbIsFallout76) then
+    raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode, 'Precombined mesh filtering requires Fallout4/76');
   Result.ConflictAll := xeAutomationReadConflictAllSetArg(AArgs, 'conflictAll', Result.UseConflictAll);
   Result.ConflictThis := xeAutomationReadConflictThisSetArg(AArgs, 'conflictThis', Result.UseConflictThis);
+  lPreset := xeAutomationReadStringArg(AArgs, 'preset');
+  if lPreset <> '' then begin
+    if not SameText(lPreset, 'conflicts') then
+      raise xeAutomationInvalidRequest('Only the conflicts query preset is supported; saved GUI presets are presentation state');
+    if Result.UseConflictAll or Result.UseConflictThis then
+      raise xeAutomationInvalidRequest('preset cannot be combined with conflictAll/conflictThis');
+    // Native Show Conflicts selects these record-level conflict classes. GUI
+    // flattening and inherited parent visibility are deliberately not a query.
+    Result.UseConflictThis := True;
+    Result.ConflictThis := [ctIdenticalToMasterWinsConflict, ctConflictWins, ctConflictLoses];
+  end;
   // Phase 16: apply_filter pagination reads limit through a stricter validator
   // that rejects out-of-range values instead of silently clamping, so wrappers
   // see request-shape errors early. Offset defaults to 0 for backward compat.
@@ -1071,10 +1138,35 @@ begin
   Result.Offset := xeAutomationReadOffsetArg(AArgs);
 end;
 
+function xeAutomationContainsElementValue(const E: IwbElement; const Needle: string;
+  Level: Integer; var Filter: TxeAutomationRecordFilter): Boolean;
+var C: IwbContainerElementRef; i: Integer; Value: string;
+begin
+  Result := False;
+  Inc(Filter.ElementVisits);
+  if (Filter.ElementVisits > 50000) or (Level > 32) or (GetTickCount64 >= Filter.RegexDeadline) then begin
+    Filter.Incomplete := True; Filter.IncompleteReason := 'element_value_budget'; Exit;
+  end;
+  // Match the native filter's Value leaf projection, including nested payload
+  // containers, rather than the truncated automation summary or EditValue.
+  if not Supports(E, IwbContainerElementRef, C) then Exit;
+  if C.ElementCount = 0 then begin
+    Value := E.Value;
+    if Length(Value) > 1048576 then begin
+      Filter.Incomplete := True; Filter.IncompleteReason := 'element_value_size'; Exit;
+    end;
+    Result := Pos(UpperCase(Needle), UpperCase(Value)) > 0;
+  end else for i := 0 to C.ElementCount - 1 do begin
+    if xeAutomationContainsElementValue(C.Elements[i], Needle, Level + 1, Filter) then Exit(True);
+    if Filter.Incomplete then Exit;
+  end;
+end;
+
 function xeAutomationRecordMatchesFilter(const ARecord: IwbMainRecord; var AFilter: TxeAutomationRecordFilter): Boolean;
 var
   lBaseRecord: IwbMainRecord;
   lConflict: TxeAutomationConflictSnapshot;
+  lScale: IwbRecord; lScaled: Boolean;
 begin
   Result := False;
   if not Assigned(ARecord) then
@@ -1098,10 +1190,35 @@ begin
     Exit;
   if AFilter.HasIsInjected and (ARecord.IsInjected <> AFilter.IsInjected) then
     Exit;
+  if AFilter.HasNotReachable and (ARecord.IsNotReachable <> AFilter.NotReachable) then Exit;
+  if AFilter.HasReferencesInjected and (ARecord.ReferencesInjected <> AFilter.ReferencesInjected) then Exit;
+  if (AFilter.EditorIDContains <> '') and (Pos(AnsiUpperCase(AFilter.EditorIDContains), AnsiUpperCase(ARecord.EditorID)) = 0) then Exit;
+  if (AFilter.NameContains <> '') and (Pos(AnsiUpperCase(AFilter.NameContains), AnsiUpperCase(ARecord.DisplayName[True])) = 0) then Exit;
+  if (AFilter.ElementValueContains <> '') and not xeAutomationContainsElementValue(ARecord, AFilter.ElementValueContains, 0, AFilter) then Exit;
+  // Both true and false selectors require a native reference definition: a
+  // non-reference is outside the predicate's domain, not a false reference.
+  if AFilter.HasPersistent or AFilter.HasVWD or AFilter.HasVWDMesh or
+     AFilter.HasPrecombinedMesh or AFilter.HasScaledActor or AFilter.HasPositionChanged or
+     AFilter.HasUnnecessaryPersistent or AFilter.HasMasterTemporary then begin
+    if not ARecord.Def.IsReference then Exit;
+    if AFilter.HasPersistent and (ARecord.IsPersistent <> AFilter.Persistent) then Exit;
+    if AFilter.HasVWD and (ARecord.IsVisibleWhenDistant <> AFilter.VWD) then Exit;
+    if AFilter.HasPrecombinedMesh and (ARecord.HasPrecombinedMesh <> AFilter.PrecombinedMesh) then Exit;
+    if AFilter.HasScaledActor then begin
+      if not (ARecord.Signature = 'ACHR') and not (ARecord.Signature = 'ACRE') then Exit;
+      lScaled := Supports(ARecord.RecordBySignature['XSCL'], IwbRecord, lScale);
+      if lScaled then lScaled := not SameValue(Double(lScale.NativeValue), 1.0);
+      if lScaled <> AFilter.ScaledActor then Exit;
+    end;
+    if AFilter.HasUnnecessaryPersistent and (IsUnnecessaryPersistent(ARecord) <> AFilter.UnnecessaryPersistent) then Exit;
+    if AFilter.HasMasterTemporary and ((IsMasterTemporary(ARecord) or
+       (AFilter.IncludeMasters and ARecord.IsMaster)) <> AFilter.MasterTemporary) then Exit;
+  end;
   // Native conflict getters return cached enums. Initialize canonical state so
   // filter results do not depend on whether a user previously inspected the GUI.
-  if AFilter.UseConflictAll or AFilter.UseConflictThis then
+  if AFilter.UseConflictAll or AFilter.UseConflictThis or AFilter.HasPositionChanged then
     lConflict := xeAutomationSnapshotRecordConflict(ARecord, 100);
+  if AFilter.HasPositionChanged and (IsPositionChanged(ARecord) <> AFilter.PositionChanged) then Exit;
   if AFilter.UseConflictAll and not (lConflict.ConflictAll in AFilter.ConflictAll) then
     Exit;
   if AFilter.UseConflictThis and not (lConflict.ConflictThis in AFilter.ConflictThis) then
@@ -1113,11 +1230,17 @@ begin
   if AFilter.HasFullNameRegex and ((not ARecord.CanHaveFullName) or not xeAutomationRegexFieldMatchesAny(AFilter.FullNameRegexes, ARecord.FullName, AFilter)) then
     Exit;
 
-  if (Length(AFilter.BaseSignatures) > 0) or AFilter.HasBaseFormID or AFilter.HasBaseEditorIDPattern or AFilter.HasBaseDisplayNamePattern or AFilter.HasBaseEditorIDRegex or AFilter.HasBaseDisplayNameRegex then begin
+  if (Length(AFilter.BaseSignatures) > 0) or AFilter.HasBaseFormID or AFilter.HasBaseEditorIDPattern or AFilter.HasBaseDisplayNamePattern or AFilter.HasBaseEditorIDRegex or AFilter.HasBaseDisplayNameRegex or AFilter.HasVWDMesh or (AFilter.BaseEditorIDContains <> '') or (AFilter.BaseNameContains <> '') then begin
     // Base-record predicates must resolve the real linked base record; matching the
     // summarized output text would silently diverge from xEdit's actual filter logic.
     if not ARecord.CanHaveBaseRecord or not Supports(ARecord.BaseRecord, IwbMainRecord, lBaseRecord) then
       Exit;
+    if AFilter.HasVWDMesh then begin
+      if ARecord.Signature <> 'REFR' then Exit;
+      if lBaseRecord.HasVisibleWhenDistantMesh <> AFilter.VWDMesh then Exit;
+    end;
+    if (AFilter.BaseEditorIDContains <> '') and (Pos(AnsiUpperCase(AFilter.BaseEditorIDContains), AnsiUpperCase(lBaseRecord.EditorID)) = 0) then Exit;
+    if (AFilter.BaseNameContains <> '') and (Pos(AnsiUpperCase(AFilter.BaseNameContains), AnsiUpperCase(lBaseRecord.DisplayName[True])) = 0) then Exit;
 
     if (Length(AFilter.BaseSignatures) > 0) and not xeAutomationSignatureInSet(lBaseRecord.Signature, AFilter.BaseSignatures) then
       Exit;

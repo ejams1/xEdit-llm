@@ -614,7 +614,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.43';
+  Result.S['contractVersion'] := '0.44';
   with Result.O['supports'].O['comparisons'] do begin
     S['recordsCommand'] := 'comparisons.records'; S['loadCommand'] := 'comparisons.load';
     S['scope'] := 'explicit ordered columns, common payload path, native sibling leaf classification';
@@ -918,6 +918,8 @@ begin
   // scopes by MainRecord ancestry, while regex fields are explicit alternatives
   // to the existing glob patterns and report timeout skips through result metadata.
   lApplyFilterExtensions := Result.O['supports'].O['applyFilterExtensions'];
+  lApplyFilterExtensions.S['nativePredicateDiscovery'] := 'records.filter_options';
+  lApplyFilterExtensions.S['scope'] := 'query only; no GUI filter or saved preset changes';
   lApplyFilterExtensions.B['parentFormId'] := True;
   lApplyFilterRegex := lApplyFilterExtensions.O['regex'];
   lApplyFilterRegex.S['engine'] := 'System.RegularExpressions.TRegEx';

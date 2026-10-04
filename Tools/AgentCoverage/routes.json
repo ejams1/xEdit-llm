@@ -41,12 +41,13 @@
       "scriptSymbols": []
     },
     "filter": {
-      "status": "partial",
+      "status": "direct",
       "routes": [
-        "records.apply_filter"
+        "records.apply_filter",
+        "records.filter_options"
       ],
-      "notes": "Returns bounded query results rather than applying a GUI tree filter; not every native filter checkbox/preset is represented. Game predicates remain native.",
-      "effect": "read-only; no plugin persistence",
+      "notes": "Native record predicates and conflicts query preset with explicit file scope, reference/reachability freshness gates and bounded literal Value traversal. Discovery lists game/domain prerequisites and excluded GUI preset/tree/script state. Native runtime not verified.",
+      "effect": "read-only record query; initializes derived caches; no GUI filter/config/plugin persistence",
       "scriptSymbols": []
     },
     "cleaning-filter": {
@@ -557,12 +558,13 @@
       "scriptSymbols": []
     },
     "filters": {
-      "status": "partial",
+      "status": "direct",
       "routes": [
-        "records.apply_filter"
+        "records.apply_filter",
+        "records.filter_options"
       ],
-      "notes": "Inventory native filter-dialog predicates against apply_filter, implement missing semantic predicates and distinguish query results from GUI filter state.",
-      "effect": "read-only query/session presentation",
+      "notes": "Native record predicates and conflicts query preset with explicit file scope, reference/reachability freshness gates and bounded literal Value traversal. Discovery lists game/domain prerequisites and excluded GUI preset/tree/script state. Native runtime not verified.",
+      "effect": "read-only record query; initializes derived caches; no GUI filter/config/plugin persistence",
       "scriptSymbols": []
     },
     "explicit-masters": {
@@ -1526,6 +1528,10 @@
     },
     "comparisons.load": {
       "effect": "default dry-run header/dependency plan; consented read-only session load from captured bytes; affects override chains; no disk copy"
+    },
+    "records.filter_options": {
+      "effect": "read-only predicate/preset/exclusion discovery; no persistence",
+      "prerequisites": "registered command; reports native game/domain gates"
     }
   }
 }

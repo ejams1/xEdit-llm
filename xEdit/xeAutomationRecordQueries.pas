@@ -17,8 +17,8 @@ function xeAutomationQuerySemanticRevision: UInt64;
 
 implementation
 
-uses Windows, SysUtils, Generics.Collections, wbInterface, wbHelpers, wbLoadOrder,
-  xeAutomationErrors, xeAutomationObjectModel;
+uses Windows, SysUtils, Generics.Collections, wbInterface, wbHelpers, wbLoadOrder, wbImplementation,
+  xeAutomationErrors, xeAutomationObjectModel, xeAutomationCommandsReachability;
 
 const
   MaxCursors = 32;
@@ -202,8 +202,9 @@ begin
     raise xeAutomationStateConflict('Reverse references are still being built');
   {$ENDIF}
   for lModule in wbModulesByLoadOrder do begin
-    lFile := xeAutomationTryPluginFileFromModule(lModule);
-    if Assigned(lFile) and not (csRefsBuild in lFile.ContainerStates) then
+    lFile := nil;
+    if mfHasFile in lModule.miFlags then lFile := lModule._File;
+    if Assigned(lFile) and not wbAutomationReferenceIndexIsCurrent(lFile) then
       raise xeAutomationStateConflict('Reverse references require a complete loaded-file reference index; build it first');
   end;
 end;
@@ -255,6 +256,9 @@ begin
         end;
         lArgs.I['limit'] := 100;
         Result.Filter := xeAutomationReadRecordFilter(lArgs);
+        if Result.Filter.HasNotReachable and not xeAutomationReachabilityIsCurrent then
+          raise xeAutomationStateConflict('notReachable requires a successful current analysis.reachability pass; rerun after graph changes');
+        if Result.Filter.HasUnnecessaryPersistent or Result.Filter.HasReferencesInjected then RequireReferenceIndex;
         // RequirePluginFiles already deduplicates file scope, and each native
         // Records[] index is unique. Keep ordinary scans constant-memory.
       finally
@@ -315,6 +319,11 @@ begin
       raise xeAutomationInvalidRequest('Cursor continuation must preserve the original query arguments');
     if AKind = 'referenced_by' then
       RequireReferenceIndex;
+    if AKind = 'filter' then begin
+      if lQuery.Filter.HasNotReachable and not xeAutomationReachabilityIsCurrent then
+        raise xeAutomationStateConflict('Reachability changed; rerun analysis.reachability and restart the filter');
+      if lQuery.Filter.HasUnnecessaryPersistent or lQuery.Filter.HasReferencesInjected then RequireReferenceIndex;
+    end;
   end else begin
     if Cursors.Count >= MaxCursors then
       raise xeAutomationNewError('cursor_capacity', 'Finish existing queries or wait for cursor expiry');
@@ -327,6 +336,7 @@ begin
   lQuery.Touched := GetTickCount64;
   lQuery.Filter.RegexDeadline := GetTickCount64 + 250;
   lQuery.Filter.RegexMatchAttempts := 0;
+  lQuery.Filter.ElementVisits := 0;
   lQuery.Filter.RegexTimeouts := 0;
   lQuery.Filter.RegexSlotsExhausted := 0;
   lDeadline := GetTickCount64 + 100;

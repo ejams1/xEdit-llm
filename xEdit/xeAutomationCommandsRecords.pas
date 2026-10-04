@@ -713,6 +713,60 @@ begin
   Result.I['count'] := lHits.Count;
 end;
 
+function xeAutomationRecordsFilterOptions(const AArgs: TJsonObject): TJsonObject;
+  procedure Predicate(const Name, Domain, Prerequisite: string);
+  begin
+    with Result.A['predicates'].AddObject do begin
+      S['argument'] := Name;
+      S['domain'] := Domain;
+      S['prerequisite'] := Prerequisite;
+    end;
+  end;
+  procedure Exclusion(const Name, Reason: string);
+  begin
+    with Result.A['unsupported'].AddObject do begin
+      S['option'] := Name; S['reason'] := Reason;
+    end;
+  end;
+begin
+  Result := TJsonObject.Create;
+  Result.S['scope'] := 'record query over explicit files; no GUI tree state';
+  Result.S['combination'] := 'AND across predicates; OR within signature/pattern/conflict arrays';
+  Result.S['booleanSemantics'] := 'both true and false select within the stated domain';
+  Result.I['elementVisitLimit'] := 50000;
+  Result.I['elementDepthLimit'] := 32;
+  Result.I['elementValueSizeLimit'] := 1048576;
+  Result.I['literalLengthLimit'] := 1024;
+  Result.S['uncertainOutcome'] := 'complete:false,incomplete:true,incompleteReason; restart with narrower scope';
+  Predicate('signatures,baseSignatures,parentFormId,baseFormId', 'native records/linked bases/ancestry', 'loaded files');
+  Predicate('isMaster,isWinningOverride,isDeleted,isInjected,conflictAll,conflictThis', 'native main records', 'loaded files; conflicts initialize derived caches');
+  Predicate('editorIdContains,displayNameContains,baseEditorIdContains,baseDisplayNameContains', 'case-insensitive literal substring; preserves whitespace', 'linked bases required for base fields');
+  Predicate('elementValueContains', 'recursive native Value leaves, case-insensitive substring', 'bounded traversal; full values up to 1 MiB');
+  Predicate('editorIdPattern,displayNamePattern,fullNamePattern,baseEditorIdPattern,baseDisplayNamePattern', 'glob strings or arrays', 'existing pattern semantics');
+  Predicate('editorIdRegex,displayNameRegex,fullNameRegex,baseEditorIdRegex,baseDisplayNameRegex', 'bounded case-insensitive regex', 'cannot combine glob and regex for the same field');
+  Predicate('notReachable', 'numeric-record games', 'successful current analysis.reachability; graph/semantic changes invalidate');
+  Predicate('referencesInjected', 'native main records', 'complete current reference indexes for every loaded file');
+  Predicate('isPersistent,isVisibleWhenDistant', 'numeric native reference definitions', 'nonreferences excluded for both boolean values');
+  Predicate('hasVWDMesh', 'REFR linked base HasVisibleWhenDistantMesh', 'native resource container and linked base');
+  Predicate('hasPrecombinedMesh', 'Fallout4/76 native reference definitions', 'other game modes reject');
+  Predicate('scaledActor', 'ACHR/ACRE; explicit XSCL differs from 1', 'nonactors excluded; absent XSCL counts as unscaled');
+  Predicate('persistentPositionChanged', 'native reference position/rotation versus master', 'isPersistent:true; canonical conflict classification');
+  Predicate('unnecessaryPersistent', 'native IsUnnecessaryPersistent reference rules', 'isPersistent:true; complete current reference indexes');
+  Predicate('masterIsTemporary,includeMasters', 'native master persistence exception', 'unnecessaryPersistent:true; includeMasters:true requires masterIsTemporary:true');
+  with Result.O['presets'].O['conflicts'] do begin
+    A['conflictThis'].Add('ctIdenticalToMasterWinsConflict');
+    A['conflictThis'].Add('ctConflictWins');
+    A['conflictThis'].Add('ctConflictLoses');
+    S['argument'] := 'preset:conflicts';
+    S['scope'] := 'record classes only; explicit files; no inherited parent visibility';
+  end;
+  Exclusion('saved GUI presets', 'INI settings and dialog state; send explicit query arguments');
+  Exclusion('flatten blocks/cells, assign persistent children, inherit parent conflicts, hide no-conflict rows', 'navigation tree presentation; no record-query equivalent');
+  Exclusion('scripted filter', 'arbitrary scripts are a separate consented scripts.run operation; query does not run scripts');
+  Exclusion('obsolete cleaning filter', 'use validation and standalone cleaning jobs with explicit save boundaries');
+  Exclusion('very quick conflicts optimization', 'query evaluates canonical conflicts; does not exclude game masters or alter native tree loading');
+end;
+
 function xeAutomationRecordsApplyFilter(const AArgs: TJsonObject): TJsonObject;
 var
   lPage: TxeAutomationMainRecords;
@@ -729,6 +783,9 @@ begin
 
   Result.I['count'] := lHits.Count;
   Result.I['offset'] := xeAutomationReadOffsetArg(AArgs) + Result.I['emittedTotal'] - lHits.Count;
+  Result.S['scope'] := 'explicit loaded files; record predicates; query only';
+  Result.B['guiFilterChanged'] := False;
+  Result.S['persistence'] := 'none; native derived caches may initialize';
   // nextOffset is retained for complete full pages. Sparse budget pages may
   // contain zero hits, so they use only nextCursor to avoid offset retry loops.
   if Result.B['truncated'] and (lHits.Count > 0) then
@@ -1870,6 +1927,7 @@ begin
     xeAutomationInjectedCleanupJob, xeAutomationValidateInjectedCleanup);
   xeAutomationRegisterCommand('records.list', xeAutomationRecordsList);
   xeAutomationRegisterCommand('records.apply_filter', xeAutomationRecordsApplyFilter);
+  xeAutomationRegisterCommand('records.filter_options', xeAutomationRecordsFilterOptions);
   xeAutomationRegisterCommand('records.base_record', xeAutomationRecordsBaseRecord);
   xeAutomationRegisterCommand('records.create', xeAutomationRecordsCreate);
   xeAutomationRegisterCommand('records.copy_into', xeAutomationRecordsCopyInto);
