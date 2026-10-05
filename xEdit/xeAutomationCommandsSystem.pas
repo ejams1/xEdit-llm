@@ -555,8 +555,9 @@ begin
   end else if SameText(AKind, 'analysis.build_references') then begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..32', False);
     xeAutomationSchemaShapeField(lTarget, 'allLoaded', 'boolean:default-false-true-selects-full-loaded-graph', False);
-    ATarget.S['constraintNotes'] := 'Choose allLoaded:true without files, or explicit nonempty files; target.steps is reserved; no active parallel native reference build; 256 loaded-file plan limit';
-    xeAutomationSchemaEffects(ATarget, 'Numeric plugin definitions; loaded selected scope; apply rebuilds stale indexes without plugin mutation', 'derived reference index memory; cache writes suppressed; no plugin save');
+    lTarget.B['additionalProperties'] := False; lOptions.B['additionalProperties'] := False;
+    ATarget.S['constraintNotes'] := 'Choose allLoaded:true without files, or explicit unique resolved files1..32; no options; default dryRun true; no active parallel native reference build; 256 loaded-file plan limit; retained native file/group traversal<=128 actions/soft20ms per poll, depth128/work1000000 per file; record BuildRef/init/group-owner hooks remain native atoms; stale indexes bypass reference-cache streams; canceled file stays unavailable';
+    xeAutomationSchemaEffects(ATarget, 'Numeric plugin definitions; loaded selected scope; apply rebuilds stale indexes without plugin mutation', 'derived reference index memory; no reference-cache stream reads/writes; no plugin save; incomplete file unavailable');
   end else if SameText(AKind, 'analysis.reachability') then begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:report-scope-plugin>:1..32', True);
     xeAutomationSchemaShapeField(lTarget, 'roots', 'array<object:file,formId>:0..32-additional-roots', False);
@@ -1203,7 +1204,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.68';
+  Result.S['contractVersion'] := '0.69';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';

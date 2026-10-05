@@ -94,6 +94,25 @@ type
 
 function wbAutomationMasterUseScan(const aFile: IwbFile): TwbAutomationMasterUseScan;
 
+const
+  wbAutomationReferenceScanDepthLimit = 128;
+  wbAutomationReferenceScanWorkLimit = 1000000;
+
+type
+  EwbAutomationReferenceScanInvalidated = class(Exception);
+  EwbAutomationReferenceScanCapacity = class(Exception);
+  // Automation deliberately walks native containers without loading/saving
+  // reference-cache streams. Individual record BuildRef calls remain atomic.
+  TwbAutomationReferenceBuildScan = class
+  public
+    function Advance: Boolean; virtual; abstract;
+    function WorkUnits: Integer; virtual; abstract;
+    function NativeUnits: Integer; virtual; abstract;
+    function RetainedDepth: Integer; virtual; abstract;
+  end;
+
+function wbAutomationReferenceBuildScan(const aFile: IwbFile): TwbAutomationReferenceBuildScan;
+
 function StartsWith(const s, t: string): Boolean;
 
 function wbCopyElementToFile(const aSource: IwbElement; aFile: IwbFile; aAsNew, aDeepCopy: Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement;
@@ -2005,6 +2024,7 @@ type
     procedure MakeHeaderWriteable;
 
     procedure BuildRef; override;
+    procedure LinkOwnerAfterBuildRef;
     function LinksToParent: Boolean; override;
     function Reached: Boolean; override;
 
@@ -3215,6 +3235,160 @@ begin Result := FFrames.Count; end;
 
 function wbAutomationMasterUseScan(const aFile: IwbFile): TwbAutomationMasterUseScan;
 begin Result := TwbAutomationMasterUseScanImpl.Create(aFile); end;
+
+type
+  TwbAutomationReferenceFrame = record
+    KeepAlive: IwbContainerElementRef;
+    Native: TwbContainer;
+    NextChild: Integer;
+    Entered, BuildChildren: Boolean;
+  end;
+  TwbAutomationReferenceBuildScanImpl = class(TwbAutomationReferenceBuildScan)
+  private
+    FFile: IwbFile;
+    FNativeFile: TwbFile;
+    FFrames: TList<TwbAutomationReferenceFrame>;
+    FMasters: TwbFiles;
+    FGeneration: UInt64;
+    FFileGeneration, FWork, FNativeUnits: Integer;
+    FComplete, FStarted, FResetChildren: Boolean;
+    procedure CheckValid;
+    procedure Push(const containerRef: TwbContainer);
+  public
+    constructor Create(const fileRef: IwbFile);
+    destructor Destroy; override;
+    function Advance: Boolean; override;
+    function WorkUnits: Integer; override;
+    function NativeUnits: Integer; override;
+    function RetainedDepth: Integer; override;
+  end;
+
+constructor TwbAutomationReferenceBuildScanImpl.Create(const fileRef: IwbFile);
+begin
+  inherited Create;
+  FFrames := TList<TwbAutomationReferenceFrame>.Create;
+  if not Assigned(fileRef) or not (TObject(fileRef.ElementID) is TwbFile) then
+    raise Exception.Create('Reference scan requires a loaded native file');
+  FFile := fileRef; FNativeFile := TwbFile(fileRef.ElementID);
+  if fsRefsBuilding in FNativeFile.flStates then
+    raise EwbAutomationReferenceScanInvalidated.Create('Native reference construction is already active');
+  {$IFDEF USE_PARALLEL_BUILD_REFS}
+  if wbBuildingRefsParallel then
+    raise EwbAutomationReferenceScanInvalidated.Create('Parallel reference construction is active');
+  {$ENDIF}
+  FGeneration := wbGlobalModifedGeneration; FFileGeneration := FNativeFile.flGeneration;
+  FMasters := Copy(FNativeFile.flMasters);
+  FComplete := wbAutomationReferenceIndexIsCurrent(FFile);
+  if FComplete then Exit;
+  if fsIsDeltaPatch in FNativeFile.flStates then
+    raise EwbAutomationReferenceScanInvalidated.Create('Native reference construction excludes delta patches');
+  // Preserve the cold uncached build's memory-reset policy. Already initialized
+  // or no-cache native builds do not set the thread-local building marker.
+  FResetChildren := not wbDontCache and not (fsRefsBuild in FNativeFile.flStates) and
+    (not (esModified in FNativeFile.eStates) or (esInternalModified in FNativeFile.eStates));
+  Push(FNativeFile);
+  FStarted := True;
+  Include(FNativeFile.flStates, fsRefsBuild);
+  Include(FNativeFile.flStates, fsRefsBuilding);
+  Exclude(FNativeFile.cntStates, csRefsBuild);
+  FNativeFile.cntRefsBuildAt := -1;
+end;
+
+destructor TwbAutomationReferenceBuildScanImpl.Destroy;
+begin
+  if FStarted then begin
+    Exclude(FNativeFile.flStates, fsRefsBuilding);
+    if not FComplete then begin
+      // Partial roots may be valid, but the whole file is not. Keep fsRefsBuild
+      // so subsequent native BuildRef refreshes directly instead of mixing a
+      // cached stream with partially rebuilt live references.
+      Exclude(FNativeFile.cntStates, csRefsBuild);
+      FNativeFile.cntRefsBuildAt := -1;
+    end;
+  end;
+  FFrames.Free; FMasters := nil; FFile := nil;
+  inherited;
+end;
+
+procedure TwbAutomationReferenceBuildScanImpl.CheckValid;
+begin
+  if (FGeneration <> wbGlobalModifedGeneration) or (FFileGeneration <> FNativeFile.flGeneration) or
+     (Length(FMasters) <> Length(FNativeFile.flMasters)) then
+    raise EwbAutomationReferenceScanInvalidated.Create('Reference scan invalidated by changed native contents');
+  for var i := Low(FMasters) to High(FMasters) do
+    if not FMasters[i].Equals(FNativeFile.flMasters[i]) then
+      raise EwbAutomationReferenceScanInvalidated.Create('Reference scan invalidated by changed masters');
+  {$IFDEF USE_PARALLEL_BUILD_REFS}
+  if wbBuildingRefsParallel then
+    raise EwbAutomationReferenceScanInvalidated.Create('Parallel reference construction became active');
+  {$ENDIF}
+end;
+
+procedure TwbAutomationReferenceBuildScanImpl.Push(const containerRef: TwbContainer);
+var frame: TwbAutomationReferenceFrame;
+begin
+  if FFrames.Count >= wbAutomationReferenceScanDepthLimit then
+    raise EwbAutomationReferenceScanCapacity.Create('Reference scan depth exceeds128');
+  frame := Default(TwbAutomationReferenceFrame);
+  frame.KeepAlive := containerRef as IwbContainerElementRef; frame.Native := containerRef;
+  FFrames.Add(frame);
+end;
+
+function TwbAutomationReferenceBuildScanImpl.Advance: Boolean;
+var frame: TwbAutomationReferenceFrame; child: IwbElementInternal; native: TObject;
+    def: IwbDef; valueDef: IwbValueDef; previousBuilding: Boolean;
+begin
+  CheckValid;
+  if FComplete then Exit(True);
+  if FWork >= wbAutomationReferenceScanWorkLimit then
+    raise EwbAutomationReferenceScanCapacity.Create('Reference scan exceeds1000000 structural actions');
+  Inc(FWork); frame := FFrames.Last;
+  previousBuilding := _FileRefsBuilding; _FileRefsBuilding := FResetChildren;
+  try
+    if not frame.Entered then begin
+      // Same definition exclusions and initialization as native container BuildRef.
+      def := frame.Native.GetDef; valueDef := frame.Native.GetValueDef;
+      frame.BuildChildren := not (Assigned(def) and (dfExcludeFromBuildRef in def.DefFlags)) and
+        not (Assigned(valueDef) and (dfExcludeFromBuildRef in valueDef.DefFlags));
+      if frame.BuildChildren then begin
+        frame.Native.DoInit(False); Include(frame.Native.cntStates, csRefsBuild);
+      end;
+      frame.Entered := True; FFrames[FFrames.Count - 1] := frame;
+    end else if frame.BuildChildren and (frame.NextChild < Length(frame.Native.cntElements)) then begin
+      child := frame.Native.cntElements[frame.NextChild]; Inc(frame.NextChild);
+      FFrames[FFrames.Count - 1] := frame;
+      if child.CanContainFormIDs then begin
+        native := TObject(child.ElementID);
+        if native is TwbGroupRecord then Push(TwbGroupRecord(native))
+        else begin child.BuildRef; Inc(FNativeUnits); end;
+      end;
+    end else begin
+      if frame.BuildChildren then frame.Native.cntRefsBuildAt := frame.Native.eGeneration;
+      // Native group owner linkage happens even when the inherited container
+      // excludes its payload and even when a group contains no records.
+      if frame.Native is TwbGroupRecord then begin
+        TwbGroupRecord(frame.Native).LinkOwnerAfterBuildRef; Inc(FNativeUnits);
+      end;
+      FFrames.Delete(FFrames.Count - 1);
+    end;
+  finally _FileRefsBuilding := previousBuilding; end;
+  CheckValid;
+  // Publish completion only after the final postorder hook and epoch check.
+  // A failure there must leave the destructor's partial-index invalidation active.
+  FComplete := FFrames.Count = 0;
+  if FComplete then Exclude(FNativeFile.flStates, fsRefsBuilding);
+  Result := FComplete;
+end;
+
+function TwbAutomationReferenceBuildScanImpl.WorkUnits: Integer;
+begin Result := FWork; end;
+function TwbAutomationReferenceBuildScanImpl.NativeUnits: Integer;
+begin Result := FNativeUnits; end;
+function TwbAutomationReferenceBuildScanImpl.RetainedDepth: Integer;
+begin Result := FFrames.Count; end;
+
+function wbAutomationReferenceBuildScan(const aFile: IwbFile): TwbAutomationReferenceBuildScan;
+begin Result := TwbAutomationReferenceBuildScanImpl.Create(aFile); end;
 
 procedure TwbFile.CleanMasters;
 begin
@@ -17737,10 +17911,14 @@ begin
 end;
 
 procedure TwbGroupRecord.BuildRef;
-var
-  Rec: IwbMainRecord;
 begin
   inherited;
+  LinkOwnerAfterBuildRef;
+end;
+
+procedure TwbGroupRecord.LinkOwnerAfterBuildRef;
+var Rec: IwbMainRecord;
+begin
   if GetGroupType in [1, 6, 7] then begin
     Rec := (GetFile as IwbFileInternal).RecordByFormID[TwbFormID.FromCardinal(GetGroupLabel), False, GetMastersUpdated];
     if Assigned(Rec) then begin

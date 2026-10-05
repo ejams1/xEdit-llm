@@ -221,10 +221,15 @@ end;
 procedure xeReferenceValidate(var Dry: Boolean; const Specified: Boolean;
   const Target, Options: TJsonObject);
 var AllLoaded, Present: Boolean; Files: TxeAutomationFiles; Module: PwbModuleInfo;
-  FileRef: IwbFile; i: Integer;
+  FileRef: IwbFile; i, j: Integer;
 begin
   if not Specified then Dry := True;
   if wbIsMorrowind then raise xeAutomationNewError(xeAutomationErrorUnsupportedGameMode, 'Reference-index jobs require numeric record definitions');
+  for i := 0 to Target.Count - 1 do
+    if not SameText(Target.Names[i], 'files') and not SameText(Target.Names[i], 'allLoaded') then
+      raise xeAutomationInvalidRequest('Reference target accepts only files or allLoaded');
+  if Assigned(Options) and (Options.Count > 0) then
+    raise xeAutomationInvalidRequest('Reference indexing does not accept options');
   if Target.Contains('steps') then raise xeAutomationInvalidRequest('target.steps is reserved for the native plan');
   AllLoaded := xeAutomationReadBooleanArg(Target, 'allLoaded', Present);
   if AllLoaded then begin
@@ -237,7 +242,11 @@ begin
   end else begin
     Files := xeAutomationRequirePluginFiles(xeAutomationReadStringArrayArg(Target, 'files'));
     if (Length(Files) < 1) or (Length(Files) > 32) then raise xeAutomationInvalidRequest('target.files must contain 1..32 loaded plugin names');
-    for i := Low(Files) to High(Files) do xeReachStep(Target.A['steps'], 'references', Files[i].FileName);
+    for i := Low(Files) to High(Files) do begin
+      for j := Low(Files) to Pred(i) do
+        if Files[i].Equals(Files[j]) then raise xeAutomationInvalidRequest('Duplicate reference file');
+      xeReachStep(Target.A['steps'], 'references', Files[i].FileName);
+    end;
   end;
   if (Target.A['steps'].Count < 1) or (Target.A['steps'].Count > 256) then
     raise xeAutomationInvalidRequest('Reference plan must contain 1..256 loaded files');
@@ -286,6 +295,126 @@ begin
     end; end;
   finally _wbProgressCallback := PreviousProgress; wbDontCacheSave := PreviousCacheSave; end;
 end;
+
+type
+  TReferenceBuildStepper = class(TxeAutomationJobStepper)
+  private
+    FTarget: TJsonObject;
+    FFile: IwbFile;
+    FRow: TJsonObject;
+    FScan: TwbAutomationReferenceBuildScan;
+    FDry, FComplete: Boolean;
+    FSteps, FLastWork, FWork, FNativeUnits, FDepth: Integer;
+  public
+    constructor Create(const dry: Boolean; const target: TJsonObject);
+    destructor Destroy; override;
+    function Advance(const findings: TJsonArray;
+      const summary, resultData, failure: TJsonObject): Boolean; override;
+    procedure WriteProgress(const progress: TJsonObject); override;
+  end;
+
+constructor TReferenceBuildStepper.Create(const dry: Boolean; const target: TJsonObject);
+begin inherited Create; FDry := dry; FTarget := target.Clone; end;
+destructor TReferenceBuildStepper.Destroy;
+begin
+  if Assigned(FScan) then begin
+    FScan.Free;
+    xeAutomationInvalidateRecordQueries;
+  end;
+  FTarget.Free; FFile := nil; inherited;
+end;
+
+function TReferenceBuildStepper.Advance(const findings: TJsonArray;
+  const summary, resultData, failure: TJsonObject): Boolean;
+var timer: TStopwatch; oldSave: Boolean; oldProgress: TwbProgressCallback;
+begin
+  Inc(FSteps); FLastWork := 0;
+  if FDry or (FTarget.A['steps'].O[0].S['phase'] = 'complete') then begin
+    xeReferenceRun('', FDry, True, FTarget, nil, findings, summary, resultData, failure);
+    FRow := resultData.A['steps'].O[resultData.A['steps'].Count - 1];
+    FRow.B['complete'] := failure.Count = 0;
+    FComplete := failure.Count = 0; FLastWork := 1;
+    summary.S['persistence'] := 'derived index memory only; reference-cache streams bypassed; plugins unchanged';
+    summary.S['cancelBoundary'] := 'between native container actions and record BuildRef calls';
+    Exit(FComplete);
+  end;
+  oldSave := wbDontCacheSave; oldProgress := _wbProgressCallback;
+  wbDontCacheSave := True; _wbProgressCallback := xeReachProgress;
+  timer := TStopwatch.StartNew;
+  try
+    try
+      if not Assigned(FRow) then begin
+        FFile := xeAutomationRequirePluginFile(FTarget.A['steps'].O[0].S['file']);
+        FRow := resultData.A['steps'].AddObject; FRow.Assign(FTarget.A['steps'].O[0]);
+        FRow.B['currentBefore'] := wbAutomationReferenceIndexIsCurrent(FFile);
+        FRow.B['currentAfter'] := False; FRow.B['complete'] := False; FRow.S['outcome'] := 'in_progress';
+        summary.S['persistence'] := 'derived index memory only; reference-cache streams bypassed; plugins unchanged';
+        summary.S['cancelBoundary'] := 'between native container actions and record BuildRef calls';
+        if not summary.Contains('indexedFiles') then summary.I['indexedFiles'] := 0;
+        xeAutomationInvalidateRecordQueries;
+        FScan := wbAutomationReferenceBuildScan(FFile);
+      end;
+      while not FComplete and (FLastWork < xeAutomationJobStepWorkLimit) and
+        (timer.ElapsedMilliseconds < xeAutomationJobStepBudgetMs) do begin
+        Inc(FLastWork);
+        FComplete := FScan.Advance;
+        FWork := FScan.WorkUnits; FNativeUnits := FScan.NativeUnits; FDepth := FScan.RetainedDepth;
+      end;
+      if FComplete then begin
+        FreeAndNil(FScan);
+        // Queries opened during partial construction must not outlive changes
+        // to native group ownership or reverse edges made by the completed scan.
+        xeAutomationInvalidateRecordQueries;
+        if not wbAutomationReferenceIndexIsCurrent(FFile) then begin
+          FComplete := False;
+          raise xeAutomationStateConflict('Native traversal did not produce a current reference index');
+        end;
+        FRow.B['currentAfter'] := True; FRow.B['complete'] := True; FRow.S['outcome'] := 'completed';
+        summary.I['indexedFiles'] := summary.I['indexedFiles'] + 1;
+      end;
+    except
+      on E: Exception do begin
+        if Assigned(FScan) then begin
+          FWork := FScan.WorkUnits; FNativeUnits := FScan.NativeUnits; FDepth := FScan.RetainedDepth;
+        end;
+        if Assigned(FRow) then FRow.S['outcome'] := 'failed';
+        if E is EwbAutomationReferenceScanCapacity then failure.S['code'] := 'job_capacity'
+        else if E is EwbAutomationReferenceScanInvalidated then failure.S['code'] := 'job_state_changed'
+        else failure.S['code'] := 'reference_index_failed';
+        failure.S['message'] := E.Message; failure.S['file'] := FTarget.A['steps'].O[0].S['file'];
+        failure.B['selectedScopeIncomplete'] := True;
+        FreeAndNil(FScan);
+        xeAutomationInvalidateRecordQueries;
+      end;
+    end;
+  finally
+    _wbProgressCallback := oldProgress; wbDontCacheSave := oldSave;
+    if Assigned(FRow) then begin
+      FRow.I['workUnits'] := FWork; FRow.I['nativeUnits'] := FNativeUnits;
+      FRow.B['currentAfter'] := wbAutomationReferenceIndexIsCurrent(FFile);
+    end;
+  end;
+  Result := FComplete;
+end;
+
+procedure TReferenceBuildStepper.WriteProgress(const progress: TJsonObject);
+begin
+  progress.S['phase'] := FTarget.A['steps'].O[0].S['phase'];
+  progress.S['fileName'] := FTarget.A['steps'].O[0].S['file'];
+  progress.I['steps'] := FSteps; progress.I['lastWorkUnits'] := FLastWork;
+  progress.I['workLimit'] := xeAutomationJobStepWorkLimit; progress.I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
+  progress.I['scanWorkUnits'] := FWork; progress.I['scanWorkLimit'] := wbAutomationReferenceScanWorkLimit;
+  progress.I['nativeUnits'] := FNativeUnits; progress.I['retainedDepth'] := FDepth;
+  progress.I['depthLimit'] := wbAutomationReferenceScanDepthLimit;
+  progress.B['stageComplete'] := FComplete;
+  progress.B['nativeCallsPreemptible'] := False;
+  progress.S['cachePolicy'] := 'native current-index fast path; stale indexes rebuilt without reference-cache streams';
+  progress.S['nativeAtoms'] := 'container initialization/access; one native record BuildRef; group owner lookup/linkage; final status';
+end;
+
+function NewReferenceBuildStepper(const kind: string; const dry, specified: Boolean;
+  const target, options: TJsonObject): TxeAutomationJobStepper;
+begin Result := TReferenceBuildStepper.Create(dry, target); end;
 
 type
   TReachReadbackStepper = class(TxeAutomationJobStepper)
@@ -438,6 +567,7 @@ begin
   xeAutomationRegisterJobKindWithValidator('analysis.reachability', xeReachRun, xeReachValidate, 'steps');
   xeAutomationRegisterJobStepper('analysis.reachability', NewReachReadbackStepper);
   xeAutomationRegisterJobKindWithValidator('analysis.build_references', xeReferenceRun, xeReferenceValidate, 'steps');
+  xeAutomationRegisterJobStepper('analysis.build_references', NewReferenceBuildStepper);
   xeAutomationRegisterCommand('analysis.reference_status', xeReferenceStatus);
 end;
 end.

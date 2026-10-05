@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.68",
+  "contractVersion": "0.69",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -11067,7 +11067,7 @@
       "handler": "xeReferenceStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsReachability.pas",
-        "line": 441
+        "line": 571
       },
       "prerequisites": "loaded native modules",
       "effect": "read-only per-file freshness/all-loaded completeness snapshot",
@@ -12316,7 +12316,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1916
+        "line": 1917
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12328,7 +12328,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1915
+        "line": 1916
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand descriptors for all current commands and job-kind-specific target/options; registry-derived coverage, wire preconditions/projection and explicit example availability; future unauthored routes remain explicit; no plugin persistence",
@@ -12340,7 +12340,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1914
+        "line": 1915
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12352,7 +12352,7 @@
       "handler": "xeAutomationSystemDiagnostics",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1917
+        "line": 1918
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12364,7 +12364,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1913
+        "line": 1914
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12376,7 +12376,7 @@
       "handler": "xeAutomationSystemRunDiagnostic",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1918
+        "line": 1919
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12388,10 +12388,10 @@
       "handler": "xeReferenceRun",
       "source": {
         "file": "xEdit/xeAutomationCommandsReachability.pas",
-        "line": 440
+        "line": 569
       },
-      "prerequisites": "numeric games; explicit 1..32 plugin scope or allLoaded:true up to 256 files; no concurrent native indexing",
-      "effect": "derived reference indexes in memory; native cache writes suppressed; no plugin save",
+      "prerequisites": "numeric games; unique explicit1..32 files or allLoaded:true up to256; closed target/no options; no concurrent native indexing; retained file/group traversal<=128 actions/soft20ms, depth128/work1000000; native init/record BuildRef/owner-link atoms indivisible; native acceptance skipped",
+      "effect": "derived reference indexes in memory; stale traversal bypasses reference-cache streams; no plugin save; partial canceled index unavailable",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -12400,7 +12400,7 @@
       "handler": "xeReachRun",
       "source": {
         "file": "xEdit/xeAutomationCommandsReachability.pas",
-        "line": 438
+        "line": 567
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "default dry-run staged plan; retained report/additional-root steps with stage-wide visit budget; native reference/reset/root-file stages and each root propagation indivisible; apply rebuilds native derived reachability flags globally; no plugin mutation or refcache writes; historical findings valid only for succeeded jobs",

@@ -15,12 +15,22 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.68** (retained injected cleanup planning and native units).
+Source contract: **0.69** (retained native reference-index traversal).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
+
+- **0.69: reference-index traversal** — `analysis.build_references` retains the
+  native unsorted file/group walk and postorder group-owner hooks. Each poll
+  performs <=128 actions with a soft20ms budget; file depth128/work1000000 caps
+  fail explicitly. Native initialization, record BuildRef and owner lookup
+  remain indivisible. Current indexes use the native fast path; stale builds
+  bypass reference-cache streams. Cancellation/failure releases frames and keeps
+  the partial file index unavailable until rebuilt. Rows/counts describe the
+  durable completed prefix. Targets are closed, explicit files unique1..32 or
+  allLoaded up to256; options empty. Delphi/game execution skipped at user request.
 
 - **0.68: injected cleanup stepping** — native reference builds and full
   selection provider/dependency preflight move out of jobs.start into retained
