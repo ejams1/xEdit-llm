@@ -16,6 +16,7 @@ def snapshot(state="running", remaps=1, flag="not_started", dry=False):
     return {"state": state, "dryRun": dry, "terminal": state != "running",
             "cursorRetained": state == "running", "findingsComplete": done,
             "summary": {"remapsApplied": remaps, "remapsPlanned": 2 if dry else 0,
+                        "planned": int(flag == "planned"),
                         "applied": int(flag == "applied"), "changed": not dry and bool(remaps)},
             "result": {"files": [row]}, "progress": {"completed": int(done), "total": 1,
                 "remaining": int(not done), "detail": {"workLimit": 128, "softBudgetMs": 20,

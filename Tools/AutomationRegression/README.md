@@ -1490,6 +1490,9 @@ a successful setter retains applied flags/counters. Existing summary
 planned/applied still count flags, with remapsPlanned/remapsApplied separately
 accumulated across targets. Dry file rows project changed flags (legacy meaning),
 while summary.changed reports actual mutation. No implicit save/rollback occurs.
+Both ESL mutation cursors retain numeric `planned` and `applied` keys from their
+first initialized poll, including zero values for dry-run, refusal, apply-only
+and no-op paths. The compaction/apply runners assert those fields throughout.
 
 Run the three source commands from the compaction section below. Native tests
 are skipped at the user's request. For future acceptance, generate a FRESH

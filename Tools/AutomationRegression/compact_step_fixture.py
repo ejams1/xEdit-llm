@@ -61,6 +61,7 @@ def validate_state(state):
     assert 0 <= detail["overridesChecked"] <= 100000, state
     assert detail["mutationLimit"] == 1 and detail["softBudgetMs"] == 20, state
     assert not detail["nativeCallsPreemptible"], state
+    assert type(state["summary"]["planned"]) is int and type(state["summary"]["applied"]) is int, state
     assert progress["remaining"] == progress["total"] - progress["completed"], state
     assert state["findingsComplete"] == (state["state"] == "succeeded"), state
     rows = state["result"]["files"]
@@ -156,6 +157,7 @@ def exercise(client, overlay, artifacts):
     job = start(client, [TARGET])  # omitted dryRun is true.
     dry = poll(client, job, lambda s: s["terminal"], timings)
     assert dry["state"] == "succeeded" and dry["dryRun"], dry
+    assert dry["summary"]["applied"] == 0, dry
     assert dry["summary"]["planned"] == COUNT and mapping(dry["result"]["files"][0]) == expected_remaps(), dry
     snapshots.append(dry)
     assert client.call("session.get_dirty_state") == baseline
@@ -172,6 +174,7 @@ def exercise(client, overlay, artifacts):
         job = start(client, [target], False)
         final = poll(client, job, lambda s: s["terminal"], timings)
         assert final["state"] == "succeeded", final
+        assert final["summary"]["planned"] == 0, final
         assert final["summary"]["applied"] == COUNT - int(target == CANCELED), final
         assert {target, callers} <= set(final["summary"]["dirtyFiles"]), final
         snapshots.append(final)

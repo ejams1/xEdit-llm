@@ -40,6 +40,7 @@ def validate_state(state):
     detail, progress = state["progress"]["detail"], state["progress"]
     assert detail["workLimit"] == 128 and detail["softBudgetMs"] == 20, state
     assert detail["mutationLimit"] == 1 and not detail["nativeCallsPreemptible"], state
+    assert type(state["summary"]["planned"]) is int and type(state["summary"]["applied"]) is int, state
     cursor = detail.get("cursor", {})
     if cursor:
         assert 0 <= cursor["lastWorkUnits"] <= cursor["workLimit"] == 128, state
@@ -137,6 +138,7 @@ def exercise(client, overlay, artifacts):
     job = start(client, [compact.TARGET])
     dry = poll(client, job, lambda s: s["terminal"], timings)
     assert dry["state"] == "succeeded" and dry["dryRun"], dry
+    assert dry["summary"]["applied"] == 0, dry
     assert dry["summary"]["planned"] == 1 and dry["summary"]["remapsPlanned"] == compact.COUNT, dry
     assert dry["result"]["files"][0]["changed"] and not dry["summary"]["changed"], dry
     assert compact.mapping(dry["result"]["files"][0]) == compact.expected_remaps(), dry
@@ -165,6 +167,7 @@ def exercise(client, overlay, artifacts):
         job = start(client, files, False)
         final = poll(client, job, lambda s: s["terminal"], timings)
         assert final["state"] == "succeeded" and final["summary"]["applied"] == len(files), final
+        assert final["summary"]["planned"] == 0, final
         snapshots.append(final)
     for target, callers in ((compact.TARGET, compact.CALLERS), (compact.CANCELED, compact.CANCEL_CALLERS)):
         assert_loaded(client, target, callers, set(compact.expected_remaps()), True)
