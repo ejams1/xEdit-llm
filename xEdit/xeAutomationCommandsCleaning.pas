@@ -20,6 +20,7 @@ uses
   Generics.Collections,
   JsonDataObjects,
   wbInterface,
+  wbImplementation,
   xeAutomationDataLookup,
   xeAutomationErrors,
   xeAutomationJobs,
@@ -98,7 +99,7 @@ begin
 end;
 
 type
-  TCombinedPhase = (cpSort, cpCleanMasters, cpMasterReport, cpBeginItm,
+  TCombinedPhase = (cpSort, cpCleanMasters, cpScanMasters, cpApplyCleanMasters, cpMasterReport, cpBeginItm,
     cpCollectItm, cpItm, cpItmReport, cpBeginUdr, cpCollectUdr, cpUdr, cpUdrReport, cpComplete);
   TCombinedFrame = class
   public
@@ -114,6 +115,8 @@ type
     FDryRun: Boolean;
     FFile: IwbFile;
     FPhase: TCombinedPhase;
+    FMasterScan: TwbAutomationMasterUseScan;
+    FMasterCountBefore, FMasterScanWork, FMasterNativeUnits, FMasterDepth: Integer;
     FStack: TObjectList<TCombinedFrame>;
     FRecords: TQueue<IwbMainRecord>;
     FRow, FLastLocator: TJsonObject;
@@ -126,6 +129,8 @@ type
     procedure CollectOne(const nextPhase: TCombinedPhase);
     procedure SetLastRecord(const recordRef: IwbMainRecord);
     procedure RecordOne(const itm: Boolean);
+    procedure BeginMasterScan;
+    procedure ScanMasterOne;
     procedure MasterOne(const sort: Boolean);
     procedure PublishOperation(const findings: TJsonArray);
     procedure CheckUdrSettings;
@@ -156,6 +161,7 @@ end;
 
 destructor TCombinedStepper.Destroy;
 begin
+  FMasterScan.Free;
   FLastLocator.Free;
   FRecords.Free;
   FStack.Free;
@@ -295,6 +301,39 @@ begin
   end;
 end;
 
+procedure TCombinedStepper.BeginMasterScan;
+var operation: TJsonObject;
+begin
+  xeAutomationRequireWritableCleaningTarget(FFile);
+  operation := FRow.O['operations'].O['cleanMasters'];
+  operation.S['outcome'] := 'scanning';
+  operation.I['planned'] := 1;
+  Inc(FPlanned); FRow.I['planned'] := FRow.I['planned'] + 1;
+  FMasterCountBefore := FFile.MasterCount[True];
+  FMasterScan := wbAutomationMasterUseScan(FFile);
+  FPhase := cpScanMasters;
+end;
+
+procedure TCombinedStepper.ScanMasterOne;
+var complete: Boolean;
+begin
+  try
+    complete := FMasterScan.Advance;
+  finally
+    FMasterScanWork := FMasterScan.WorkUnits;
+    FMasterNativeUnits := FMasterScan.NativeUnits;
+    FMasterDepth := FMasterScan.RetainedDepth;
+    with FRow.O['operations'].O['cleanMasters'] do begin
+      I['scanWorkUnits'] := FMasterScanWork;
+      I['nativeUsageCalls'] := FMasterNativeUnits;
+    end;
+  end;
+  if complete then begin
+    FRow.O['operations'].O['cleanMasters'].B['scanComplete'] := True;
+    FPhase := cpApplyCleanMasters;
+  end;
+end;
+
 procedure TCombinedStepper.MasterOne(const sort: Boolean);
 var
   operation: TJsonObject;
@@ -303,15 +342,24 @@ begin
   if sort then operation := FRow.O['operations'].O['sort']
   else operation := FRow.O['operations'].O['cleanMasters'];
   operation.S['outcome'] := 'attempted';
-  operation.I['planned'] := 1;
-  Inc(FPlanned); FRow.I['planned'] := FRow.I['planned'] + 1;
+  if operation.I['planned'] = 0 then begin
+    operation.I['planned'] := 1;
+    Inc(FPlanned); FRow.I['planned'] := FRow.I['planned'] + 1;
+  end;
   if not FDryRun then begin
     xeAutomationRequireWritableCleaningTarget(FFile);
     Inc(FLastMutations);
   end;
-  // Each native call remains indivisible. Sort and clean always occupy separate
-  // polls, so cancellation can retain sort without entering CleanMasters.
-  xeAutomationMasterHygieneInMemory(FFile, not FDryRun, sort, planned, applied, skipped);
+  // Sort/remap remain indivisible, with retained read-only scanning between.
+  if Assigned(FMasterScan) then begin
+    FMasterScan.Apply;
+    FreeAndNil(FMasterScan);
+    FMasterDepth := 0;
+    planned := 1; applied := 0; skipped := 0;
+    // Native clean preserves retained master order; only removal changes it.
+    if FFile.MasterCount[True] <> FMasterCountBefore then applied := 1 else skipped := 1;
+  end else
+    xeAutomationMasterHygieneInMemory(FFile, not FDryRun, sort, planned, applied, skipped);
   operation.I['applied'] := applied; operation.I['skipped'] := skipped;
   operation.B['complete'] := True;
   if FDryRun then operation.S['outcome'] := 'planned'
@@ -413,7 +461,9 @@ begin
         Inc(FLastWork); oldPhase := FPhase;
         case FPhase of
           cpSort: MasterOne(True);
-          cpCleanMasters: MasterOne(False);
+          cpCleanMasters: if FDryRun then MasterOne(False) else BeginMasterScan;
+          cpScanMasters: ScanMasterOne;
+          cpApplyCleanMasters: MasterOne(False);
           cpMasterReport, cpItmReport, cpUdrReport: PublishOperation(findings);
           cpBeginItm: begin BeginOperation('remove_itm', resultData); BeginCollection(cpCollectItm); end;
           cpCollectItm: CollectOne(cpItm);
@@ -422,7 +472,8 @@ begin
           cpCollectUdr: CollectOne(cpUdr);
           cpUdr: RecordOne(False);
         end;
-        if (oldPhase in [cpSort, cpCleanMasters]) or
+        if (oldPhase in [cpSort, cpCleanMasters, cpApplyCleanMasters]) or
+           ((oldPhase = cpScanMasters) and (FPhase <> oldPhase)) or
            ((oldPhase in [cpCollectItm, cpCollectUdr]) and (FPhase <> oldPhase)) or
            ((oldPhase in [cpMasterReport, cpItmReport, cpUdrReport]) and (FPhase <> oldPhase)) then Break;
       end;
@@ -436,15 +487,20 @@ begin
         failure.I['completedRecordsAndMasterChanges'] := FApplied;
         if Assigned(FRow) then begin
           if FPhase = cpSort then FRow.O['operations'].O['sort'].S['outcome'] := 'failed'
-          else if FPhase = cpCleanMasters then FRow.O['operations'].O['cleanMasters'].S['outcome'] := 'failed';
+          else if FPhase in [cpCleanMasters, cpScanMasters, cpApplyCleanMasters] then
+            FRow.O['operations'].O['cleanMasters'].S['outcome'] := 'failed';
           FRow.O['failure'].S['message'] := Copy(E.Message, 1, 4096);
           if Length(E.Message) > 4096 then begin
             FRow.O['failure'].B['messageTruncated'] := True;
             FRow.O['failure'].I['originalMessageCharacters'] := Length(E.Message);
           end;
           if E is ExeAutomationError then FRow.O['failure'].S['code'] := ExeAutomationError(E).Code
+          else if E is EwbAutomationMasterScanCapacity then FRow.O['failure'].S['code'] := 'job_capacity'
+          else if E is EwbAutomationMasterScanInvalidated then FRow.O['failure'].S['code'] := 'job_invalidated'
           else FRow.O['failure'].S['code'] := xeAutomationErrorInternalError;
         end;
+        if E is EwbAutomationMasterScanCapacity then raise xeAutomationNewError('job_capacity', E.Message);
+        if E is EwbAutomationMasterScanInvalidated then raise xeAutomationNewError('job_invalidated', E.Message);
         raise;
       end;
     end;
@@ -477,7 +533,8 @@ end;
 
 procedure TCombinedStepper.WriteProgress(const progress: TJsonObject);
 const
-  PhaseNames: array[TCombinedPhase] of string = ('sort-masters', 'clean-masters', 'master-report',
+  PhaseNames: array[TCombinedPhase] of string = ('sort-masters', 'clean-masters', 'scan-masters',
+    'apply-clean-masters', 'master-report',
     'begin-itm', 'collect-itm', 'itm', 'itm-report', 'begin-udr', 'collect-udr', 'udr', 'udr-report', 'complete');
 begin
   progress.S['fileName'] := FFileName; progress.B['fileComplete'] := FComplete;
@@ -485,6 +542,11 @@ begin
   progress.I['visitedElements'] := FVisited; progress.I['collectedRecords'] := FCollected;
   progress.I['processedRecords'] := FProcessed; progress.I['retainedRecords'] := FRecords.Count;
   progress.I['retainedDepth'] := FStack.Count;
+  progress.I['masterScanWorkUnits'] := FMasterScanWork;
+  progress.I['masterScanWorkLimit'] := wbAutomationMasterScanWorkLimit;
+  progress.I['masterNativeUsageCalls'] := FMasterNativeUnits;
+  progress.I['masterRetainedDepth'] := FMasterDepth;
+  progress.I['masterDepthLimit'] := wbAutomationMasterScanDepthLimit;
   progress.I['planned'] := FPlanned; progress.I['applied'] := FApplied; progress.I['skipped'] := FSkipped;
   progress.I['steps'] := FSteps; progress.I['lastWorkUnits'] := FLastWork;
   progress.I['workLimit'] := xeAutomationJobStepWorkLimit;

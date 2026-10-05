@@ -15,13 +15,19 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.61** (retained file-hygiene master usage scanning).
+Source contract: **0.62** (retained combined-cleaning master usage scanning).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
 
+- **0.62: combined cleaning master scanning** — `cleaning.quick_auto_clean`
+  and `cleaning.sort_and_clean_masters` now reuse the retained native structural
+  master-use scan (depth128/work1000000) between sort and remap. Both yield when
+  scanning finishes before applying; planned counts are recorded once and
+  incomplete master outcomes survive cancellation. Native compilation/parity
+  and restart acceptance remain pending.
 - **0.61: file hygiene stepping** — `files.hygiene.batch` resolves 1..256 unique
   files and accepts 1..32 operation entries, deduplicated in native sort/clean
   order. Each file retains its native structural master-use scan (depth128,
