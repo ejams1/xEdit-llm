@@ -851,6 +851,24 @@ Clients can discover this command through `supports.sessionFlush: true`.
 
 ## Client parsing rules
 
+At source contract0.69, `analysis.build_references` retains native file/group
+frames, preserving definition exclusions, original unsorted traversal and
+postorder group ownership hooks. Each poll advances <=128 actions/soft20ms;
+initialization, one native record BuildRef and group-owner lookup remain atoms.
+The file cursor has depth128/work1000000 limits; limit/state changes fail the job
+with its partial row retained. `progress.detail` includes scanWorkUnits,
+nativeUnits, retainedDepth and stageComplete. `result.steps` rows expose
+complete/currentBefore/currentAfter/workUnits/nativeUnits/outcome; indexedFiles
+counts fully completed reference stages, not the incomplete file. Current
+indexes retain the native fast path; stale indexes rebuild without reference
+cache stream reads/writes. While building and after cancellation/failure, the
+whole file index stays unavailable. Retry rebuilds remaining stale roots, and
+reverse queries require all loaded indexes current. Construction/finalization
+invalidates query revisions, including forward cursors opened during the pass.
+Explicit files1..32 are unique resolved loaded files; allLoaded selects <=256;
+target/options are closed and options empty. Plugins unchanged, no save needed.
+Native execution and cache/GUI parity remain unverified.
+
 At source contract0.68, `cleaning.cleanup_injected_references` resolves bounded
 owned locators at start, then advances native reference construction and GLOBAL
 provider/dependency preflight before any plugin edit. Provider/dependency/overwrite

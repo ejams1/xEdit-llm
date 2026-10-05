@@ -1578,8 +1578,8 @@
       "prerequisites": "consented writable numeric plugin; all requested masters loaded earlier; no comparison files; native capacity/module gates"
     },
     "analysis.build_references": {
-      "effect": "derived reference indexes in memory; native cache writes suppressed; no plugin save",
-      "prerequisites": "numeric games; explicit 1..32 plugin scope or allLoaded:true up to 256 files; no concurrent native indexing"
+      "effect": "derived reference indexes in memory; stale traversal bypasses reference-cache streams; no plugin save; partial canceled index unavailable",
+      "prerequisites": "numeric games; unique explicit1..32 files or allLoaded:true up to256; closed target/no options; no concurrent native indexing; retained file/group traversal<=128 actions/soft20ms, depth128/work1000000; native init/record BuildRef/owner-link atoms indivisible; native acceptance skipped"
     },
     "analysis.reference_status": {
       "effect": "read-only per-file freshness/all-loaded completeness snapshot",

@@ -11,7 +11,7 @@ def rebuild(client, **scope):
     while not job['terminal']:
         job = client.call('jobs.get', jobId=job['jobId'])
         polls += 1
-        assert polls < 1000
+        assert polls < 20000
     assert job['state'] == 'succeeded' and job['summary']['selectedScopeComplete'], job
     client.call('jobs.discard', jobId=job['jobId'])
     return job

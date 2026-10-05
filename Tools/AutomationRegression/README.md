@@ -1596,3 +1596,44 @@ LiteDebug and cover native getter failures/reentrant invalidation, finding/visit
 capacity refusal, global restoration, graph edits and other supported game root
 rules before acceptance. Python fixtures/assertions are not native proof; all
 compiler/game-backed acceptance remains pending.
+
+
+### Reference-index traversal (#14, contract 0.69)
+
+`analysis.build_references` now retains an explicit native file/group stack and
+advances original unsorted elements, definition exclusions and postorder group
+owner links. Native current-file fast path remains; stale indexes bypass cache
+stream loading/saving. Each poll has128 actions/soft20ms, each file depth128 and
+work1000000. Container initialization, record BuildRef and owner lookup are
+indivisible; no hard latency guarantee. fsRefsBuilding stays set across polls,
+so a partial index is unavailable. Cancellation/failure clears retained frames
+and marks the whole file stale; retry preserves completed roots without mixing
+cached streams. Completed file counters/rows remain a durable prefix. Epoch,
+master-identity and parallel-index guards fail stale cursors. No plugin saving.
+Explicit scope files1..32 must be unique resolved names; allLoaded up to256;
+closed target and empty options. Query revisions change at construction and
+finalization so cursors cannot survive changing reverse edges/group ownership.
+
+Source checks (no native execution):
+
+```text
+python -m unittest discover -s Tools/AutomationRegression -p 'test_*.py' -v
+python -m unittest discover -s Tools/AgentCoverage -p test_generate.py -v
+python Tools/AgentCoverage/generate.py --check
+python -m compileall -q Tools/AutomationRegression Tools/AgentCoverage
+```
+
+Future native acceptance: generate a fresh overlay using
+`reference_step_fixture.py generate --overlay <MO2-mod-folder>`; load Fallout4.esm,
+AutomationReferenceStepped.esp and AutomationReferenceCanceled.esp in that order.
+Run `exercise --overlay <folder> --exe <built-FO4Edit.exe> --pid <daemon-pid>
+--artifacts <folder>`. The runner edits/restores one link to stale both indexes,
+records the resulting dirty baseline, checks omitted dry-run, cancels mid-walk,
+checks stable retained rows/counters and reverse-query refusal, retries allLoaded,
+drains exact4000 reverse edges per file and checks an empty CELL group's owner
+link. It then checks the current-index zero-work fast path, unchanged dirty
+baseline and untouched plugin bytes, with per-poll timing evidence. These tests
+must run on fresh fixtures; native cache/cold-reset parity, faults, epoch changes,
+parallel builds, excluded definitions, delta patches and caps still need runtime
+coverage. Delphi/game execution skipped at user request; Python tests validate
+binary fixture structure and acceptance assertions only.
