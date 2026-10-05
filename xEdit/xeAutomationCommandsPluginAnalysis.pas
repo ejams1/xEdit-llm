@@ -221,32 +221,42 @@ begin
     ADryRun := True;
 end;
 
-procedure xeAutomationValidateCompactForEslStart(var ADryRun: Boolean; const ADryRunSpecified: Boolean;
-  const ATarget, AOptions: TJsonObject);
+procedure xeAutomationValidateEslMutationTargets(const kind: string; var ADryRun: Boolean;
+  const ADryRunSpecified: Boolean; const ATarget: TJsonObject);
 var names: TStringList; fileRef: IwbFile; i: Integer;
 begin
-  xeAutomationValidatePluginFilesTarget(xeAutomationFormIdsCompactForEslKind, ADryRun, ADryRunSpecified, ATarget);
-  if ATarget.Count <> 1 then raise xeAutomationInvalidRequest('Compaction target accepts only files');
-  if Assigned(AOptions) and (AOptions.Count <> 0) then
-    raise xeAutomationInvalidRequest('Compaction options must be empty');
+  xeAutomationValidatePluginFilesTarget(kind, ADryRun, ADryRunSpecified, ATarget);
+  if ATarget.Count <> 1 then raise xeAutomationInvalidRequest(kind + ' target accepts only files');
   if ATarget.A['files'].Count > 256 then
-    raise xeAutomationInvalidRequest('Compaction selects 1..256 files');
+    raise xeAutomationInvalidRequest(kind + ' selects 1..256 files');
   names := TStringList.Create;
   try
     names.CaseSensitive := False;
     for i := 0 to ATarget.A['files'].Count - 1 do begin
       fileRef := xeAutomationRequirePluginFile(Trim(ATarget.A['files'].S[i]));
-      if names.IndexOf(fileRef.FileName) >= 0 then raise xeAutomationInvalidRequest('Duplicate compaction target');
+      if names.IndexOf(fileRef.FileName) >= 0 then raise xeAutomationInvalidRequest('Duplicate ' + kind + ' target');
       names.Add(fileRef.FileName);
       if not ADryRun then xeAutomationRequireWritableEslMutationTarget(fileRef);
     end;
   finally names.Free; end;
 end;
 
+procedure xeAutomationValidateCompactForEslStart(var ADryRun: Boolean; const ADryRunSpecified: Boolean;
+  const ATarget, AOptions: TJsonObject);
+begin
+  if Assigned(AOptions) and (AOptions.Count <> 0) then
+    raise xeAutomationInvalidRequest('Compaction options must be empty');
+  xeAutomationValidateEslMutationTargets(xeAutomationFormIdsCompactForEslKind, ADryRun, ADryRunSpecified, ATarget);
+end;
+
 procedure xeAutomationValidateEslApplyStart(var ADryRun: Boolean; const ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject);
 begin
-  xeAutomationValidatePluginFilesTarget(xeAutomationEslApplyKind, ADryRun, ADryRunSpecified, ATarget);
+  // Same bounded, resolved, unique file scope and writable apply preflight as compact.
+  xeAutomationValidateEslMutationTargets(xeAutomationEslApplyKind, ADryRun, ADryRunSpecified, ATarget);
+  if Assigned(AOptions) and ((AOptions.Count > 1) or
+     ((AOptions.Count = 1) and not AOptions.Contains('allowAfterCompact'))) then
+    raise xeAutomationInvalidRequest('ESL apply options accept only allowAfterCompact');
   xeAutomationReadBooleanOption(AOptions, 'allowAfterCompact', False);
 end;
 
@@ -812,7 +822,7 @@ begin
       lFinding.O['action'].S['kind'] := 'planned';
     lFinding.O['action'].B['oldEsl'] := AOldESL;
     lFinding.O['action'].B['newEsl'] := ANewESL;
-    AFindings.Add(lFinding);
+    xeAutomationAppendJobFinding(AFindings, lFinding);
     lFinding := nil;
   finally
     lFinding.Free;
@@ -1188,8 +1198,10 @@ type
     cspReferences, cspPreflight, cspApply, cspHeader, cspComplete);
   TCompactStepper = class(TxeAutomationJobStepper)
   private
-    FName: string;
+    FName, FKind: string;
     FDry: Boolean;
+    FRefreshReferences: Boolean;
+    FExternalRow: TJsonObject;
     FFile: IwbFile;
     FRow: TJsonObject;
     FSnapshot: TxeAutomationMutationSnapshot;
@@ -1213,16 +1225,19 @@ type
     procedure PreflightOne(const findings: TJsonArray);
     procedure UpdateAudit(const summary: TJsonObject);
   public
-    constructor Create(const name: string; const dry: Boolean);
+    constructor Create(const name, kind: string; const dry, refreshReferences: Boolean;
+      const externalRow: TJsonObject = nil);
     destructor Destroy; override;
     function Advance(const findings: TJsonArray;
       const summary, resultData, failure: TJsonObject): Boolean; override;
     procedure WriteProgress(const progress: TJsonObject); override;
   end;
 
-constructor TCompactStepper.Create(const name: string; const dry: Boolean);
+constructor TCompactStepper.Create(const name, kind: string; const dry, refreshReferences: Boolean;
+  const externalRow: TJsonObject);
 begin
-  inherited Create; FName := name; FDry := dry;
+  inherited Create; FName := name; FKind := kind; FDry := dry;
+  FRefreshReferences := refreshReferences; FExternalRow := externalRow;
   FStack := TObjectList<TEslScanFrame>.Create(True);
   FSeen := TDictionary<Cardinal, Boolean>.Create;
 end;
@@ -1296,7 +1311,8 @@ begin
   if FIndex >= FCount then begin
     FRow.B['planningComplete'] := True;
     FModules := wbModulesByLoadOrder; FIndex := 0;
-    if Length(FRemaps) > 0 then FPhase := cspReferences else FPhase := cspHeader;
+    if Length(FRemaps) > 0 then FPhase := cspReferences
+    else begin FRow.B['preflightComplete'] := True; FPhase := cspHeader; end;
     Exit;
   end;
   recordRef := FRecords[FIndex]; objectId := recordRef.LoadOrderFormID.ObjectID;
@@ -1340,7 +1356,7 @@ begin
     if Assigned(recordRef) and not FDry then xeAutomationRequireWritableEslMutationTarget(recordRef._File);
   end else if FReferrerIndex < FReferrerCount then begin
     recordRef := masterRef.ReferencedBy[FReferrerIndex]; Inc(FReferrerIndex);
-    if xeAutomationAddNonEditableReferrerFinding(findings, xeAutomationFormIdsCompactForEslKind,
+    if xeAutomationAddNonEditableReferrerFinding(findings, FKind,
       FFile, remap, recordRef) then Inc(FBlockers);
     if Assigned(recordRef) and recordRef.IsEditable and not FDry then
       xeAutomationRequireWritableEslMutationTarget(recordRef._File);
@@ -1377,7 +1393,9 @@ begin
       FFile := xeAutomationRequirePluginFile(FName);
       if not FDry then xeAutomationRequireWritableEslMutationTarget(FFile);
       FSnapshot := xeAutomationCaptureMutationSnapshot;
-      FRow := resultData.A['files'].AddObject; FRow.S['fileName'] := FFile.FileName;
+      if Assigned(FExternalRow) then FRow := FExternalRow
+      else FRow := resultData.A['files'].AddObject;
+      FRow.S['fileName'] := FFile.FileName;
       FRow.B['complete'] := False; FRow.B['planningComplete'] := False; FRow.B['preflightComplete'] := False;
       FRow.B['eslFlagChanged'] := False; FRow.B['isLight'] := FFile.IsLight;
       FLowest := xeAutomationLightObjectIdLowest(FFile); FNext := FLowest;
@@ -1425,7 +1443,7 @@ begin
             if remap.RecordRef.LoadOrderFormID <> remap.OldFormID then
               raise xeAutomationNewError('job_state_changed', 'Planned FormID changed before remap');
             // Preserve the standalone route's native reference refresh before each remap.
-            FFile.BuildOrLoadRef(False);
+            if FRefreshReferences then FFile.BuildOrLoadRef(False);
             if (remap.RecordRef.OverrideCount > xeAutomationCompactEdgeLimit) or
                (remap.RecordRef.MasterOrSelf.ReferencedByCount > xeAutomationCompactEdgeLimit) then
               raise xeAutomationNewError('job_capacity', 'Native remap relationship capacity changed');
@@ -1435,7 +1453,7 @@ begin
             FRow.A['remaps'].O[FIndex].S['outcome'] := 'applied';
           end;
           // A finding admission failure after a write keeps the applied row/counter/audit.
-          xeAutomationAddRemapFinding(findings, xeAutomationFormIdsCompactForEslKind, FFile, remap, not FDry);
+          xeAutomationAddRemapFinding(findings, FKind, FFile, remap, not FDry);
           Inc(FIndex);
         end else FPhase := cspHeader;
         cspHeader: begin
@@ -1485,7 +1503,190 @@ end;
 
 function NewCompactStepper(const kind: string; const dry, specified: Boolean;
   const target, options: TJsonObject): TxeAutomationJobStepper;
-begin Result := TCompactStepper.Create(target.A['files'].S[0], dry); end;
+begin Result := TCompactStepper.Create(target.A['files'].S[0], kind, dry, True); end;
+
+type
+  TEslApplyPhase = (eapAnalyze, eapEligibility, eapCompact, eapFlag, eapComplete);
+  TEslApplyStepper = class(TxeAutomationJobStepper)
+  private
+    FName: string;
+    FDry, FAllowCompact, FRequiresCompact: Boolean;
+    FFile: IwbFile;
+    FRow: TJsonObject;
+    FSnapshot: TxeAutomationMutationSnapshot;
+    FAnalysis: TEslAnalysisStepper;
+    FCompact: TCompactStepper;
+    FChildSummary, FChildData, FLastChildProgress: TJsonObject;
+    FPhase: TEslApplyPhase;
+    FSteps, FReportedRemaps, FReportedPlans: Integer;
+    procedure UpdateAudit(const summary: TJsonObject);
+  public
+    constructor Create(const name: string; const dry, allowCompact: Boolean);
+    destructor Destroy; override;
+    function Advance(const findings: TJsonArray;
+      const summary, resultData, failure: TJsonObject): Boolean; override;
+    procedure WriteProgress(const progress: TJsonObject); override;
+  end;
+
+constructor TEslApplyStepper.Create(const name: string; const dry, allowCompact: Boolean);
+begin
+  inherited Create; FName := name; FDry := dry; FAllowCompact := allowCompact;
+  FChildSummary := TJsonObject.Create; FChildData := TJsonObject.Create;
+  FLastChildProgress := TJsonObject.Create;
+  FAnalysis := TEslAnalysisStepper.Create(name);
+end;
+
+destructor TEslApplyStepper.Destroy;
+begin
+  FAnalysis.Free; FCompact.Free;
+  FChildSummary.Free; FChildData.Free; FLastChildProgress.Free;
+  FSnapshot.Files := nil; FFile := nil;
+  inherited;
+end;
+
+procedure TEslApplyStepper.UpdateAudit(const summary: TJsonObject);
+var i: Integer; fileRef: IwbFile; needsSave: Boolean;
+begin
+  xeAutomationWriteMutationAudit(FRow.O['mutationState'], FSnapshot);
+  // Legacy apply dry rows project a changed flag, while summary.changed means
+  // actual observed mutation. Keep both meanings distinct.
+  FRow.B['changed'] := FRow.O['mutationState'].B['mutationsObserved'] or
+    (FDry and FRow.B['eslFlagChanged']);
+  summary.B['changed'] := summary.B['changed'] or FRow.O['mutationState'].B['mutationsObserved'];
+  needsSave := False;
+  for i := 0 to Length(FSnapshot.Files) - 1 do begin
+    fileRef := FSnapshot.Files[i].FileRef;
+    if fileRef.Modified and ((fileRef = FFile) or
+       (fileRef.ElementGeneration <> FSnapshot.Files[i].Generation)) then begin
+      xeAutomationAddDirtyFile(summary.A['dirtyFiles'], fileRef); needsSave := True;
+    end;
+  end;
+  FRow.B['requiresSave'] := needsSave;
+  summary.B['requiresSave'] := summary.B['requiresSave'] or needsSave;
+end;
+
+function TEslApplyStepper.Advance(const findings: TJsonArray;
+  const summary, resultData, failure: TJsonObject): Boolean;
+var done, flagChanged: Boolean; analysisRow, oldFlags, newFlags: TJsonObject;
+begin
+  Inc(FSteps);
+  try
+    if not Assigned(FFile) then begin
+      FFile := xeAutomationRequirePluginFile(FName);
+      if not FDry then xeAutomationRequireWritableEslMutationTarget(FFile);
+      FSnapshot := xeAutomationCaptureMutationSnapshot;
+      FRow := resultData.A['files'].AddObject;
+      FRow.S['fileName'] := FFile.FileName; FRow.B['complete'] := False;
+      FRow.B['analysisComplete'] := False; FRow.B['compacted'] := False;
+      FRow.I['remapCount'] := 0; FRow.I['appliedRemaps'] := 0;
+      FRow.S['flagOutcome'] := 'not_started';
+      summary.I['targets'] := summary.I['targets'] + 1;
+      summary.S['persistence'] := 'in-memory-until-session.save-and-terminal-session.flush';
+    end;
+    case FPhase of
+      eapAnalyze: begin
+        try done := FAnalysis.Advance(findings, FChildSummary, FChildData, failure);
+        finally
+          FAnalysis.WriteProgress(FLastChildProgress);
+          if FChildData.A['files'].Count > 0 then FRow.O['analysis'].Assign(FChildData.A['files'].O[0]);
+        end;
+        if done then begin
+          FRow.B['analysisComplete'] := True;
+          FreeAndNil(FAnalysis); FPhase := eapEligibility;
+        end;
+      end;
+      eapEligibility: begin
+        analysisRow := FRow.O['analysis'];
+        if analysisRow.B['eligible'] then FRequiresCompact := False
+        else if FAllowCompact and (analysisRow.A['blockers'].Count = 0) and analysisRow.B['requiresCompact'] then
+          FRequiresCompact := True
+        else raise xeAutomationNewError(xeAutomationErrorEligibilityFailed,
+          Format('%s is not currently eligible for ESL flag application', [FFile.FileName]));
+        FRow.B['requiresCompact'] := FRequiresCompact;
+        FChildSummary.Clear; FLastChildProgress.Clear;
+        if FRequiresCompact then begin
+          // Borrow the durable parent row; only the job result owns it. Preserve
+          // this route's original policy: no per-remap reference refresh.
+          FCompact := TCompactStepper.Create(FName, xeAutomationEslApplyKind, FDry, False, FRow);
+          FPhase := eapCompact;
+        end else FPhase := eapFlag;
+      end;
+      eapCompact: begin
+        try done := FCompact.Advance(findings, FChildSummary, FChildData, failure);
+        finally FCompact.WriteProgress(FLastChildProgress); end;
+        if done then begin
+          FRow.B['compacted'] := not FDry;
+          FreeAndNil(FCompact); FPhase := eapFlag;
+        end;
+      end;
+      eapFlag: begin
+        // Separate poll after eligibility or ALL compact remaps/header updates.
+        // Capture old flags at the same point as the legacy ESL apply handler.
+        oldFlags := xeAutomationNewHeaderFlags(FFile);
+        try
+          FRow.O['oldFlags'].Assign(oldFlags);
+          if not FDry then begin
+            xeAutomationRequireWritableEslMutationTarget(FFile);
+            FRow.S['flagOutcome'] := 'applying';
+            if not FFile.IsLight then FFile.IsLight := True;
+          end;
+          newFlags := xeAutomationNewHeaderFlags(FFile);
+          try
+            if FDry then newFlags.B['esl'] := True;
+            FRow.O['newFlags'].Assign(newFlags);
+            flagChanged := oldFlags.B['esl'] <> newFlags.B['esl'];
+            FRow.B['eslFlagChanged'] := flagChanged;
+            FRow.B['isLight'] := FFile.IsLight;
+            if FDry then begin
+              FRow.S['flagOutcome'] := 'planned'; summary.I['planned'] := summary.I['planned'] + 1;
+            end else begin
+              FRow.S['flagOutcome'] := 'applied';
+              if flagChanged then summary.I['applied'] := summary.I['applied'] + 1;
+            end;
+            // Applied flag state/counters remain visible if finding admission fails.
+            xeAutomationAddEslApplyFinding(findings, FFile, oldFlags.B['esl'], newFlags.B['esl'], not FDry);
+          finally newFlags.Free; end;
+        finally oldFlags.Free; end;
+        FPhase := eapComplete;
+      end;
+    end;
+  finally
+    if Assigned(FRow) then begin
+      // Compaction completion alone must never complete the containing apply job.
+      FRow.B['complete'] := FPhase = eapComplete;
+      summary.I['remapsApplied'] := summary.I['remapsApplied'] + FRow.I['appliedRemaps'] - FReportedRemaps;
+      FReportedRemaps := FRow.I['appliedRemaps'];
+      FRow.I['plannedRemaps'] := FChildSummary.I['planned'];
+      summary.I['remapsPlanned'] := summary.I['remapsPlanned'] + FRow.I['plannedRemaps'] - FReportedPlans;
+      FReportedPlans := FRow.I['plannedRemaps'];
+      UpdateAudit(summary);
+    end;
+    summary.I['findings'] := findings.Count;
+  end;
+  Result := FPhase = eapComplete;
+end;
+
+procedure TEslApplyStepper.WriteProgress(const progress: TJsonObject);
+const phases: array[TEslApplyPhase] of string = ('analyze', 'eligibility', 'compact', 'esl-flag', 'complete');
+begin
+  progress.S['fileName'] := FName; progress.S['phase'] := phases[FPhase]; progress.I['steps'] := FSteps;
+  progress.O['cursor'].Assign(FLastChildProgress);
+  progress.I['workLimit'] := xeAutomationJobStepWorkLimit; progress.I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
+  progress.I['mutationLimit'] := 1; progress.B['nativeCallsPreemptible'] := False;
+  if Assigned(FRow) then begin
+    FRow.S['phase'] := phases[FPhase];
+    progress.I['appliedRemaps'] := FRow.I['appliedRemaps'];
+    progress.S['flagOutcome'] := FRow.S['flagOutcome'];
+  end;
+  progress.S['nativeAtoms'] := 'analysis native getters/access; compaction file reference builds and whole remaps; ESL flag setter; audit';
+end;
+
+function NewEslApplyStepper(const kind: string; const dry, specified: Boolean;
+  const target, options: TJsonObject): TxeAutomationJobStepper;
+begin
+  Result := TEslApplyStepper.Create(target.A['files'].S[0], dry,
+    xeAutomationReadBooleanOption(options, 'allowAfterCompact', False));
+end;
 
 procedure xeAutomationRegisterPluginAnalysisCommands;
 begin
@@ -1499,6 +1700,7 @@ begin
   xeAutomationRegisterJobStepper(xeAutomationFormIdsCompactForEslKind, NewCompactStepper);
   xeAutomationRegisterJobKindWithValidator(xeAutomationEslApplyKind, xeAutomationPluginEslApplyJob,
     xeAutomationValidateEslApplyStart);
+  xeAutomationRegisterJobStepper(xeAutomationEslApplyKind, NewEslApplyStepper);
 end;
 
 end.

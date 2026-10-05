@@ -15,13 +15,23 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.65** (retained standalone ESL compaction steps).
+Source contract: **0.66** (retained ESL apply composition).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
 
+- **0.66: ESL apply composition** — `plugin.esl.apply` retains the shared ESL
+  analysis cursor, original eligibility gate, optional shared compaction cursor
+  and a separate flag-setting poll. Unique resolved targets1..256 and closed
+  `allowAfterCompact` options apply. Analysis and compaction each have their own
+  work1000000/depth64 limits; loaded-file builds/whole remaps/setters remain
+  native atoms. Partial parent rows stay incomplete after compaction until the
+  flag phase finishes. Existing flag counters are preserved, with separate
+  `remapsPlanned`/`remapsApplied` counts. Dry file rows still project flag change
+  while summary.changed reports observed mutation. Native execution was skipped
+  at user request; runtime/persistence remain unverified.
 - **0.65: standalone ESL compaction stepping** — `plugin.formids.compact_for_esl`
   retains native tree/index collection, bounded merge sort, complete in-range
   reservation, ascending planning, one loaded-file reference build per poll and

@@ -1419,6 +1419,46 @@ shutdown. Python integrity/assertion checks are not native evidence; Delphi and
 all game-backed checks remain pending.
 
 
+### ESL apply composition (#14, contract 0.66)
+
+`plugin.esl.apply` resolves 1..256 unique files, defaults omitted dryRun true,
+and accepts only boolean `allowAfterCompact` (default false). The retained ESL
+analysis cursor completes before the original eligibility gate, then optional
+compaction uses the shared retained planner/preflight/remapper. It preserves
+the route's native reference policy (no additional refresh before each remap).
+`progress.detail.phase` is `analyze`, `eligibility`, `compact`, `esl-flag`, or
+`complete`; nested `cursor` is the current/last analysis or compaction progress.
+Each child has its own work1000000/depth64 cap and <=128 actions/soft20ms;
+loaded-file builds, whole remaps and header setters remain indivisible.
+
+Parent rows include partial/final `analysis`, `analysisComplete`, remap outcomes,
+`appliedRemaps`, `plannedRemaps`, `compacted`, and `flagOutcome`. The parent stays
+incomplete after compaction finishes and yields BEFORE setting ESL. Cancellation
+there leaves compacted records with ESL unset, accurately dirty and requiring
+save. Native flag failure retains `applying` and audit; finding admission after
+a successful setter retains applied flags/counters. Existing summary
+planned/applied still count flags, with remapsPlanned/remapsApplied separately
+accumulated across targets. Dry file rows project changed flags (legacy meaning),
+while summary.changed reports actual mutation. No implicit save/rollback occurs.
+
+Run the three source commands from the compaction section below. Native tests
+are skipped at the user's request. For future acceptance, generate a FRESH
+`esl_apply_step_fixture.py generate --overlay <MO2-mod-folder>` overlay and load
+Fallout4.esm, AutomationCompactBase.esm, AutomationCompactStepped.esp,
+AutomationCompactCallers.esp, AutomationCompactCanceled.esp,
+AutomationCompactCancelCallers.esp, AutomationEslApplyEligible.esp and
+AutomationEslApplyTooMany.esp. Do not run the standalone compaction runner on it.
+Run `exercise --overlay <folder> --exe <built-FO4Edit.exe> --pid <daemon-pid>
+--artifacts <folder>` with consent, then restart and run `verify` with a fresh
+PID. This checks no-compact/over-capacity refusal, default dry-run projected flags
+and preserved counters, analysis/pre-remap/one-remap cancellation, cancellation
+after compaction before flag, retry, eligible flag-only route, multiple files,
+no-op, unchanged bytes until save/flush, light-slot aware native readback and
+independent saved flags/IDs/referrers/overrides/master lists/NextObjectID.
+Native compilation/GUI parity, fresh unsaved mutations, protected external
+referrers, revision changes, cap/fault injection and finding admission after
+setters remain unverified; Python tests check only fixture/assertion integrity.
+
 ### Standalone ESL compaction steps (#14, contract 0.65)
 
 `plugin.formids.compact_for_esl` resolves 1..256 unique files at start, accepts

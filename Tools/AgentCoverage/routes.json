@@ -1470,7 +1470,7 @@
       "effect": "read-only retained tree/group/ObjectID statistics with bounded actions, depth and work; partial rows omit eligibility until completion; native getters/lookups indivisible; no plugin persistence"
     },
     "plugin.esl.apply": {
-      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+      "effect": "retained analysis and optional compaction with separate eligibility/flag boundaries; all current-file relationship preflight before remaps; partial rows/findings/audit and separate completed flag/remap counters; native access/reference builds/whole remaps/header setters indivisible; apply mutates target and external callers -> save + flush"
     },
     "plugin.formids.compact_for_esl": {
       "effect": "retained live tree/index collection, merge sort and reservation before ascending remaps; loaded-file reference builds and each whole remap remain indivisible; all current-file referrers/overrides preflight before first write; partial rows/findings/audit on cancel/failure; apply mutates target and external callers -> save + flush"
