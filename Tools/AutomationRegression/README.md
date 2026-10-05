@@ -1672,3 +1672,34 @@ LOD output decoding. Old lod_fixture now drains multiple inventory polls.
 Native global restoration, compiler/tool wait, object output in other games,
 filesystem races/permissions/reparse points, directory/byte/work/path caps and
 handle fault injection remain unverified. No hard latency guarantee is tested.
+
+
+### Reachability graph preparation (#14/#30, contract 0.71)
+
+Reachability now reuses the retained reference file/group cursor rather than
+calling whole-file BuildRef. Nested referenceCursor progress has the0.69 limits
+and incomplete-index policy. Reset walks ONLY instantiated native children in
+original unsorted preorder, without DoInit/sorting or a flattened record-index
+substitute. Native self-reset is shared with the GUI method; container/element
+visit charges and5000000 stage budget remain identical. Both element/root and
+container lifetime pins remain until frame pop/cancel. New reset depth128 and
+work15000000 caps bound structural actions (up to three per visited element).
+References/reset/report advance<=128 actions/soft20ms; native root-file discovery
+and individual root propagations remain atoms. Reset work/depth progress does
+not claim a precomputed total. Global reference -> reset -> root -> report ->
+completion ordering remains. Cancel/failure leaves derived flags unavailable
+and invalidates query cursors; all flags are usable only after whole-job success.
+
+Source checks use the same commands above. Future native acceptance: generate a
+fresh reachability_step_fixture.py overlay, load Fallout4.esm, AutomationReachBase.esm,
+AutomationReachRoot.esp and run exercise with overlay/exe/pid/artifacts. The runner
+now stales/restores a FLST link before capturing its dirty baseline, cancels inside
+reference traversal and checks index unavailable, retries then cancels inside
+initialized-element reset and checks notReachable filter refusal. It also covers
+existing additional-root/report cancellations, repeat cycle/filler classifications,
+retained findings, unchanged dirty baseline/plugin bytes and timings. Original
+reachability_fixture now permits more polls. New Python checks validate nested
+reference/reset progress assertions. Native warm/cold reset parity, children
+initialized between polls, game root rules, visit/depth/work caps, epoch changes,
+parallel indexing and GUI flags remain unverified; Delphi/game execution skipped
+at user request. No hard poll latency guarantee.

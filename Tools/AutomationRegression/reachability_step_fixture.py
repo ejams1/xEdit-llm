@@ -1,8 +1,9 @@
 """FO4 retained reachability report/root cancellation; native acceptance only.
 
 Generate a fresh dedicated MO2 overlay; load Fallout4.esm, BASE, PATCH in order.
-Native graph stages remain indivisible. This runner checks stepped readback and
-additional roots, derived-state invalidity on cancellation, and unchanged bytes.
+References/reset/report retain cursors; native root-file discovery and each root
+propagation remain indivisible. This runner checks within-file cancellation,
+derived-state invalidity, repeat classifications and unchanged disk bytes.
 """
 import argparse
 import json
@@ -14,6 +15,7 @@ from itm_fixture import Client, record, subrecord
 from reachability_fixture import BASE, PATCH, group
 from selective_step_fixture import records
 from validation_step_fixture import findings
+from row_fixture import children, at
 
 FILLERS = 700
 
@@ -51,6 +53,15 @@ def validate_state(state):
         assert not state["cursorRetained"], state
     if state["state"] == "succeeded":
         assert progress["remaining"] == 0 and detail["stageComplete"], state
+    if "referenceCursor" in detail:
+        cursor = detail["referenceCursor"]
+        assert 0 <= cursor["scanWorkUnits"] <= cursor["scanWorkLimit"] == 1000000, state
+        assert 0 <= cursor["nativeUnits"] <= cursor["scanWorkUnits"], state
+        assert 0 <= cursor["retainedDepth"] <= cursor["depthLimit"] == 128, state
+        assert cursor["stageComplete"] == detail["stageComplete"], state
+    if "resetWorkUnits" in detail:
+        assert 0 <= detail["resetWorkUnits"] <= detail["resetWorkLimit"] == 15000000, state
+        assert 0 <= detail["retainedDepth"] <= detail["depthLimit"] == 128, state
 
 
 def start(client, roots=None, dry=False):
@@ -97,9 +108,15 @@ def assert_classifications(rows, explicit=False):
 
 
 def exercise(client, overlay, artifacts):
-    baseline = client.call("session.get_dirty_state")
     before = {name: (overlay / name).read_bytes() for name in fixtures()}
     ids = {row["object"]["editorId"]: row["locator"] for row in records(client, BASE, "FLST")}
+    # Stale the index while restoring exact live payload; this intentionally
+    # leaves a dirty baseline, with no save. Later analysis must preserve it.
+    link = children(client, at(ids["ReachA"], "FormIDs"))[0]
+    old = client.call("elements.get_value", **link)["values"]["editValue"]
+    client.call("elements.set_value", **{**link, "value": ids["IsolatedC"]["formId"]})
+    client.call("elements.set_value", **{**link, "value": old})
+    baseline = client.call("session.get_dirty_state")
     roots = [ids[name] for name in ("IsolatedC", "ReachStepUnused0000", "ReachStepUnused0001")]
     timings, snapshots = [], []
     planned_job = start(client, dry=True)
@@ -107,6 +124,24 @@ def exercise(client, overlay, artifacts):
     assert planned["state"] == "succeeded" and not findings(client, planned_job), planned
     assert not planned["summary"].get("analysisComplete", False), planned
     snapshots.append(planned)
+    reference_job = start(client)
+    partial = poll(client, reference_job, lambda s: s["progress"]["detail"]["phase"] == "references" and
+                   s["progress"]["detail"]["fileName"] == BASE and
+                   s["progress"]["detail"]["referenceCursor"]["scanWorkUnits"] > 128 and
+                   not s["progress"]["detail"]["stageComplete"], timings)
+    snapshots.append(cancel(client, reference_job, partial))
+    status = client.call("analysis.reference_status")
+    assert not next(row["current"] for row in status["files"] if row["file"] == BASE), status
+    reset_job = start(client)
+    partial = poll(client, reset_job, lambda s: s["progress"]["detail"]["phase"] == "reset" and
+                   s["progress"]["detail"]["fileName"] == BASE and
+                   s["progress"]["detail"]["resetWorkUnits"] > 128 and
+                   not s["progress"]["detail"]["stageComplete"], timings)
+    assert partial["progress"]["detail"]["remainingNativeVisitBudget"] < 5000000, partial
+    snapshots.append(cancel(client, reset_job, partial))
+    refused = client.request(json.dumps({"command": "records.apply_filter", "args": {
+        "files": [BASE], "notReachable": True}}))
+    assert not refused["ok"] and refused["error"]["code"] == "state_conflict", refused
     root_job = start(client, roots)
     partial = poll(client, root_job, lambda s: s["progress"]["detail"]["phase"] == "additional-roots" and
                    s["progress"]["detail"]["processed"] == 1, timings)

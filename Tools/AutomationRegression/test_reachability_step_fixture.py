@@ -56,6 +56,25 @@ class ReachabilityStepTests(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 fixture.validate_state(state)
 
+    def test_reference_and_reset_cursor_bounds_and_stage_agreement(self):
+        state = snapshot()
+        state["progress"]["detail"]["referenceCursor"] = {"scanWorkUnits": 256, "scanWorkLimit": 1000000,
+            "nativeUnits": 100, "retainedDepth": 2, "depthLimit": 128, "stageComplete": False}
+        fixture.validate_state(state)
+        for key, value in (("nativeUnits", 257), ("retainedDepth", 129), ("stageComplete", True)):
+            wrong = deepcopy(state)
+            wrong["progress"]["detail"]["referenceCursor"][key] = value
+            with self.assertRaises(AssertionError):
+                fixture.validate_state(wrong)
+        state = snapshot()
+        state["progress"]["detail"].update(resetWorkUnits=256, resetWorkLimit=15000000, retainedDepth=3, depthLimit=128)
+        fixture.validate_state(state)
+        for key, value in (("resetWorkUnits", 15000001), ("retainedDepth", 129)):
+            wrong = deepcopy(state)
+            wrong["progress"]["detail"][key] = value
+            with self.assertRaises(AssertionError):
+                fixture.validate_state(wrong)
+
     def test_exact_cycle_filler_classifications_and_historical_validity(self):
         for explicit in (True, False):
             rows = classifications(explicit)

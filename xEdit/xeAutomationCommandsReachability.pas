@@ -120,7 +120,7 @@ begin
   ASummary.S['scope'] := 'entire-loaded-plugin-graph; target.files limits report only';
   ASummary.S['roots'] := 'native-game-roots plus optional target.roots';
   ASummary.S['persistence'] := 'derived-memory-state only; no plugin save required';
-  ASummary.S['cancelBoundary'] := 'between stages/files; incomplete flags unavailable';
+  ASummary.S['cancelBoundary'] := 'between reference/reset/report actions and additional roots; native root-file stages/root propagations indivisible';
   lRow := AResult.A['steps'].AddObject;
   lRow.Assign(lStep);
   if ADryRun then begin lRow.S['outcome'] := 'planned'; Exit; end;
@@ -420,11 +420,14 @@ type
   TReachReadbackStepper = class(TxeAutomationJobStepper)
   private
     FTarget: TJsonObject;
+    FReference: TReferenceBuildStepper;
+    FReferenceProgress: TJsonObject;
+    FReset: TwbAutomationReachabilityResetScan;
     FFile: IwbFile;
     FRow: TJsonObject;
     FDryRun, FComplete: Boolean;
     FPhase, FFileName: string;
-    FIndex, FTotal, FLastWork, FSteps, FRemainingBudget: Integer;
+    FIndex, FTotal, FLastWork, FSteps, FRemainingBudget, FResetWork, FResetDepth: Integer;
     procedure Initialize(const summary, resultData: TJsonObject);
     procedure ReportOne(const findings: TJsonArray; const summary: TJsonObject);
   public
@@ -442,9 +445,16 @@ begin
   FPhase := FTarget.A['steps'].O[0].S['phase'];
   FFileName := FTarget.A['steps'].O[0].S['file'];
   FRemainingBudget := 5000000;
+  FReferenceProgress := TJsonObject.Create;
+  if not dry and (FPhase = 'references') then
+    FReference := TReferenceBuildStepper.Create(False, target);
 end;
 destructor TReachReadbackStepper.Destroy;
-begin FTarget.Free; FFile := nil; inherited; end;
+begin
+  FReference.Free; FReferenceProgress.Free;
+  if Assigned(FReset) then begin FReset.Free; xeAutomationInvalidateRecordQueries; end;
+  FTarget.Free; FFile := nil; inherited;
+end;
 
 procedure TReachReadbackStepper.Initialize(const summary, resultData: TJsonObject);
 begin
@@ -453,11 +463,12 @@ begin
   summary.S['scope'] := 'entire-loaded-plugin-graph; target.files limits report only';
   summary.S['roots'] := 'native-game-roots plus optional target.roots';
   summary.S['persistence'] := 'derived-memory-state only; no plugin save required';
-  summary.S['cancelBoundary'] := 'between report records/additional roots; native references/reset/root-file stages indivisible';
+  summary.S['cancelBoundary'] := 'between reference/reset/report actions and additional roots; native root-file stages/root propagations indivisible';
   if FPhase = 'report' then begin
     FFile := xeAutomationRequirePluginFile(FFileName);
     FTotal := FFile.RecordCount;
-  end else FTotal := FTarget.A['roots'].Count;
+  end else if FPhase = 'reset' then FTotal := 0 // Total live initialized elements is not materialized.
+  else FTotal := FTarget.A['roots'].Count;
   FRow := resultData.A['steps'].AddObject;
   FRow.Assign(FTarget.A['steps'].O[0]);
   FRow.S['outcome'] := 'running'; FRow.B['complete'] := False;
@@ -495,7 +506,23 @@ var timer: TStopwatch; previousBudget: Integer; previousCacheSave: Boolean;
     previousProgress: TwbProgressCallback; recordRef: IwbMainRecord;
 begin
   Inc(FSteps); FLastWork := 0;
-  if FDryRun or ((FPhase <> 'report') and (FPhase <> 'additional-roots')) then begin
+  if Assigned(FReference) then begin
+    ReachabilityComplete := False;
+    if Assigned(frmMain) then frmMain.AutomationSetReachableBuilt(False);
+    try
+      FComplete := FReference.Advance(findings, summary, resultData, failure);
+    finally
+      FReference.WriteProgress(FReferenceProgress);
+      FLastWork := FReferenceProgress.I['lastWorkUnits'];
+      summary.S['scope'] := 'entire-loaded-plugin-graph; target.files limits report only';
+      summary.S['roots'] := 'native-game-roots plus optional target.roots';
+      summary.S['persistence'] := 'derived-memory-state only; no plugin save required';
+      summary.S['cancelBoundary'] := 'between reference/reset/report actions and additional roots; native root-file stages/root propagations indivisible';
+      if failure.Count > 0 then failure.B['derivedFlagsUnavailable'] := True;
+    end;
+    Exit(FComplete);
+  end;
+  if FDryRun or ((FPhase <> 'report') and (FPhase <> 'additional-roots') and (FPhase <> 'reset')) then begin
     // Existing native stage scope/flags/cache restoration remains authoritative.
     FLastWork := 1;
     xeReachRun('', FDryRun, True, FTarget, nil, findings, summary, resultData, failure);
@@ -510,7 +537,29 @@ begin
   timer := TStopwatch.StartNew;
   try
     try
-      if not Assigned(FRow) then Initialize(summary, resultData);
+      if not Assigned(FRow) then begin
+        Initialize(summary, resultData);
+        if FPhase = 'reset' then begin
+          FFile := xeAutomationRequirePluginFile(FFileName);
+          xeAutomationInvalidateRecordQueries;
+          FReset := wbAutomationReachabilityResetScan(FFile);
+        end;
+      end;
+      if FPhase = 'reset' then begin
+        while (FLastWork < xeAutomationJobStepWorkLimit) and
+          (timer.ElapsedMilliseconds < xeAutomationJobStepBudgetMs) do begin
+          Inc(FLastWork);
+          FComplete := FReset.Advance;
+          FResetWork := FReset.WorkUnits; FResetDepth := FReset.RetainedDepth;
+          if FComplete then Break;
+        end;
+        FRow.I['workUnits'] := FResetWork; FRow.B['complete'] := FComplete;
+        if FComplete then begin
+          FRow.S['outcome'] := 'completed'; FreeAndNil(FReset);
+          xeAutomationInvalidateRecordQueries;
+        end;
+        Exit(FComplete);
+      end;
       while (FIndex < FTotal) and (FLastWork < xeAutomationJobStepWorkLimit) and
             (timer.ElapsedMilliseconds < xeAutomationJobStepBudgetMs) do begin
         Inc(FLastWork);
@@ -528,12 +577,20 @@ begin
       if FComplete then FRow.S['outcome'] := 'completed';
     except
       on E: Exception do begin
-        if Assigned(FRow) then begin FRow.S['outcome'] := 'failed'; FRow.I['processed'] := FIndex; end;
-        if E is ExeAutomationError then failure.S['code'] := ExeAutomationError(E).Code
+        FComplete := False;
+        if Assigned(FRow) then begin FRow.S['outcome'] := 'failed'; FRow.B['complete'] := False; FRow.I['processed'] := FIndex; end;
+        if E is EwbAutomationReachabilityResetCapacity then failure.S['code'] := 'job_capacity'
+        else if E is EwbAutomationReachabilityResetInvalidated then failure.S['code'] := 'job_state_changed'
+        else if E is ExeAutomationError then failure.S['code'] := ExeAutomationError(E).Code
         else failure.S['code'] := 'reachability_failed';
         failure.S['message'] := Copy(E.Message, 1, 4096);
         failure.S['phase'] := FPhase;
         failure.B['derivedFlagsUnavailable'] := True;
+        if Assigned(FReset) then begin
+          FResetWork := FReset.WorkUnits; FResetDepth := FReset.RetainedDepth;
+          if Assigned(FRow) then FRow.I['workUnits'] := FResetWork;
+          FreeAndNil(FReset); xeAutomationInvalidateRecordQueries;
+        end;
       end;
     end;
   finally
@@ -555,7 +612,12 @@ begin
   progress.I['remainingNativeVisitBudget'] := FRemainingBudget;
   progress.B['stageComplete'] := FComplete;
   progress.B['nativeCallsPreemptible'] := False;
-  progress.S['cooperativePhases'] := 'report/additional-roots only; references/reset/native-roots remain native file atoms';
+  if FReferenceProgress.Count > 0 then progress.O['referenceCursor'].Assign(FReferenceProgress);
+  if FPhase = 'reset' then begin
+    progress.I['resetWorkUnits'] := FResetWork; progress.I['resetWorkLimit'] := wbAutomationReachabilityResetWorkLimit;
+    progress.I['retainedDepth'] := FResetDepth; progress.I['depthLimit'] := wbAutomationReachabilityResetDepthLimit;
+  end;
+  progress.S['cooperativePhases'] := 'references/reset/report/additional-roots; native root-file discovery and each root propagation remain atoms';
 end;
 
 function NewReachReadbackStepper(const kind: string; const dry, specified: Boolean;

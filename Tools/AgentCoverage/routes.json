@@ -459,7 +459,7 @@
       "routes": [
         "analysis.reachability"
       ],
-      "notes": "Native global reference/reset/root pass with optional additional roots, explicit report file scope, staged progress and bounded visits/readback. TES3 rejects; repeat resets child flags. Cancel/failed derived flags unavailable; runtime not verified.",
+      "notes": "Global loaded-graph analysis with target.files limiting<=1000-record reports and optional roots. Reference stages share retained native file/group scan; reset retains ONLY initialized native children without DoInit, same flag changes/double container visit charges. References depth128/work1000000, reset depth128/work15000000 plus5000000 visits, each<=128 actions/soft20ms. Report/additional roots retained; native root-file discovery/whole root propagation remain atoms. Cancel/failure leaves derived flags unavailable and invalidates cursors. Native semantics/parity skipped.",
       "effect": "derived memory state only; no plugin save",
       "scriptSymbols": []
     },
@@ -582,7 +582,7 @@
         "analysis.build_references",
         "analysis.reference_status"
       ],
-      "notes": "Default-dry-run scoped or all-loaded native BuildRef job, progress/cancel between files, completion-generation freshness per file and all-loaded snapshot. Current indexes are reused; stale indexes rebuilt, cache writes suppressed. Native runtime not verified.",
+      "notes": "Default-dry-run scoped/all-loaded job; retained native unsorted file/group traversal<=128 actions/soft20ms, depth128/work1000000, postorder owner links, durable prefix/cancel invalidity. Current indexes reused, stale ones bypass reference-cache streams; record builds/init/owner lookups remain atoms. Per-file/all-loaded freshness; native runtime skipped.",
       "effect": "analysis/index mutation",
       "scriptSymbols": [
         "BuildRef"
@@ -1491,7 +1491,8 @@
       "effect": "read-only; full edit/native values; no plugin persistence"
     },
     "analysis.reachability": {
-      "effect": "default dry-run staged plan; retained report/additional-root steps with stage-wide visit budget; native reference/reset/root-file stages and each root propagation indivisible; apply rebuilds native derived reachability flags globally; no plugin mutation or refcache writes; historical findings valid only for succeeded jobs"
+      "effect": "derived memory only; retained references/reset/report/additional roots; global phase ordering and historical findings valid only after success; incomplete flags unavailable; no plugin save",
+      "prerequisites": "numeric games; all loaded files<=256/records<=1000000; report files1..32 <=1000 records; optional roots<=32; native root discovery/propagation indivisible; explicit traversal depth/work/visit caps; native acceptance skipped"
     },
     "localization.tables": {
       "effect": "read native loaded resource metadata"

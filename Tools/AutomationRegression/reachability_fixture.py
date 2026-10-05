@@ -30,7 +30,7 @@ def run(client, roots=None, dry=False):
     target = {'files': [BASE, PATCH]}
     if roots is not None: target['roots'] = roots
     job = client.call('jobs.start', kind='analysis.reachability', target=target, dryRun=dry)
-    for _ in range(1000):
+    for _ in range(20000):
         job = client.call('jobs.get', jobId=job['jobId'])
         if job['terminal']: break
     assert job['state'] == 'succeeded', job

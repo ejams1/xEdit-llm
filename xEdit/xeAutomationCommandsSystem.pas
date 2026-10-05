@@ -561,7 +561,7 @@ begin
   end else if SameText(AKind, 'analysis.reachability') then begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:report-scope-plugin>:1..32', True);
     xeAutomationSchemaShapeField(lTarget, 'roots', 'array<object:file,formId>:0..32-additional-roots', False);
-    ATarget.S['constraintNotes'] := 'Non-TES3; whole loaded graph analyzed; files limits report only; target.steps reserved; <=1000 reported records, <=256 loaded files, <=1000000 loaded records; retained report<=128 actions/soft20ms; one additional root per poll with shared stage visit budget; native file stages/root propagations indivisible';
+    ATarget.S['constraintNotes'] := 'Non-TES3; whole loaded graph analyzed; files limits report only; target.steps reserved; <=1000 reported records, <=256 loaded files, <=1000000 loaded records; retained references/reset/report<=128 actions/soft20ms; reference depth128/work1000000, initialized reset depth128/work15000000 plus shared5000000 visits; reset never initializes children; one additional root per poll; native root-file discovery/root propagations indivisible';
     xeAutomationSchemaEffects(ATarget, 'Loaded global graph and resolved optional root records; only succeeded current snapshots are valid', 'derived global reachability flags in memory; plugins unchanged; cancel/failure invalidates classification');
   end else if SameText(AKind, 'cleaning.cleanup_injected_references') then begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:source-file>:1..32', True);
@@ -1204,7 +1204,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.70';
+  Result.S['contractVersion'] := '0.71';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1427,10 +1427,12 @@ begin
       S['scope'] := 'retained native structural usage scan between separate indivisible sort/remap calls';
     end;
     with O['kindLimits'].O['analysis.reachability'] do begin
-      S['cooperativePhases'] := 'report and additional-roots only';
+      S['cooperativePhases'] := 'references/reset/report/additional-roots';
       I['additionalRootsPerPoll'] := 1;
       I['nativeVisitBudgetPerStage'] := 5000000;
-      S['nativeAtoms'] := 'reference build, reset and native root-file discovery; each additional root propagation';
+      I['referenceDepthLimit'] := wbAutomationReferenceScanDepthLimit; I['referenceWorkLimit'] := wbAutomationReferenceScanWorkLimit;
+      I['resetDepthLimit'] := wbAutomationReachabilityResetDepthLimit; I['resetWorkLimit'] := wbAutomationReachabilityResetWorkLimit;
+      S['nativeAtoms'] := 'reference container initialization/record BuildRef/owner hooks; native root-file discovery; each additional root propagation';
       S['validity'] := 'derived flags and historical findings usable only after containing job succeeds';
     end;
     with O['kindLimits'].O['plugin.esl.analyze'] do begin
@@ -1868,7 +1870,7 @@ begin
     S['kind'] := 'analysis.reachability';
     S['target'] := 'files:1..32 report plugins <=1000 records; roots:0..32 additional record locators';
     S['scope'] := 'all loaded plugins; native game roots plus optional roots';
-    S['limits'] := '256 loaded files, 1000000 loaded records, 5000000 reset/reach visits per stage; <=128 report records/soft20ms, one additional root per poll; reference/reset/native-root files and each root propagation indivisible; cancel at cooperative boundaries';
+    S['limits'] := '256 loaded files, 1000000 loaded records, 5000000 reset/reach visits per stage; <=128 reference/reset/report actions/soft20ms, reference depth128/work1000000, initialized reset depth128/work15000000; one additional root per poll; native root-file discovery and each root propagation indivisible; cancel at cooperative boundaries';
     S['validity'] := 'succeeded snapshot only; dry run plans without analysis; incomplete flags unavailable';
     S['persistence'] := 'derived memory flags only; plugins unchanged';
   end;

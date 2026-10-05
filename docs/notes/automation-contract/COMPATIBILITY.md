@@ -15,12 +15,23 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.70** (retained LOD output inventory).
+Source contract: **0.71** (retained reachability reference and reset stages).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
+
+- **0.71: reachability graph preparation** — reference stages compose the0.69
+  native reference cursor; reset stages retain only initialized native elements,
+  preserving unsorted preorder, shared flag reset and double container visit
+  charges. No initialization/sorting is introduced by reset. Both stages advance
+  <=128 actions/soft20ms; reference depth128/work1000000, reset depth128/work15000000
+  plus the original5000000 visit budget. Container and element lifetime pins
+  release on terminal/cancel. Derived flags stay unavailable until the complete
+  global reset/root/report pass succeeds; cancellation/failure invalidates query
+  revisions. Native root-file discovery and each root propagation remain atoms.
+  Delphi/game execution skipped at user request.
 
 - **0.70: LOD inventory stepping** — `lod.generate` yields after the indivisible
   native world pipeline/tool wait, then retains directory enumeration with

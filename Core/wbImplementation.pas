@@ -113,6 +113,21 @@ type
 
 function wbAutomationReferenceBuildScan(const aFile: IwbFile): TwbAutomationReferenceBuildScan;
 
+const
+  wbAutomationReachabilityResetDepthLimit = 128;
+  wbAutomationReachabilityResetWorkLimit = 15000000;
+type
+  EwbAutomationReachabilityResetInvalidated = class(Exception);
+  EwbAutomationReachabilityResetCapacity = class(Exception);
+  // Visits only instantiated native children, without initialization or sorting.
+  TwbAutomationReachabilityResetScan = class
+  public
+    function Advance: Boolean; virtual; abstract;
+    function WorkUnits: Integer; virtual; abstract;
+    function RetainedDepth: Integer; virtual; abstract;
+  end;
+function wbAutomationReachabilityResetScan(const aFile: IwbFile): TwbAutomationReachabilityResetScan;
+
 function StartsWith(const s, t: string): Boolean;
 
 function wbCopyElementToFile(const aSource: IwbElement; aFile: IwbFile; aAsNew, aDeepCopy: Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement;
@@ -472,6 +487,7 @@ type
     function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; virtual;
     procedure ResetConflict; virtual;
     procedure ResetReachable; virtual;
+    procedure ResetReachableSelf;
     function RemoveInjected(aCanRemove: Boolean): Boolean; virtual;
     function GetEditType: TwbEditType; virtual;
     function GetEditInfo: TArray<string>; virtual;
@@ -3389,6 +3405,107 @@ begin Result := FFrames.Count; end;
 
 function wbAutomationReferenceBuildScan(const aFile: IwbFile): TwbAutomationReferenceBuildScan;
 begin Result := TwbAutomationReferenceBuildScanImpl.Create(aFile); end;
+
+type
+  TwbAutomationReachabilityResetFrame = record
+    KeepAlive: IwbElementInternal;
+    ContainerKeepAlive: IwbContainerElementRef;
+    Native: TwbElement;
+    NextChild: Integer;
+    Entered: Boolean;
+  end;
+  TwbAutomationReachabilityResetScanImpl = class(TwbAutomationReachabilityResetScan)
+  private
+    FFile: IwbFile;
+    FNativeFile: TwbFile;
+    FFrames: TList<TwbAutomationReachabilityResetFrame>;
+    FMasters: TwbFiles;
+    FGeneration: UInt64;
+    FFileGeneration, FWork: Integer;
+    FComplete: Boolean;
+    procedure CheckValid;
+    procedure Push(const native: TwbElement);
+  public
+    constructor Create(const fileRef: IwbFile);
+    destructor Destroy; override;
+    function Advance: Boolean; override;
+    function WorkUnits: Integer; override;
+    function RetainedDepth: Integer; override;
+  end;
+
+constructor TwbAutomationReachabilityResetScanImpl.Create(const fileRef: IwbFile);
+begin
+  inherited Create;
+  FFrames := TList<TwbAutomationReachabilityResetFrame>.Create;
+  if not Assigned(fileRef) or not (TObject(fileRef.ElementID) is TwbFile) then
+    raise Exception.Create('Reachability reset requires a loaded native file');
+  FFile := fileRef; FNativeFile := TwbFile(fileRef.ElementID);
+  FGeneration := wbGlobalModifedGeneration; FFileGeneration := FNativeFile.flGeneration;
+  FMasters := Copy(FNativeFile.flMasters);
+  CheckValid; Push(FNativeFile);
+end;
+
+destructor TwbAutomationReachabilityResetScanImpl.Destroy;
+begin FFrames.Free; FMasters := nil; FFile := nil; inherited; end;
+
+procedure TwbAutomationReachabilityResetScanImpl.CheckValid;
+begin
+  if (FGeneration <> wbGlobalModifedGeneration) or (FFileGeneration <> FNativeFile.flGeneration) or
+    (Length(FMasters) <> Length(FNativeFile.flMasters)) then
+    raise EwbAutomationReachabilityResetInvalidated.Create('Reachability reset invalidated by changed native contents');
+  for var i := Low(FMasters) to High(FMasters) do
+    if not FMasters[i].Equals(FNativeFile.flMasters[i]) then
+      raise EwbAutomationReachabilityResetInvalidated.Create('Reachability reset invalidated by changed masters');
+  {$IFDEF USE_PARALLEL_BUILD_REFS}
+  if wbBuildingRefsParallel then
+    raise EwbAutomationReachabilityResetInvalidated.Create('Parallel reference construction is active');
+  {$ENDIF}
+end;
+
+procedure TwbAutomationReachabilityResetScanImpl.Push(const native: TwbElement);
+var frame: TwbAutomationReachabilityResetFrame;
+begin
+  if FFrames.Count >= wbAutomationReachabilityResetDepthLimit then
+    raise EwbAutomationReachabilityResetCapacity.Create('Reachability reset depth exceeds128');
+  frame := Default(TwbAutomationReachabilityResetFrame);
+  frame.KeepAlive := native as IwbElementInternal; frame.Native := native;
+  if native is TwbContainer then frame.ContainerKeepAlive := native as IwbContainerElementRef;
+  FFrames.Add(frame);
+end;
+
+function TwbAutomationReachabilityResetScanImpl.Advance: Boolean;
+var frame: TwbAutomationReachabilityResetFrame; child: IwbElementInternal;
+begin
+  CheckValid;
+  if FComplete then Exit(True);
+  if FWork >= wbAutomationReachabilityResetWorkLimit then
+    raise EwbAutomationReachabilityResetCapacity.Create('Reachability reset exceeds15000000 structural actions');
+  Inc(FWork); frame := FFrames.Last;
+  if not frame.Entered then begin
+    // Native TwbContainer.ResetReachable charges once before the inherited
+    // element reset, which charges again. Preserve both visit charges exactly.
+    if frame.Native is TwbContainer then wbChargeReachability;
+    frame.Native.ResetReachableSelf;
+    frame.Entered := True; FFrames[FFrames.Count - 1] := frame;
+  end else if (frame.Native is TwbContainer) and
+    (frame.NextChild < Length(TwbContainer(frame.Native).cntElements)) then begin
+    // Deliberately no DoInit/GetElement/record-index substitute. New children
+    // inherit their already-reset parent's esNotReachable through SetContainer.
+    child := TwbContainer(frame.Native).cntElements[frame.NextChild]; Inc(frame.NextChild);
+    FFrames[FFrames.Count - 1] := frame;
+    Push(TwbElement(child.ElementID));
+  end else FFrames.Delete(FFrames.Count - 1);
+  CheckValid;
+  FComplete := FFrames.Count = 0;
+  Result := FComplete;
+end;
+
+function TwbAutomationReachabilityResetScanImpl.WorkUnits: Integer;
+begin Result := FWork; end;
+function TwbAutomationReachabilityResetScanImpl.RetainedDepth: Integer;
+begin Result := FFrames.Count; end;
+function wbAutomationReachabilityResetScan(const aFile: IwbFile): TwbAutomationReachabilityResetScan;
+begin Result := TwbAutomationReachabilityResetScanImpl.Create(aFile); end;
 
 procedure TwbFile.CleanMasters;
 begin
@@ -20623,6 +20740,11 @@ begin
 end;
 
 procedure TwbElement.ResetReachable;
+begin
+  ResetReachableSelf;
+end;
+
+procedure TwbElement.ResetReachableSelf;
 begin
   wbChargeReachability;
   Include(eStates, esNotReachable);
