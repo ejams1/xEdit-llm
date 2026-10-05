@@ -1419,6 +1419,58 @@ shutdown. Python integrity/assertion checks are not native evidence; Delphi and
 all game-backed checks remain pending.
 
 
+### Standalone ESL compaction steps (#14, contract 0.65)
+
+`plugin.formids.compact_for_esl` resolves 1..256 unique files at start, accepts
+empty options, and defaults omitted `dryRun` to true. It retains the original
+live tree plus native record-index collection (including unsaved grouped roots),
+sorts by ObjectID with an incremental merge sort, reserves ALL already valid IDs,
+then plans ascending remaps into the remaining light range. Capacity is the
+actual native light range (2048 or4095 roots), depth64/work1000000. Cooperative
+phases perform <=128 actions/soft20ms; reference builds run one loaded file per
+poll. Override/referrer checks are retained per edge, with100000 of each allowed
+per remap and the shared total-work cap. Every remap in the current target file
+is preflighted before its first write; later files are still planned separately.
+
+There is a visible `apply-remaps` boundary before writing, then one COMPLETE
+native record/override/referrer remap per poll. A partially finished job keeps
+`complete:false`, `planningComplete`, `preflightComplete`, `appliedRemaps`, a
+mapping prefix with per-remap `outcome`, immutable paged findings, mutation audit,
+and all affected dirty files. Native exceptions during a remap leave `applying`
+and the audit, rather than claiming that the whole remap completed. A finding
+capacity failure after a write keeps the applied row/count/audit. The final
+NextObjectID is computed from the retained roots/mapping; an incomplete job may
+not have updated it yet. Retrying compaction reserves IDs already used by the
+completed prefix. No ESL flag or disk save occurs here. Native initialization,
+sorting, reference builds, remapping and audit are indivisible; this is not a
+strict latency or preemption promise. `plugin.esl.apply` still uses its legacy
+whole-file handler at this revision.
+
+Source checks (Delphi/game execution skipped at the user's request):
+
+```powershell
+python -m unittest discover -s Tools/AutomationRegression -p 'test_*.py' -v
+python -m unittest discover -s Tools/AgentCoverage -p test_generate.py -v
+python Tools/AgentCoverage/generate.py --check
+```
+
+For future native acceptance, generate
+`compact_step_fixture.py generate --overlay <fresh-MO2-mod-folder>` and load
+Fallout4.esm, AutomationCompactBase.esm, AutomationCompactStepped.esp,
+AutomationCompactCallers.esp, AutomationCompactCanceled.esp,
+AutomationCompactCancelCallers.esp. With edit consent, run `exercise --overlay
+<folder> --exe <built-FO4Edit.exe> --pid <daemon-pid> --artifacts <folder>`.
+The runner tests tree/sort/preflight/pre-remap cancellation, default dry-run,
+ascending400-remap plans with reserved holes, one-remap cancellation including
+editable external callers/overrides, retry parity, no-op, dirty-file reporting,
+active save refusal, and unchanged bytes until explicit save/terminal flush.
+Restart the daemon on the same load order and run `verify` with the fresh PID
+to check native links plus independent on-disk IDs, link payloads, masters and
+NextObjectID. Python tests check binary integrity and assertion failures only.
+Native compilation, unsaved root compaction, non-editable/protected external
+referrer refusal, relationship caps, state invalidation, native fault injection,
+finding admission after writes and GUI parity remain unverified.
+
 ### Reachability report/additional-root steps (#14, contract 0.64)
 
 `analysis.reachability` now retains each report file's index instead of emitting

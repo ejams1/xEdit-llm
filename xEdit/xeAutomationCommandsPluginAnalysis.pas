@@ -13,6 +13,7 @@ interface
 const
   xeAutomationEslScanWorkLimit = 1000000;
   xeAutomationEslScanRecordLimit = 100000;
+  xeAutomationCompactEdgeLimit = 100000;
 
 procedure xeAutomationRegisterPluginAnalysisCommands;
 
@@ -29,6 +30,7 @@ uses
   xeAutomationDataLookup,
   xeAutomationErrors,
   xeAutomationJobs,
+  xeAutomationMutationAudit,
   xeAutomationMutationPolicy,
   xeAutomationObjectModel;
 
@@ -221,8 +223,24 @@ end;
 
 procedure xeAutomationValidateCompactForEslStart(var ADryRun: Boolean; const ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject);
+var names: TStringList; fileRef: IwbFile; i: Integer;
 begin
   xeAutomationValidatePluginFilesTarget(xeAutomationFormIdsCompactForEslKind, ADryRun, ADryRunSpecified, ATarget);
+  if ATarget.Count <> 1 then raise xeAutomationInvalidRequest('Compaction target accepts only files');
+  if Assigned(AOptions) and (AOptions.Count <> 0) then
+    raise xeAutomationInvalidRequest('Compaction options must be empty');
+  if ATarget.A['files'].Count > 256 then
+    raise xeAutomationInvalidRequest('Compaction selects 1..256 files');
+  names := TStringList.Create;
+  try
+    names.CaseSensitive := False;
+    for i := 0 to ATarget.A['files'].Count - 1 do begin
+      fileRef := xeAutomationRequirePluginFile(Trim(ATarget.A['files'].S[i]));
+      if names.IndexOf(fileRef.FileName) >= 0 then raise xeAutomationInvalidRequest('Duplicate compaction target');
+      names.Add(fileRef.FileName);
+      if not ADryRun then xeAutomationRequireWritableEslMutationTarget(fileRef);
+    end;
+  finally names.Free; end;
 end;
 
 procedure xeAutomationValidateEslApplyStart(var ADryRun: Boolean; const ADryRunSpecified: Boolean;
@@ -514,30 +532,24 @@ begin
       lFinding.O['action'].S['kind'] := 'planned';
     lFinding.O['action'].S['oldFormId'] := ARemap.OldFormID.ToString(True);
     lFinding.O['action'].S['newFormId'] := ARemap.NewFormID.ToString(True);
-    AFindings.Add(lFinding);
+    xeAutomationAppendJobFinding(AFindings, lFinding);
     lFinding := nil;
   finally
     lFinding.Free;
   end;
 end;
 
-function xeAutomationAddNonEditableReferrerFindings(const AFindings: TJsonArray; const AKind: string; const AFile: IwbFile;
-  const ARemap: TxeAutomationFormIdRemap): Integer;
+function xeAutomationAddNonEditableReferrerFinding(const AFindings: TJsonArray; const AKind: string; const AFile: IwbFile;
+  const ARemap: TxeAutomationFormIdRemap; const lReferrer: IwbMainRecord): Boolean;
 var
   lFinding: TJsonObject;
-  lMaster: IwbMainRecord;
-  lReferrer: IwbMainRecord;
-  i: Integer;
 begin
-  Result := 0;
-  lMaster := ARemap.RecordRef.MasterOrSelf;
-  for i := 0 to Pred(lMaster.ReferencedByCount) do begin
-    lReferrer := lMaster.ReferencedBy[i];
+  Result := False;
     // External editable referrers are safe: the apply sweep rewrites them and
     // reports their files dirty. Only records/files xEdit cannot edit would keep
     // stale links after the target FormID is compacted.
     if Assigned(lReferrer) and ((not lReferrer.IsEditable) or (not lReferrer._File.IsEditable)) then begin
-      Inc(Result);
+      Result := True;
       lFinding := TJsonObject.Create;
       try
         lFinding.S['severity'] := 'error';
@@ -553,13 +565,22 @@ begin
         lFinding.O['referrer'].S['formId'] := lReferrer.LoadOrderFormID.ToString(True);
         lFinding.O['referrer'].S['signature'] := lReferrer.Signature;
         lFinding.S['source'] := AKind;
-        AFindings.Add(lFinding);
+        xeAutomationAppendJobFinding(AFindings, lFinding);
         lFinding := nil;
       finally
         lFinding.Free;
       end;
     end;
-  end;
+end;
+
+function xeAutomationAddNonEditableReferrerFindings(const AFindings: TJsonArray; const AKind: string; const AFile: IwbFile;
+  const ARemap: TxeAutomationFormIdRemap): Integer;
+var masterRef: IwbMainRecord; i: Integer;
+begin
+  Result := 0;
+  masterRef := ARemap.RecordRef.MasterOrSelf;
+  for i := 0 to masterRef.ReferencedByCount - 1 do
+    if xeAutomationAddNonEditableReferrerFinding(AFindings, AKind, AFile, ARemap, masterRef.ReferencedBy[i]) then Inc(Result);
 end;
 
 function xeAutomationAddNonEditableReferrerFindingsForBatch(const AFindings: TJsonArray; const AKind: string;
@@ -1162,6 +1183,310 @@ function NewEslAnalysisStepper(const kind: string; const dry, specified: Boolean
   const target, options: TJsonObject): TxeAutomationJobStepper;
 begin Result := TEslAnalysisStepper.Create(target.A['files'].S[0]); end;
 
+type
+  TCompactPhase = (cspTree, cspRecords, cspSort, cspReserve, cspPlan,
+    cspReferences, cspPreflight, cspApply, cspHeader, cspComplete);
+  TCompactStepper = class(TxeAutomationJobStepper)
+  private
+    FName: string;
+    FDry: Boolean;
+    FFile: IwbFile;
+    FRow: TJsonObject;
+    FSnapshot: TxeAutomationMutationSnapshot;
+    FStack: TObjectList<TEslScanFrame>;
+    FSeen: TDictionary<Cardinal, Boolean>;
+    FRecords, FScratch: TxeAutomationMainRecords;
+    FRemaps: TxeAutomationFormIdRemaps;
+    FModules: TwbModuleInfos;
+    FTaken: array[0..$FFF] of Boolean;
+    FPhase: TCompactPhase;
+    FCount, FIndex, FRecordLimit, FWork, FLastWork, FSteps, FApplied: Integer;
+    FWidth, FStart, FLeft, FMiddle, FRight, FEnd, FOutput: Integer;
+    FModuleIndex, FOverrideIndex, FReferrerIndex, FBlockers: Integer;
+    FOverrideCount, FReferrerCount: Integer;
+    FEdgesReady: Boolean;
+    FLowest, FNext, FMaxAfter: Cardinal;
+    procedure Observe(const recordRef: IwbMainRecord);
+    procedure WalkOne;
+    procedure SortOne;
+    procedure PlanOne;
+    procedure PreflightOne(const findings: TJsonArray);
+    procedure UpdateAudit(const summary: TJsonObject);
+  public
+    constructor Create(const name: string; const dry: Boolean);
+    destructor Destroy; override;
+    function Advance(const findings: TJsonArray;
+      const summary, resultData, failure: TJsonObject): Boolean; override;
+    procedure WriteProgress(const progress: TJsonObject); override;
+  end;
+
+constructor TCompactStepper.Create(const name: string; const dry: Boolean);
+begin
+  inherited Create; FName := name; FDry := dry;
+  FStack := TObjectList<TEslScanFrame>.Create(True);
+  FSeen := TDictionary<Cardinal, Boolean>.Create;
+end;
+
+destructor TCompactStepper.Destroy;
+begin
+  FStack.Free; FSeen.Free;
+  FRecords := nil; FScratch := nil; FRemaps := nil;
+  FSnapshot.Files := nil; FModules := nil; FFile := nil;
+  inherited;
+end;
+
+procedure TCompactStepper.Observe(const recordRef: IwbMainRecord);
+var identity: Cardinal;
+begin
+  if not Assigned(recordRef) or (recordRef = FFile.Header) or
+     (recordRef.LoadOrderFormID.FileID <> FFile.LoadOrderFileID) then Exit;
+  identity := recordRef.LoadOrderFormID.ToCardinal;
+  if FSeen.ContainsKey(identity) then Exit;
+  if FCount >= Integer(xeAutomationLightObjectIdCapacity(FFile)) then
+    raise xeAutomationNewError(xeAutomationErrorEligibilityFailed,
+      'Too many new records to compact into the light ObjectID range');
+  FSeen.Add(identity, True); FRecords[FCount] := recordRef; Inc(FCount);
+end;
+
+procedure TCompactStepper.WalkOne;
+var frame: TEslScanFrame; recordRef: IwbMainRecord; child: IwbElement;
+begin
+  if FStack.Count = 0 then begin
+    FRecordLimit := FFile.RecordCount; FPhase := cspRecords; Exit;
+  end;
+  frame := FStack.Last;
+  if not frame.Entered then begin
+    frame.Entered := True;
+    if Supports(frame.Element, IwbMainRecord, recordRef) then Observe(recordRef);
+    Supports(frame.Element, IwbContainer, frame.Container);
+  end else if Assigned(frame.Container) and (frame.NextChild < frame.Container.ElementCount) then begin
+    if FStack.Count >= xeAutomationJobStepDepthLimit then
+      raise xeAutomationNewError('job_capacity', 'Compaction tree exceeds depth64');
+    child := frame.Container.Elements[frame.NextChild]; Inc(frame.NextChild);
+    FStack.Add(TEslScanFrame.Create(child));
+  end else FStack.Delete(FStack.Count - 1);
+end;
+
+procedure TCompactStepper.SortOne;
+var temp: TxeAutomationMainRecords;
+begin
+  // Bottom-up merge sort: one interface assignment/compare per work unit.
+  if FWidth >= FCount then begin FIndex := 0; FPhase := cspReserve; Exit; end;
+  if FStart >= FCount then begin
+    temp := FRecords; FRecords := FScratch; FScratch := temp;
+    FWidth := FWidth * 2; FStart := 0; FOutput := 0; Exit;
+  end;
+  if FOutput = FStart then begin
+    FLeft := FStart; FMiddle := FStart + FWidth;
+    if FMiddle > FCount then FMiddle := FCount;
+    FRight := FMiddle; FEnd := FStart + 2 * FWidth;
+    if FEnd > FCount then FEnd := FCount;
+  end;
+  if (FLeft < FMiddle) and ((FRight >= FEnd) or
+     (FRecords[FLeft].LoadOrderFormID.ObjectID <= FRecords[FRight].LoadOrderFormID.ObjectID)) then begin
+    FScratch[FOutput] := FRecords[FLeft]; Inc(FLeft);
+  end else begin FScratch[FOutput] := FRecords[FRight]; Inc(FRight); end;
+  Inc(FOutput);
+  if FOutput >= FEnd then FStart := FEnd;
+end;
+
+procedure TCompactStepper.PlanOne;
+var recordRef: IwbMainRecord; objectId: Cardinal; remapRow: TJsonObject; n: Integer;
+begin
+  if FIndex >= FCount then begin
+    FRow.B['planningComplete'] := True;
+    FModules := wbModulesByLoadOrder; FIndex := 0;
+    if Length(FRemaps) > 0 then FPhase := cspReferences else FPhase := cspHeader;
+    Exit;
+  end;
+  recordRef := FRecords[FIndex]; objectId := recordRef.LoadOrderFormID.ObjectID;
+  if (objectId >= FLowest) and (objectId <= xeAutomationLightObjectIdLimit) then begin Inc(FIndex); Exit; end;
+  if FNext > xeAutomationLightObjectIdLimit then
+    raise xeAutomationNewError(xeAutomationErrorEligibilityFailed, 'No free light ObjectID for compaction');
+  if FTaken[FNext] then begin Inc(FNext); Exit; end;
+  n := Length(FRemaps); SetLength(FRemaps, n + 1);
+  FRemaps[n].RecordRef := recordRef;
+  FRemaps[n].OldFormID := recordRef.LoadOrderFormID;
+  FRemaps[n].NewFormID := TwbFormID.FromCardinal(FNext).ChangeFileID(FFile.LoadOrderFileID);
+  FTaken[FNext] := True;
+  if FNext > FMaxAfter then FMaxAfter := FNext;
+  remapRow := FRow.A['remaps'].AddObject;
+  remapRow.S['file'] := FFile.FileName; remapRow.S['signature'] := recordRef.Signature;
+  remapRow.S['oldFormId'] := FRemaps[n].OldFormID.ToString(True);
+  remapRow.S['newFormId'] := FRemaps[n].NewFormID.ToString(True);
+  remapRow.S['outcome'] := 'not_started';
+  Inc(FNext); Inc(FIndex);
+end;
+
+procedure TCompactStepper.PreflightOne(const findings: TJsonArray);
+var remap: TxeAutomationFormIdRemap; recordRef, masterRef: IwbMainRecord;
+begin
+  if FIndex >= Length(FRemaps) then begin
+    if (FBlockers > 0) and not FDry then
+      raise xeAutomationNewError(xeAutomationFindingNonEditableReferrer,
+        'Non-editable referrers would retain stale FormIDs after compaction');
+    FRow.B['preflightComplete'] := True; FIndex := 0; FPhase := cspApply; Exit;
+  end;
+  remap := FRemaps[FIndex]; masterRef := remap.RecordRef.MasterOrSelf;
+  if not FEdgesReady then begin
+    if not FDry then xeAutomationRequireWritableEslMutationTarget(remap.RecordRef._File);
+    FOverrideCount := remap.RecordRef.OverrideCount; FReferrerCount := masterRef.ReferencedByCount;
+    if (FOverrideCount > xeAutomationCompactEdgeLimit) or (FReferrerCount > xeAutomationCompactEdgeLimit) then
+      raise xeAutomationNewError('job_capacity', 'A native remap retains at most100000 overrides and100000 referrers');
+    FOverrideIndex := 0; FReferrerIndex := 0; FEdgesReady := True; Exit;
+  end;
+  if FOverrideIndex < FOverrideCount then begin
+    recordRef := remap.RecordRef.Overrides[FOverrideIndex]; Inc(FOverrideIndex);
+    if Assigned(recordRef) and not FDry then xeAutomationRequireWritableEslMutationTarget(recordRef._File);
+  end else if FReferrerIndex < FReferrerCount then begin
+    recordRef := masterRef.ReferencedBy[FReferrerIndex]; Inc(FReferrerIndex);
+    if xeAutomationAddNonEditableReferrerFinding(findings, xeAutomationFormIdsCompactForEslKind,
+      FFile, remap, recordRef) then Inc(FBlockers);
+    if Assigned(recordRef) and recordRef.IsEditable and not FDry then
+      xeAutomationRequireWritableEslMutationTarget(recordRef._File);
+  end else begin Inc(FIndex); FEdgesReady := False; end;
+end;
+
+procedure TCompactStepper.UpdateAudit(const summary: TJsonObject);
+var i: Integer; fileRef: IwbFile; needsSave: Boolean;
+begin
+  xeAutomationWriteMutationAudit(FRow.O['mutationState'], FSnapshot);
+  FRow.B['changed'] := FRow.O['mutationState'].B['mutationsObserved'];
+  summary.B['changed'] := summary.B['changed'] or FRow.B['changed'];
+  needsSave := False;
+  for i := 0 to Length(FSnapshot.Files) - 1 do begin
+    fileRef := FSnapshot.Files[i].FileRef;
+    if fileRef.Modified and ((fileRef = FFile) or
+       (fileRef.ElementGeneration <> FSnapshot.Files[i].Generation)) then begin
+      xeAutomationAddDirtyFile(summary.A['dirtyFiles'], fileRef);
+      needsSave := True;
+    end;
+  end;
+  FRow.B['requiresSave'] := needsSave;
+  summary.B['requiresSave'] := summary.B['requiresSave'] or needsSave;
+end;
+
+function TCompactStepper.Advance(const findings: TJsonArray;
+  const summary, resultData, failure: TJsonObject): Boolean;
+var timer: TStopwatch; oldPhase: TCompactPhase; fileRef: IwbFile;
+    objectId: Cardinal; remap: TxeAutomationFormIdRemap;
+begin
+  Inc(FSteps); FLastWork := 0; timer := TStopwatch.StartNew;
+  try
+    if not Assigned(FFile) then begin
+      FFile := xeAutomationRequirePluginFile(FName);
+      if not FDry then xeAutomationRequireWritableEslMutationTarget(FFile);
+      FSnapshot := xeAutomationCaptureMutationSnapshot;
+      FRow := resultData.A['files'].AddObject; FRow.S['fileName'] := FFile.FileName;
+      FRow.B['complete'] := False; FRow.B['planningComplete'] := False; FRow.B['preflightComplete'] := False;
+      FRow.B['eslFlagChanged'] := False; FRow.B['isLight'] := FFile.IsLight;
+      FLowest := xeAutomationLightObjectIdLowest(FFile); FNext := FLowest;
+      SetLength(FRecords, xeAutomationLightObjectIdCapacity(FFile));
+      FStack.Add(TEslScanFrame.Create(FFile));
+      summary.I['targets'] := summary.I['targets'] + 1;
+      summary.S['persistence'] := 'in-memory-until-session.save-and-terminal-session.flush';
+      Inc(FLastWork);
+    end;
+    while (FPhase <> cspComplete) and (FLastWork < xeAutomationJobStepWorkLimit) and
+      (timer.ElapsedMilliseconds < xeAutomationJobStepBudgetMs) do begin
+      if FWork >= xeAutomationEslScanWorkLimit then
+        raise xeAutomationNewError('job_capacity', 'Compaction exceeds1000000 work units');
+      Inc(FWork); Inc(FLastWork); oldPhase := FPhase;
+      case FPhase of
+        cspTree: WalkOne;
+        cspRecords: if FIndex < FRecordLimit then begin
+          Observe(FFile.Records[FIndex]); Inc(FIndex);
+        end else begin
+          SetLength(FRecords, FCount); SetLength(FScratch, FCount);
+          FWidth := 1; FPhase := cspSort;
+        end;
+        cspSort: SortOne;
+        cspReserve: if FIndex < FCount then begin
+          objectId := FRecords[FIndex].LoadOrderFormID.ObjectID;
+          if (objectId >= FLowest) and (objectId <= xeAutomationLightObjectIdLimit) then begin
+            FTaken[objectId] := True;
+            if objectId > FMaxAfter then FMaxAfter := objectId;
+          end;
+          Inc(FIndex);
+        end else begin FIndex := 0; FPhase := cspPlan; end;
+        cspPlan: PlanOne;
+        cspReferences: if FModuleIndex < Length(FModules) then begin
+          fileRef := xeAutomationTryPluginFileFromModule(FModules[FModuleIndex]); Inc(FModuleIndex);
+          if Assigned(fileRef) then fileRef.BuildOrLoadRef(False);
+        end else begin FIndex := 0; FPhase := cspPreflight; end;
+        cspPreflight: PreflightOne(findings);
+        cspApply: if FIndex < Length(FRemaps) then begin
+          remap := FRemaps[FIndex];
+          if FDry then begin
+            FRow.A['remaps'].O[FIndex].S['outcome'] := 'planned';
+            summary.I['planned'] := summary.I['planned'] + 1;
+          end else begin
+            xeAutomationRequireWritableEslMutationTarget(FFile);
+            if remap.RecordRef.LoadOrderFormID <> remap.OldFormID then
+              raise xeAutomationNewError('job_state_changed', 'Planned FormID changed before remap');
+            // Preserve the standalone route's native reference refresh before each remap.
+            FFile.BuildOrLoadRef(False);
+            if (remap.RecordRef.OverrideCount > xeAutomationCompactEdgeLimit) or
+               (remap.RecordRef.MasterOrSelf.ReferencedByCount > xeAutomationCompactEdgeLimit) then
+              raise xeAutomationNewError('job_capacity', 'Native remap relationship capacity changed');
+            FRow.A['remaps'].O[FIndex].S['outcome'] := 'applying';
+            xeAutomationApplyFormIdRemap(remap, summary.A['dirtyFiles']);
+            Inc(FApplied); summary.I['applied'] := summary.I['applied'] + 1;
+            FRow.A['remaps'].O[FIndex].S['outcome'] := 'applied';
+          end;
+          // A finding admission failure after a write keeps the applied row/counter/audit.
+          xeAutomationAddRemapFinding(findings, xeAutomationFormIdsCompactForEslKind, FFile, remap, not FDry);
+          Inc(FIndex);
+        end else FPhase := cspHeader;
+        cspHeader: begin
+          if not FDry and (Length(FRemaps) > 0) then begin
+            if FMaxAfter < xeAutomationLightObjectIdLimit then FFile.NextObjectID := FMaxAfter + 1
+            else FFile.NextObjectID := xeAutomationLightObjectIdLimit;
+          end;
+          FRow.B['complete'] := True; FPhase := cspComplete;
+        end;
+      end;
+      // Visible phase boundaries, one loaded-file build or one whole remap per poll.
+      if (FPhase <> oldPhase) or (oldPhase in [cspReferences, cspApply, cspHeader]) then Break;
+    end;
+  finally
+    summary.I['findings'] := findings.Count;
+    if Assigned(FRow) then begin
+      FRow.I['newRecordCount'] := FCount; FRow.I['remapCount'] := Length(FRemaps);
+      FRow.I['appliedRemaps'] := FApplied; FRow.I['nonEditableReferrers'] := FBlockers;
+      FRow.S['phase'] := 'in_progress';
+      if FPhase = cspComplete then FRow.S['phase'] := 'complete';
+      UpdateAudit(summary);
+    end;
+  end;
+  Result := FPhase = cspComplete;
+end;
+
+procedure TCompactStepper.WriteProgress(const progress: TJsonObject);
+const phases: array[TCompactPhase] of string = ('file-tree', 'record-index', 'sort', 'reserve-ids',
+  'plan', 'build-references', 'preflight', 'apply-remaps', 'next-object-id', 'complete');
+begin
+  progress.S['fileName'] := FName; progress.S['phase'] := phases[FPhase];
+  if Assigned(FRow) then FRow.S['phase'] := phases[FPhase];
+  progress.I['steps'] := FSteps; progress.I['lastWorkUnits'] := FLastWork;
+  progress.I['workLimit'] := xeAutomationJobStepWorkLimit;
+  progress.I['totalWorkUnits'] := FWork; progress.I['totalWorkLimit'] := xeAutomationEslScanWorkLimit;
+  progress.I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
+  progress.I['retainedDepth'] := FStack.Count; progress.I['depthLimit'] := xeAutomationJobStepDepthLimit;
+  progress.I['newRecordCount'] := FCount; progress.I['recordCapacity'] := Length(FRecords);
+  progress.I['remapCount'] := Length(FRemaps); progress.I['appliedRemaps'] := FApplied;
+  progress.I['loadedFilesProcessed'] := FModuleIndex; progress.I['loadedFilesTotal'] := Length(FModules);
+  progress.I['referrersChecked'] := FReferrerIndex; progress.I['overridesChecked'] := FOverrideIndex;
+  progress.I['relationshipsPerRemapLimit'] := xeAutomationCompactEdgeLimit;
+  progress.I['mutationLimit'] := 1;
+  progress.B['nativeCallsPreemptible'] := False;
+  progress.S['nativeAtoms'] := 'container initialization/access; RecordCount sorting; one loaded-file reference build; one complete record/override/referrer remap; header setters and audit';
+end;
+
+function NewCompactStepper(const kind: string; const dry, specified: Boolean;
+  const target, options: TJsonObject): TxeAutomationJobStepper;
+begin Result := TCompactStepper.Create(target.A['files'].S[0], dry); end;
+
 procedure xeAutomationRegisterPluginAnalysisCommands;
 begin
   // Capability advertising is registry-derived; registering these kinds here is
@@ -1171,6 +1496,7 @@ begin
   xeAutomationRegisterJobStepper(xeAutomationEslAnalyzeKind, NewEslAnalysisStepper);
   xeAutomationRegisterJobKindWithValidator(xeAutomationFormIdsCompactForEslKind, xeAutomationPluginFormIdsCompactForEslJob,
     xeAutomationValidateCompactForEslStart);
+  xeAutomationRegisterJobStepper(xeAutomationFormIdsCompactForEslKind, NewCompactStepper);
   xeAutomationRegisterJobKindWithValidator(xeAutomationEslApplyKind, xeAutomationPluginEslApplyJob,
     xeAutomationValidateEslApplyStart);
 end;
