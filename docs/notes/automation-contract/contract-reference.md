@@ -851,6 +851,22 @@ Clients can discover this command through `supports.sessionFlush: true`.
 
 ## Client parsing rules
 
+At source contract0.68, `cleaning.cleanup_injected_references` resolves bounded
+owned locators at start, then advances native reference construction and GLOBAL
+provider/dependency preflight before any plugin edit. Provider/dependency/overwrite
+failures are now durable job failures. `result.preflight.complete` marks the full
+selection ready; `result.plan` and summary.planned retain its observed prefix.
+Each record then yields between master application, preservation copy, native
+removal/reference refresh and finding report. `result.records` exposes
+`preservationComplete`, `preserved`, `cleaned`, `complete` and `outcome`.
+Cancellation after copying can leave a valid provider override while the source
+still contains injected links; explicit overwrite:true is required on retry.
+Retry after cleanup should select only still-injected records. Applied findings
+append immutable events after planned events, so consumers must not assume the
+first planned finding is later rewritten. Completed record counters/audits remain
+visible even if the final event cannot be admitted. No rollback or native-call
+preemption is promised; explicit save/flush persists both affected source/provider.
+
 At source contract0.66, `plugin.esl.apply` composes retained ESL analysis and
 optional compaction with explicit eligibility and `esl-flag` boundaries. Its
 file row retains `analysis` (partial stats or final eligibility),

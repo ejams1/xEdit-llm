@@ -1244,7 +1244,7 @@
       "effect": "dry run reads headers only; apply immediately creates .esu disk copy, then edits loaded delta -> save + flush"
     },
     "cleaning.cleanup_injected_references": {
-      "effect": "default dry-run plan; apply preserves overrides in injection provider then removes source references in memory -> save both + flush"
+      "effect": "poll-driven reference build and complete global provider/dependency preflight before any mutation; separate native master/preservation/removal units; immutable plan/applied events, partial copy/cleanup rows and audit on cancellation/failure; copied-only retry requires overwrite; native units indivisible; plugin edits -> explicit save/flush"
     },
     "records.copy_idle_tree": {
       "effect": "default dry-run plan; apply creates idle copies, changes models/internal references in memory -> save + flush"

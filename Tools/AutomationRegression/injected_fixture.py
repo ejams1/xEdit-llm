@@ -52,7 +52,10 @@ def start(client, source, dry_run):
     job = client.call("jobs.start", kind="cleaning.cleanup_injected_references",
                       dryRun=dry_run, target={"files": [BASE]},
                       options={"records": [source], "injectionFile": PROVIDER})
-    job = client.call("jobs.get", jobId=job["jobId"])
+    for _ in range(1000):
+        job = client.call("jobs.get", jobId=job["jobId"])
+        if job["terminal"]:
+            break
     assert job["state"] == "succeeded", job
     findings = client.call("jobs.findings", jobId=job["jobId"], limit=50)["findings"]
     client.call("jobs.discard", jobId=job["jobId"])
@@ -76,7 +79,9 @@ def exercise(client):
     applied, findings = start(client, source, False)
     assert applied["summary"]["applied"] == 1 and applied["summary"]["requiresManualReview"] == 0, applied
     assert applied["result"]["records"][0]["cleaned"], applied
-    assert findings[0]["code"] == "injected_cleanup_applied", findings
+    assert [finding["code"] for finding in findings] == [
+        "injected_cleanup_planned", "injected_cleanup_applied"], findings
+    assert not findings[0]["applied"] and findings[1]["applied"], findings
     assert set(applied["summary"]["dirtyFiles"]) == {BASE, PROVIDER}, applied
     verify(client)
     client.call("session.save", files=[BASE, PROVIDER])

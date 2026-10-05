@@ -15,13 +15,23 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.67** (bounded ESL mutation job schemas).
+Source contract: **0.68** (retained injected cleanup planning and native units).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
 
+- **0.68: injected cleanup stepping** — native reference builds and full
+  selection provider/dependency preflight move out of jobs.start into retained
+  units. All selected roots are still preflighted before the first master/copy/
+  removal mutation. Unique files1..32, explicit roots1..128, loaded modules<=256,
+  closed options and plan512KiB apply. Distinct master/preserve/remove/report
+  phases expose copied-only cancellation and durable rows/audits. Immutable
+  planned events are retained alongside new applied events; global planned
+  counters describe the accepted selection prefix. Retry after copied-only work
+  requires explicit overwrite. Native deep scans/builds/copies/removal/audit are
+  indivisible; Delphi/native execution is skipped at user request.
 - **0.67: ESL mutation job schemas** — request discovery now reports unique
   resolved files1..256, closed target/options objects, default dry-run and the
   staged/atomic boundaries introduced in0.65/0.66. Standalone compaction discovery
