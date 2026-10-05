@@ -10,6 +10,10 @@ unit xeAutomationCommandsPluginAnalysis;
 
 interface
 
+const
+  xeAutomationEslScanWorkLimit = 1000000;
+  xeAutomationEslScanRecordLimit = 100000;
+
 procedure xeAutomationRegisterPluginAnalysisCommands;
 
 implementation
@@ -17,6 +21,8 @@ implementation
 uses
   System.Generics.Collections,
   SysUtils,
+  Classes,
+  System.Diagnostics,
   JsonDataObjects,
   wbInterface,
   wbLoadOrder,
@@ -115,7 +121,7 @@ begin
     lFinding.S['message'] := AMessage;
     lFinding.O['target'].S['file'] := AFileName;
     lFinding.S['source'] := xeAutomationEslAnalyzeKind;
-    AFindings.Add(lFinding);
+    xeAutomationAppendJobFinding(AFindings, lFinding);
     lFinding := nil;
   finally
     lFinding.Free;
@@ -166,28 +172,25 @@ end;
 
 procedure xeAutomationValidateEslAnalyzeStart(var ADryRun: Boolean; const ADryRunSpecified: Boolean;
   const ATarget, AOptions: TJsonObject);
-var
-  lFiles: TJsonArray;
-  i: Integer;
+var names: TStringList; fileRef: IwbFile; files: TJsonArray; i: Integer;
 begin
-  if not Assigned(ATarget) then
-    raise xeAutomationInvalidRequest('Automation plugin.esl.analyze target is required');
-  if not ATarget.Contains('files') then
-    raise xeAutomationInvalidRequest('Automation plugin.esl.analyze target.files is required');
-  if ATarget.Types['files'] <> jdtArray then
-    raise xeAutomationInvalidRequest('Automation plugin.esl.analyze target.files must be an array');
-
-  lFiles := ATarget.A['files'];
-  if lFiles.Count = 0 then
-    raise xeAutomationInvalidRequest('Automation plugin.esl.analyze target.files must not be empty');
-  for i := 0 to Pred(lFiles.Count) do
-    if lFiles.Types[i] <> jdtString then
-      raise xeAutomationInvalidRequest('Automation plugin.esl.analyze target.files entries must be strings');
-
-  // This job is a read-only analysis surface. Normalize omitted dryRun to true so
-  // clients cannot mistake acceptance of the job for permission to mutate or save.
-  if not ADryRunSpecified then
-    ADryRun := True;
+  if not Assigned(ATarget) or not ATarget.Contains('files') or (ATarget.Types['files'] <> jdtArray) then
+    raise xeAutomationInvalidRequest('plugin.esl.analyze target.files must be a plugin name array');
+  if ATarget.Count <> 1 then raise xeAutomationInvalidRequest('plugin.esl.analyze target accepts only files');
+  if Assigned(AOptions) and (AOptions.Count > 0) then raise xeAutomationInvalidRequest('plugin.esl.analyze options must be empty');
+  files := ATarget.A['files'];
+  if (files.Count < 1) or (files.Count > 256) then raise xeAutomationInvalidRequest('plugin.esl.analyze selects 1..256 files');
+  names := TStringList.Create;
+  try
+    names.CaseSensitive := False;
+    for i := 0 to files.Count - 1 do begin
+      if files.Types[i] <> jdtString then raise xeAutomationInvalidRequest('plugin.esl.analyze files entries must be strings');
+      fileRef := xeAutomationRequirePluginFile(Trim(files.S[i]));
+      if names.IndexOf(fileRef.FileName) >= 0 then raise xeAutomationInvalidRequest('Duplicate plugin.esl.analyze target');
+      names.Add(fileRef.FileName);
+    end;
+  finally names.Free; end;
+  if not ADryRunSpecified then ADryRun := True;
 end;
 
 procedure xeAutomationValidatePluginFilesTarget(const AKind: string; var ADryRun: Boolean; const ADryRunSpecified: Boolean;
@@ -314,16 +317,12 @@ begin
   end;
 end;
 
-function xeAutomationAnalyzePluginForEsl(const AFile: IwbFile; const AFindings: TJsonArray): TJsonObject;
+function xeAutomationDescribeEslStats(const AFile: IwbFile; const AFindings: TJsonArray;
+  lNewRecordCount: Integer; lMaxObjectId, lMinObjectId: Cardinal; lHasCellRisk: Boolean): TJsonObject;
 var
-  lNewRecordCount: Integer;
-  lMaxObjectId: Cardinal;
-  lMinObjectId: Cardinal;
-  lHasCellRisk: Boolean;
   lProtectedMessage: string;
   lRiskMessage: string;
   lBlockerMessage: string;
-  lSeenRecords: TDictionary<Cardinal, Boolean>;
   lNextObjectId: Cardinal;
   lLowestObjectId: Cardinal;
   lLightObjectIdCapacity: Cardinal;
@@ -340,26 +339,6 @@ begin
     Result.A['risks'].Clear;
     Result.A['blockers'].Clear;
 
-    lNewRecordCount := 0;
-    lMaxObjectId := 0;
-    lMinObjectId := 0;
-    lHasCellRisk := False;
-    lSeenRecords := TDictionary<Cardinal, Boolean>.Create;
-    try
-      xeAutomationCollectEslRecordStatsFromElement(AFile, AFile, lSeenRecords, lNewRecordCount, lMaxObjectId, lMinObjectId, lHasCellRisk);
-      // The automation creation surface can leave fresh records in signature groups
-      // before the file's shallow record view catches up. Probe all currently visible
-      // top-level groups instead of baking a protocol-side signature allow-list into
-      // analysis, then keep the ObjectID scan below as a fallback for tiny new files.
-      xeAutomationCollectEslRecordStatsFromVisibleGroups(AFile, lSeenRecords, lNewRecordCount, lMaxObjectId, lMinObjectId,
-        lHasCellRisk);
-      // Unsaved new-file groups can also be visible through FormID lookup before
-      // shallow record enumeration reflects them, so bounded ObjectID probing keeps
-      // fresh automation fixtures and small plugins honest without scanning DLC scale.
-      xeAutomationCollectEslRecordStatsByObjectIdScan(AFile, lSeenRecords, lNewRecordCount, lMaxObjectId, lMinObjectId, lHasCellRisk);
-    finally
-      lSeenRecords.Free;
-    end;
     lNextObjectId := AFile.NextObjectID and $FFFFFF;
     if (lNextObjectId > 0) and (Pred(lNextObjectId) > lMaxObjectId) then
       lMaxObjectId := Pred(lNextObjectId);
@@ -418,6 +397,37 @@ begin
     Result.Free;
     raise;
   end;
+end;
+
+function xeAutomationAnalyzePluginForEsl(const AFile: IwbFile; const AFindings: TJsonArray): TJsonObject;
+var
+  lNewRecordCount: Integer;
+  lMaxObjectId, lMinObjectId: Cardinal;
+  lHasCellRisk: Boolean;
+  lSeenRecords: TDictionary<Cardinal, Boolean>;
+begin
+  lNewRecordCount := 0;
+  lMaxObjectId := 0;
+  lMinObjectId := 0;
+  lHasCellRisk := False;
+  lSeenRecords := TDictionary<Cardinal, Boolean>.Create;
+  try
+    xeAutomationCollectEslRecordStatsFromElement(AFile, AFile, lSeenRecords, lNewRecordCount, lMaxObjectId, lMinObjectId, lHasCellRisk);
+    // The automation creation surface can leave fresh records in signature groups
+    // before the file's shallow record view catches up. Probe all currently visible
+    // top-level groups instead of baking a protocol-side signature allow-list into
+    // analysis, then keep the ObjectID scan below as a fallback for tiny new files.
+    xeAutomationCollectEslRecordStatsFromVisibleGroups(AFile, lSeenRecords, lNewRecordCount, lMaxObjectId, lMinObjectId,
+      lHasCellRisk);
+    // Unsaved new-file groups can also be visible through FormID lookup before
+    // shallow record enumeration reflects them, so bounded ObjectID probing keeps
+    // fresh automation fixtures and small plugins honest without scanning DLC scale.
+    xeAutomationCollectEslRecordStatsByObjectIdScan(AFile, lSeenRecords, lNewRecordCount, lMaxObjectId, lMinObjectId, lHasCellRisk);
+  finally
+    lSeenRecords.Free;
+  end;
+  Result := xeAutomationDescribeEslStats(AFile, AFindings,
+    lNewRecordCount, lMaxObjectId, lMinObjectId, lHasCellRisk);
 end;
 
 procedure xeAutomationSortMainRecordsByObjectId(var ARecords: TxeAutomationMainRecords);
@@ -973,12 +983,192 @@ begin
   ASummary.I['findings'] := AFindings.Count;
 end;
 
+type
+  TEslScanPhase = (espTree, espGroups, espObjectIds, espReport, espComplete);
+  TEslScanFrame = class
+  public
+    Element: IwbElement;
+    Container: IwbContainer;
+    NextChild: Integer;
+    Entered: Boolean;
+    constructor Create(const elementRef: IwbElement);
+  end;
+  TEslAnalysisStepper = class(TxeAutomationJobStepper)
+  private
+    FFileName: string;
+    FFile: IwbFile;
+    FRow: TJsonObject;
+    FStack: TObjectList<TEslScanFrame>;
+    FSeen: TDictionary<Cardinal, Boolean>;
+    FPhase: TEslScanPhase;
+    FNewCount, FGroupIndex, FWork, FLastWork, FSteps: Integer;
+    FMin, FMax, FObjectId, FObjectIdLimit: Cardinal;
+    FHasCellRisk: Boolean;
+    procedure Push(const elementRef: IwbElement);
+    procedure Observe(const recordRef: IwbMainRecord);
+    procedure WalkOne;
+    procedure GroupOne;
+    procedure ObjectIdOne;
+  public
+    constructor Create(const fileName: string);
+    destructor Destroy; override;
+    function Advance(const findings: TJsonArray;
+      const summary, resultData, failure: TJsonObject): Boolean; override;
+    procedure WriteProgress(const progress: TJsonObject); override;
+  end;
+
+constructor TEslScanFrame.Create(const elementRef: IwbElement);
+begin inherited Create; Element := elementRef; end;
+constructor TEslAnalysisStepper.Create(const fileName: string);
+begin
+  inherited Create; FFileName := fileName;
+  FStack := TObjectList<TEslScanFrame>.Create(True);
+  FSeen := TDictionary<Cardinal, Boolean>.Create;
+end;
+destructor TEslAnalysisStepper.Destroy;
+begin FStack.Free; FSeen.Free; FFile := nil; inherited; end;
+
+procedure TEslAnalysisStepper.Push(const elementRef: IwbElement);
+begin
+  if FStack.Count >= xeAutomationJobStepDepthLimit then
+    raise xeAutomationNewError('job_capacity', 'ESL analysis traversal exceeds depth64');
+  FStack.Add(TEslScanFrame.Create(elementRef));
+end;
+
+procedure TEslAnalysisStepper.Observe(const recordRef: IwbMainRecord);
+begin
+  if Assigned(recordRef) and (recordRef <> FFile.Header) and
+     (recordRef.LoadOrderFormID.FileID = FFile.LoadOrderFileID) and
+     not FSeen.ContainsKey(recordRef.LoadOrderFormID.ToCardinal) and
+     (FSeen.Count >= xeAutomationEslScanRecordLimit) then
+    raise xeAutomationNewError('job_capacity', 'ESL analysis retains at most100000 new record IDs');
+  // Retain the same header exclusion, ownership predicate and identity dedup.
+  xeAutomationAddEslRecordStats(FFile, recordRef, FSeen, FNewCount, FMax, FMin, FHasCellRisk);
+end;
+
+procedure TEslAnalysisStepper.WalkOne;
+var frame: TEslScanFrame; recordRef: IwbMainRecord; elementRef: IwbElement;
+begin
+  if FStack.Count = 0 then begin
+    if FPhase = espTree then FPhase := espGroups else FPhase := espObjectIds;
+    Exit;
+  end;
+  frame := FStack.Last;
+  if not frame.Entered then begin
+    frame.Entered := True;
+    if Supports(frame.Element, IwbMainRecord, recordRef) then Observe(recordRef);
+    Supports(frame.Element, IwbContainer, frame.Container);
+  end else if Assigned(frame.Container) and (frame.NextChild < frame.Container.ElementCount) then begin
+    elementRef := frame.Container.Elements[frame.NextChild];
+    Inc(frame.NextChild);
+    Push(elementRef);
+  end else FStack.Delete(FStack.Count - 1);
+end;
+
+procedure TEslAnalysisStepper.GroupOne;
+var containerRef: IwbContainer; groupRef: IwbGroupRecord;
+begin
+  if FStack.Count > 0 then begin WalkOne; Exit; end;
+  if Supports(FFile, IwbContainer, containerRef) and (FGroupIndex < containerRef.ElementCount) then begin
+    if Supports(containerRef.Elements[FGroupIndex], IwbGroupRecord, groupRef) then Push(groupRef);
+    Inc(FGroupIndex);
+  end else begin
+    // Preserve the legacy timing: HighObjectID is read after both tree passes.
+    FObjectIdLimit := FFile.HighObjectID;
+    if FObjectIdLimit > $FFFF then FObjectIdLimit := 0;
+    FPhase := espObjectIds;
+  end;
+end;
+
+procedure TEslAnalysisStepper.ObjectIdOne;
+var identity: TwbFormID;
+begin
+  if FObjectId > FObjectIdLimit then begin FPhase := espReport; Exit; end;
+  identity := TwbFormID.FromCardinal(FObjectId).ChangeFileID(FFile.LoadOrderFileID);
+  Observe(FFile.RecordByFormID[identity, True, True]);
+  Inc(FObjectId);
+end;
+
+function TEslAnalysisStepper.Advance(const findings: TJsonArray;
+  const summary, resultData, failure: TJsonObject): Boolean;
+var timer: TStopwatch; descriptor: TJsonObject;
+begin
+  Inc(FSteps); FLastWork := 0; timer := TStopwatch.StartNew;
+  try
+    if not Assigned(FFile) then begin
+      FFile := xeAutomationRequirePluginFile(Trim(FFileName));
+      FObjectId := 1;
+      FRow := resultData.A['files'].AddObject;
+      FRow.S['fileName'] := FFile.FileName;
+      FRow.B['complete'] := False; FRow.B['statsComplete'] := False;
+      summary.I['targets'] := summary.I['targets'] + 1;
+      summary.B['changed'] := False; summary.B['requiresSave'] := False;
+      summary.S['persistence'] := 'read-only; no plugin save';
+      Push(FFile);
+      Inc(FLastWork);
+    end;
+    while (FPhase <> espComplete) and (FLastWork < xeAutomationJobStepWorkLimit) and
+          (timer.ElapsedMilliseconds < xeAutomationJobStepBudgetMs) do begin
+      if FWork >= xeAutomationEslScanWorkLimit then
+        raise xeAutomationNewError('job_capacity', 'ESL analysis exceeds1000000 work units');
+      Inc(FWork); Inc(FLastWork);
+      case FPhase of
+        espTree: WalkOne;
+        espGroups: GroupOne;
+        espObjectIds: ObjectIdOne;
+        espReport: begin
+          descriptor := xeAutomationDescribeEslStats(FFile, findings, FNewCount, FMax, FMin, FHasCellRisk);
+          try
+            FRow.Assign(descriptor);
+            FRow.B['complete'] := True; FRow.B['statsComplete'] := True;
+            if FRow.B['eligible'] then summary.I['eligible'] := summary.I['eligible'] + 1
+            else summary.I['ineligible'] := summary.I['ineligible'] + 1;
+          finally descriptor.Free; end;
+          FPhase := espComplete;
+        end;
+      end;
+    end;
+  finally
+    summary.I['findings'] := findings.Count;
+    if Assigned(FRow) and not FRow.B['complete'] then begin
+      FRow.I['newRecordCount'] := FNewCount;
+      FRow.S['minObjectId'] := xeAutomationObjectIdHex(FMin);
+      FRow.S['maxObjectId'] := xeAutomationObjectIdHex(FMax);
+      FRow.B['hasCellRiskObserved'] := FHasCellRisk;
+      FRow.B['statsComplete'] := FPhase in [espReport, espComplete];
+    end;
+  end;
+  Result := FPhase = espComplete;
+end;
+
+procedure TEslAnalysisStepper.WriteProgress(const progress: TJsonObject);
+const phases: array[TEslScanPhase] of string = ('file-tree', 'visible-groups', 'object-id-fallback', 'report', 'complete');
+begin
+  progress.S['fileName'] := FFileName; progress.S['phase'] := phases[FPhase];
+  progress.I['steps'] := FSteps; progress.I['lastWorkUnits'] := FLastWork;
+  progress.I['workLimit'] := xeAutomationJobStepWorkLimit;
+  progress.I['totalWorkUnits'] := FWork; progress.I['totalWorkLimit'] := xeAutomationEslScanWorkLimit;
+  progress.I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
+  progress.I['retainedDepth'] := FStack.Count; progress.I['depthLimit'] := xeAutomationJobStepDepthLimit;
+  progress.I['newRecordCount'] := FNewCount; progress.I['seenRecordLimit'] := xeAutomationEslScanRecordLimit;
+  if FObjectId > 0 then progress.I['objectIdProbes'] := Integer(FObjectId) - 1
+  else progress.I['objectIdProbes'] := 0;
+  progress.I['objectIdProbeLimit'] := FObjectIdLimit;
+  progress.B['nativeCallsPreemptible'] := False;
+  progress.S['nativeAtoms'] := 'container initialization/access; native HighObjectID sorting; one native FormID lookup; final eligibility getters';
+end;
+
+function NewEslAnalysisStepper(const kind: string; const dry, specified: Boolean;
+  const target, options: TJsonObject): TxeAutomationJobStepper;
+begin Result := TEslAnalysisStepper.Create(target.A['files'].S[0]); end;
+
 procedure xeAutomationRegisterPluginAnalysisCommands;
 begin
   // Capability advertising is registry-derived; registering these kinds here is
   // the single point that makes Task 3 compact/apply visible to clients.
   xeAutomationRegisterJobKindWithValidator(xeAutomationEslAnalyzeKind, xeAutomationPluginEslAnalyzeJob,
     xeAutomationValidateEslAnalyzeStart);
+  xeAutomationRegisterJobStepper(xeAutomationEslAnalyzeKind, NewEslAnalysisStepper);
   xeAutomationRegisterJobKindWithValidator(xeAutomationFormIdsCompactForEslKind, xeAutomationPluginFormIdsCompactForEslJob,
     xeAutomationValidateCompactForEslStart);
   xeAutomationRegisterJobKindWithValidator(xeAutomationEslApplyKind, xeAutomationPluginEslApplyJob,

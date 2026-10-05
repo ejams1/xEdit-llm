@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.62",
+  "contractVersion": "0.63",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -12316,7 +12316,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1857
+        "line": 1869
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12328,7 +12328,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1856
+        "line": 1868
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand descriptors for all current commands and job-kind-specific target/options; registry-derived coverage, wire preconditions/projection and explicit example availability; future unauthored routes remain explicit; no plugin persistence",
@@ -12340,7 +12340,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1855
+        "line": 1867
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12352,7 +12352,7 @@
       "handler": "xeAutomationSystemDiagnostics",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1858
+        "line": 1870
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12364,7 +12364,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1854
+        "line": 1866
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12376,7 +12376,7 @@
       "handler": "xeAutomationSystemRunDiagnostic",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1859
+        "line": 1871
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12508,10 +12508,10 @@
       "handler": "xeAutomationPluginEslAnalyzeJob",
       "source": {
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
-        "line": 980
+        "line": 1169
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
-      "effect": "read-only; no plugin persistence",
+      "effect": "read-only retained tree/group/ObjectID statistics with bounded actions, depth and work; partial rows omit eligibility until completion; native getters/lookups indivisible; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {
@@ -12520,7 +12520,7 @@
       "handler": "xeAutomationPluginEslApplyJob",
       "source": {
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
-        "line": 984
+        "line": 1174
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
@@ -12532,7 +12532,7 @@
       "handler": "xeAutomationPluginFormIdsCompactForEslJob",
       "source": {
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
-        "line": 982
+        "line": 1172
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",

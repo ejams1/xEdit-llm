@@ -15,13 +15,19 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.62** (retained combined-cleaning master usage scanning).
+Source contract: **0.63** (retained read-only ESL statistics).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
 
+- **0.63: retained ESL analysis** — `plugin.esl.analyze` resolves 1..256 unique
+  files, with empty options, then retains tree/group/fallback statistics across
+  polls. Depth64/work1000000/seen100000 caps and <=128 actions/soft20ms apply;
+  native initialization/sorting/lookup/getters remain indivisible. Incomplete
+  rows omit eligibility until the shared final rules complete. Mutation routes
+  retain synchronous analysis. Native semantics/acceptance remain pending.
 - **0.62: combined cleaning master scanning** — `cleaning.quick_auto_clean`
   and `cleaning.sort_and_clean_masters` now reuse the retained native structural
   master-use scan (depth128/work1000000) between sort and remap. Both yield when

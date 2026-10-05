@@ -1467,7 +1467,7 @@
       "effect": "dry-run reads; retained native structural master scan with group-label use; separate sort/remap boundaries, immutable findings and durable per-operation rows on cancel/failure; native atoms indivisible; apply mutates plugins -> save + flush"
     },
     "plugin.esl.analyze": {
-      "effect": "read-only; no plugin persistence"
+      "effect": "read-only retained tree/group/ObjectID statistics with bounded actions, depth and work; partial rows omit eligibility until completion; native getters/lookups indivisible; no plugin persistence"
     },
     "plugin.esl.apply": {
       "effect": "dry-run reads; apply mutates plugins -> save + flush"
