@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.70",
+  "contractVersion": "0.71",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -5394,7 +5394,7 @@
         "analysis.build_references",
         "analysis.reference_status"
       ],
-      "notes": "Default-dry-run scoped or all-loaded native BuildRef job, progress/cancel between files, completion-generation freshness per file and all-loaded snapshot. Current indexes are reused; stale indexes rebuilt, cache writes suppressed. Native runtime not verified.",
+      "notes": "Default-dry-run scoped/all-loaded job; retained native unsorted file/group traversal<=128 actions/soft20ms, depth128/work1000000, postorder owner links, durable prefix/cancel invalidity. Current indexes reused, stale ones bypass reference-cache streams; record builds/init/owner lookups remain atoms. Per-file/all-loaded freshness; native runtime skipped.",
       "effect": "analysis/index mutation",
       "scriptSymbols": [
         "BuildRef"
@@ -5425,7 +5425,7 @@
       "routes": [
         "analysis.reachability"
       ],
-      "notes": "Native global reference/reset/root pass with optional additional roots, explicit report file scope, staged progress and bounded visits/readback. TES3 rejects; repeat resets child flags. Cancel/failed derived flags unavailable; runtime not verified.",
+      "notes": "Global loaded-graph analysis with target.files limiting<=1000-record reports and optional roots. Reference stages share retained native file/group scan; reset retains ONLY initialized native children without DoInit, same flag changes/double container visit charges. References depth128/work1000000, reset depth128/work15000000 plus5000000 visits, each<=128 actions/soft20ms. Report/additional roots retained; native root-file discovery/whole root propagation remain atoms. Cancel/failure leaves derived flags unavailable and invalidates cursors. Native semantics/parity skipped.",
       "effect": "derived memory state only; no plugin save",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -11067,7 +11067,7 @@
       "handler": "xeReferenceStatus",
       "source": {
         "file": "xEdit/xeAutomationCommandsReachability.pas",
-        "line": 571
+        "line": 633
       },
       "prerequisites": "loaded native modules",
       "effect": "read-only per-file freshness/all-loaded completeness snapshot",
@@ -12316,7 +12316,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1934
+        "line": 1936
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12328,7 +12328,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1933
+        "line": 1935
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand descriptors for all current commands and job-kind-specific target/options; registry-derived coverage, wire preconditions/projection and explicit example availability; future unauthored routes remain explicit; no plugin persistence",
@@ -12340,7 +12340,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1932
+        "line": 1934
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12352,7 +12352,7 @@
       "handler": "xeAutomationSystemDiagnostics",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1935
+        "line": 1937
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12364,7 +12364,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1931
+        "line": 1933
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12376,7 +12376,7 @@
       "handler": "xeAutomationSystemRunDiagnostic",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1936
+        "line": 1938
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12388,7 +12388,7 @@
       "handler": "xeReferenceRun",
       "source": {
         "file": "xEdit/xeAutomationCommandsReachability.pas",
-        "line": 569
+        "line": 631
       },
       "prerequisites": "numeric games; unique explicit1..32 files or allLoaded:true up to256; closed target/no options; no concurrent native indexing; retained file/group traversal<=128 actions/soft20ms, depth128/work1000000; native init/record BuildRef/owner-link atoms indivisible; native acceptance skipped",
       "effect": "derived reference indexes in memory; stale traversal bypasses reference-cache streams; no plugin save; partial canceled index unavailable",
@@ -12400,10 +12400,10 @@
       "handler": "xeReachRun",
       "source": {
         "file": "xEdit/xeAutomationCommandsReachability.pas",
-        "line": 567
+        "line": 629
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
-      "effect": "default dry-run staged plan; retained report/additional-root steps with stage-wide visit budget; native reference/reset/root-file stages and each root propagation indivisible; apply rebuilds native derived reachability flags globally; no plugin mutation or refcache writes; historical findings valid only for succeeded jobs",
+      "prerequisites": "numeric games; all loaded files<=256/records<=1000000; report files1..32 <=1000 records; optional roots<=32; native root discovery/propagation indivisible; explicit traversal depth/work/visit caps; native acceptance skipped",
+      "effect": "derived memory only; retained references/reset/report/additional roots; global phase ordering and historical findings valid only after success; incomplete flags unavailable; no plugin save",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {

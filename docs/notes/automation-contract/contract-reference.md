@@ -851,6 +851,21 @@ Clients can discover this command through `supports.sessionFlush: true`.
 
 ## Client parsing rules
 
+At source contract0.71, `analysis.reachability` composes retained reference stages
+with the shared native reference cursor (nested progress.referenceCursor), then
+resets only instantiated native elements using an unsorted preorder stack. Reset
+does not initialize or sort children and uses the same native self-reset/visit
+charges as GUI ResetReachable. It retains both native element and container
+lifetime pins. Reset progress exposes resetWorkUnits/resetWorkLimit15000000 and
+retainedDepth/depthLimit128; remainingNativeVisitBudget retains the original
+5000000 stage budget across polls. Both phases advance<=128 actions/soft20ms.
+A reset row's processed/total stays0 (no total is materialized); workUnits is an
+observed structural-action count. Limits/state changes retain the failed row and
+leave derived flags unavailable. Cancel invalidates query revisions and releases
+all frames. The global ordering remains all references, all resets, native roots,
+additional roots, reports, completion. Native root-file discovery and every
+whole root propagation remain indivisible; plugin changes are not made by analysis.
+
 At source contract0.70, `lod.generate` exposes separate native-pipeline,
 output-inventory and finalize polls. The entire native world pipeline and any
 external-tool wait remain indivisible. After it returns, retained enumeration
