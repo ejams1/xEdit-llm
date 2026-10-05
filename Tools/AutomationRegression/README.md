@@ -1421,6 +1421,15 @@ all game-backed checks remain pending.
 
 ### ESL apply composition (#14, contract 0.66)
 
+Contract0.67 synchronizes both ESL mutation job schemas with these validators:
+files1..256, closed objects and their separate native policies/boundaries.
+Future native discovery verification: call `system.job_kind_schema` with
+`kind:plugin.esl.apply` and `kind:plugin.formids.compact_for_esl`; confirm the
+target files bounds and `additionalProperties:false`, closed options with only
+apply's optional boolean allowAfterCompact, and compaction's capacity-based gate
+and unchanged ESL flag. Exercise duplicate/missing/257-file/unknown-key refusal
+with the runners below. Delphi execution is skipped at user request.
+
 `plugin.esl.apply` resolves 1..256 unique files, defaults omitted dryRun true,
 and accepts only boolean `allowAfterCompact` (default false). The retained ESL
 analysis cursor completes before the original eligibility gate, then optional

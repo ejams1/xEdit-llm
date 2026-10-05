@@ -15,13 +15,19 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.66** (retained ESL apply composition).
+Source contract: **0.67** (bounded ESL mutation job schemas).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
 
+- **0.67: ESL mutation job schemas** — request discovery now reports unique
+  resolved files1..256, closed target/options objects, default dry-run and the
+  staged/atomic boundaries introduced in0.65/0.66. Standalone compaction discovery
+  describes its capacity-based gate and unchanged ESL flag separately from
+  ESL apply eligibility. Runtime behavior is unchanged; native schema execution
+  is skipped at user request.
 - **0.66: ESL apply composition** — `plugin.esl.apply` retains the shared ESL
   analysis cursor, original eligibility gate, optional shared compaction cursor
   and a separate flag-setting poll. Unique resolved targets1..256 and closed

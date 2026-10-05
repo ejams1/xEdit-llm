@@ -594,9 +594,17 @@ begin
       ATarget.S['constraintNotes'] := 'Unique resolved files; empty options; read-only, omitted dryRun true; retained full tree/visible groups/ObjectID fallback; <=128 actions and soft20ms per poll, depth64/work1000000/seen100000; fallback<=65535 IDs; incomplete rows omit eligibility until final rules';
       xeAutomationSchemaEffects(ATarget, 'Native ESL/light-slot game predicates; loaded selected files', 'read-only native eligibility analysis; plugins unchanged');
     end else if SameText(AKind, 'plugin.esl.apply') or SameText(AKind, 'plugin.formids.compact_for_esl') then begin
-      if SameText(AKind, 'plugin.esl.apply') then
+      xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..256', False);
+      lTarget.B['additionalProperties'] := False;
+      lOptions.B['additionalProperties'] := False;
+      if SameText(AKind, 'plugin.esl.apply') then begin
         xeAutomationSchemaShapeField(lOptions, 'allowAfterCompact', 'boolean:default-false', False);
-      xeAutomationSchemaEffects(ATarget, 'Native ESL/light-slot eligibility and writable targets; apply requires consent; compaction/referrer safety gates', 'native ESL flag/optional FormID compaction in memory; remaps/partial outcomes reported; explicit save/flush');
+        ATarget.S['constraintNotes'] := 'Unique resolved files; omitted dryRun true; retained analysis then eligibility, optional compaction and separate ESL flag poll; analysis and compaction each depth64/work1000000; child cursor<=128 actions/soft20ms; whole native builds/remaps/setters indivisible; parent incomplete until flag finishes; planned/applied count flags, remapsPlanned/remapsApplied count compaction';
+        xeAutomationSchemaEffects(ATarget, 'Native ESL/light-slot eligibility and writable targets; apply requires consent; complete current-file compaction/referrer preflight', 'native ESL flag/optional FormID compaction in memory, including external callers/overrides; durable partial rows/audit; explicit save/flush');
+      end else begin
+        ATarget.S['constraintNotes'] := 'Unique resolved files; empty options; omitted dryRun true; retained live tree/index, merge sort, complete in-range reservation and ascending planning; actual light capacity<=4095 roots, depth64/work1000000; each remap<=100000 overrides and100000 referrers; all current-file relationship preflight before writes; one loaded-file build or whole remap per poll; native atoms indivisible';
+        xeAutomationSchemaEffects(ATarget, 'Native light ObjectID capacity-based planning; writable targets and complete current-file override/referrer preflight; apply requires consent', 'native FormID remaps in memory, including external callers/overrides; ESL flag unchanged; durable partial rows/audit; explicit save/flush');
+      end;
     end else if SameText(AKind, 'validation.check_for_errors') or SameText(AKind, 'validation.check_for_itm') or
                 SameText(AKind, 'validation.check_for_deleted_refs') or SameText(AKind, 'validation.circular_leveled_lists') then begin
       xeAutomationSchemaField(ATarget, 'dryRun', 'boolean:always-normalized-true', False);
@@ -1193,7 +1201,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.66';
+  Result.S['contractVersion'] := '0.67';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
