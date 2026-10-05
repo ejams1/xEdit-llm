@@ -1193,7 +1193,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.64';
+  Result.S['contractVersion'] := '0.65';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1389,7 +1389,7 @@ begin
     I['workLimit'] := xeAutomationJobStepWorkLimit;
     I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
     I['depthLimit'] := xeAutomationJobStepDepthLimit;
-    S['depthLimitAppliesTo'] := 'validation errors/ITM/deleted refs and ESL analysis; circular/master scanners use kindLimits; combined record collection preserves native scope';
+    S['depthLimitAppliesTo'] := 'validation errors/ITM/deleted refs and ESL analysis/compaction; circular/master scanners use kindLimits; combined record collection preserves native scope';
     with O['kindLimits'].O['validation.circular_leveled_lists'] do begin
       I['depthLimit'] := xeAutomationCircularDepthLimit;
       I['visitedLimit'] := xeAutomationCircularVisitedLimit;
@@ -1429,6 +1429,16 @@ begin
       I['seenRecordLimit'] := xeAutomationEslScanRecordLimit;
       I['objectIdProbeLimit'] := 65535;
       S['scope'] := 'read-only retained file tree/visible groups/ObjectID fallback; eligibility only on completed rows';
+    end;
+    with O['kindLimits'].O['plugin.formids.compact_for_esl'] do begin
+      I['targetFileLimit'] := 256;
+      I['depthLimit'] := xeAutomationJobStepDepthLimit;
+      I['totalWorkLimit'] := xeAutomationEslScanWorkLimit;
+      I['newRecordLimit'] := 4095;
+      I['relationshipsPerRemapLimit'] := xeAutomationCompactEdgeLimit;
+      I['mutationLimit'] := 1;
+      S['scope'] := 'retained tree/record-index collection, merge sort, reserve/plan, one loaded-file reference build per poll, complete relationship preflight, one whole remap per poll';
+      S['nativeAtoms'] := 'container/record access and initialization; native record sorting; each loaded-file reference build; complete record/override/referrer remap; header update and audit';
     end;
     with O['kindLimits'].O['files.hygiene.batch'] do begin
       I['targetFileLimit'] := 256;

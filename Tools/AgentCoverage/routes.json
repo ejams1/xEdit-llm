@@ -1473,7 +1473,7 @@
       "effect": "dry-run reads; apply mutates plugins -> save + flush"
     },
     "plugin.formids.compact_for_esl": {
-      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+      "effect": "retained live tree/index collection, merge sort and reservation before ascending remaps; loaded-file reference builds and each whole remap remain indivisible; all current-file referrers/overrides preflight before first write; partial rows/findings/audit on cancel/failure; apply mutates target and external callers -> save + flush"
     },
     "validation.check_for_deleted_refs": {
       "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence"

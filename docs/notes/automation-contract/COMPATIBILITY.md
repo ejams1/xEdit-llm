@@ -15,13 +15,23 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.64** (retained reachability report/additional-root steps).
+Source contract: **0.65** (retained standalone ESL compaction steps).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
 
+- **0.65: standalone ESL compaction stepping** — `plugin.formids.compact_for_esl`
+  retains native tree/index collection, bounded merge sort, complete in-range
+  reservation, ascending planning, one loaded-file reference build per poll and
+  per-relationship preflight. Every current-file remap is preflighted before the
+  first write, with a visible pre-apply boundary and one whole native remap per
+  poll. Unique targets1..256, depth64/work1000000 and100000 relationships per
+  remap apply; owned roots cannot exceed the actual light capacity (up to4095).
+  Partial mappings/findings/audits remain durable. Native reference builds/remaps
+  are indivisible. Delphi/game execution is skipped at the user's request;
+  compaction/runtime/persistence acceptance remains unverified.
 - **0.64: reachability readback stepping** — `analysis.reachability` now retains
   report position (<=128 actions/soft20ms) and processes one additional root per
   poll, keeping its stage-wide native visit budget. Cancellation retains partial

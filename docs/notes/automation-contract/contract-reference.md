@@ -851,6 +851,21 @@ Clients can discover this command through `supports.sessionFlush: true`.
 
 ## Client parsing rules
 
+At source contract0.65, `plugin.formids.compact_for_esl` is cooperatively stepped.
+Its current file row exposes `complete`, `planningComplete`, `preflightComplete`,
+`appliedRemaps` and a bounded `remaps` array with `outcome` (`not_started`,
+`planned`, `applying`, `applied`). `remapCount` describes the retained plan prefix
+until planning completes. All current-file override/referrer preflight finishes
+before the first remap; one native remap completes per poll. Cancel/failure keep
+partial mappings, immutable findings and mutation audit, with no rollback claim.
+An `applying` row may contain native partial changes visible in the audit. Final
+NextObjectID update occurs in a separate phase; canceled jobs can stop before it.
+Eligibility for ESL flagging is separate: standalone compaction keeps its
+original capacity-based planning policy. Explicit save and terminal flush remain
+required for persistence. `supports.jobs.stepping.kindLimits` describes limits
+and indivisible native calls. Delphi/game execution was skipped; see the native
+acceptance runner in `Tools/AutomationRegression/README.md`.
+
 - Do not parse prose in `error.message` or script `messages` to decide control flow.
 - Branch on `error.code`.
 - Use documented `error.details` keys only.
