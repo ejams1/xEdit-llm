@@ -1345,3 +1345,35 @@ assertions only. Before acceptance, compile LiteDebug and run this fixture, then
 cover built/unbuilt reference-index paths, TES3/other game master rules, hardcoded
 IDs, depth/work caps, native exceptions/reentrant mutation invalidation, sort
 changes/partial failure and session shutdown. All native acceptance is pending.
+
+
+### Combined-cleaning master scans (#14, contract 0.62)
+
+`cleaning.sort_and_clean_masters` and the initial master stage of
+`cleaning.quick_auto_clean` now reuse the native retained file/group master-use
+scanner described above. Each poll advances at most128 total actions with
+soft20ms checkpoints; master scanning has depth128/work1000000 caps, while the
+existing ITM/UDR full-file collection semantics remain unchanged. Sorting and
+final remapping remain indivisible. `scan-masters` and `apply-clean-masters`
+phases expose cancellation during scanning and after scan completion before
+applying. Master planning counts once at scan start, and incomplete operation
+rows/mutation audits survive failure/cancel. Progress adds `masterScanWorkUnits`,
+`masterNativeUsageCalls`, `masterRetainedDepth`, `masterScanWorkLimit` and
+`masterDepthLimit`. Depth is a last-poll snapshot; terminal `cursorRetained:false`
+confirms actual release. Dry runs retain existing planning without scanning.
+
+Use a separate fresh hygiene overlay (same seven-plugin load order above),
+created with `combined_master_scan_fixture.py generate --overlay <mod-folder>`.
+Run `exercise --overlay ... --exe <built-tool> --pid <broker-pid> --artifacts <dir>`
+then relaunch and run `verify`. This runner is used INSTEAD OF the hygiene runner
+on that fresh overlay. It requires both kinds to yield mid-scan and pre-remap,
+retain cancellation state/counts without changing the master list, then match
+direct native master removal while keeping the empty-group label dependency.
+The sort-only route preserves2200 keywords; quick-auto removes all identical
+keywords and retains the owned FLST/payload links. Restart verification checks
+independent saved master lists, own-ID rebasing, direct-native payload parity,
+unchanged source masters and loaded references. Also rerun the existing
+`combined_step_fixture.py` on its own fresh overlay to cover mixed flags,
+ITM/UDR preorder retention and cancellation in later stages. Native compiler,
+game/mode/index variants, scan caps, invalidation and partial native-failure
+acceptance remain pending. Poll timings are evidence, without a hard bound claim.

@@ -604,7 +604,7 @@ begin
     end else if SameText(AKind, 'cleaning.quick_clean') or SameText(AKind, 'cleaning.quick_auto_clean') or
                 SameText(AKind, 'cleaning.sort_and_clean_masters') then begin
       xeAutomationSchemaEffects(ATarget, 'Writable selected files and native game/cleaning predicates; consent for apply', 'retained full-file native cleaning/master hygiene in memory; explicit save/flush; partial operations retained on cancel/failure');
-      ATarget.S['constraintNotes'] := 'Preorder collection before each ITM/UDR phase; full-file scope without selective record/depth caps; <=128 actions and <=16 native mutations per poll, soft 20ms checkpoints; native calls indivisible; sort and clean masters in separate polls; aggregate stage findings';
+      ATarget.S['constraintNotes'] := 'Preorder collection before each ITM/UDR phase; full-file scope without selective record/depth caps; <=128 actions and <=16 native mutations per poll, soft 20ms checkpoints; native calls indivisible; retained master scan depth128/work1000000 with pre-remap yield; separate sort/remap polls; aggregate stage findings';
     end else begin
       ATarget.B['jobSchemaAvailable'] := False;
       ATarget.S['constraintNotes'] := 'Registered future kind has no authored target/options descriptor yet';
@@ -1189,7 +1189,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.61';
+  Result.S['contractVersion'] := '0.62';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1401,11 +1401,15 @@ begin
     end;
     with O['kindLimits'].O['cleaning.quick_auto_clean'] do begin
       I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
-      S['scope'] := 'full current file; separate sort/clean master polls, then preorder ITM/UDR stages';
+      I['masterDepthLimit'] := wbAutomationMasterScanDepthLimit;
+      I['masterScanWorkLimit'] := wbAutomationMasterScanWorkLimit;
+      S['scope'] := 'full current file; retained master scan with pre-remap yield, then preorder ITM/UDR stages';
     end;
     with O['kindLimits'].O['cleaning.sort_and_clean_masters'] do begin
       I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
-      S['scope'] := 'separate indivisible native sort/clean master calls';
+      I['masterDepthLimit'] := wbAutomationMasterScanDepthLimit;
+      I['masterScanWorkLimit'] := wbAutomationMasterScanWorkLimit;
+      S['scope'] := 'retained native structural usage scan between separate indivisible sort/remap calls';
     end;
     with O['kindLimits'].O['files.hygiene.batch'] do begin
       I['targetFileLimit'] := 256;

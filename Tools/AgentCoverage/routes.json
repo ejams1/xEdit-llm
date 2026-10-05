@@ -1458,10 +1458,10 @@
       "effect": "dry-run reads; retained full-file master/ITM/UDR phases; separate indivisible master calls, bounded record steps; partial counts/audits/findings on cancel/failure; apply mutates plugins -> save + flush"
     },
     "cleaning.quick_clean": {
-      "effect": "dry-run reads; retained full-file preorder ITM/UDR collection and bounded record steps; partial counts/audits/findings on cancel/failure; apply mutates plugins -> save + flush"
+      "effect": "dry-run reads; retained full-file preorder ITM/UDR collection and bounded record steps; quick-auto retained native master-use scan before remap; partial counts/audits/findings on cancel/failure; apply mutates plugins -> save + flush"
     },
     "cleaning.sort_and_clean_masters": {
-      "effect": "dry-run reads; separate indivisible native sort/clean polls; partial master outcomes/audit on cancel/failure; apply mutates plugins -> save + flush"
+      "effect": "dry-run reads; retained native master-use scan with pre-remap yield; indivisible sort/remap calls; partial master outcomes/audit on cancel/failure; apply mutates plugins -> save + flush"
     },
     "files.hygiene.batch": {
       "effect": "dry-run reads; retained native structural master scan with group-label use; separate sort/remap boundaries, immutable findings and durable per-operation rows on cancel/failure; native atoms indivisible; apply mutates plugins -> save + flush"
