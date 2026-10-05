@@ -1,5 +1,55 @@
 # Automation regression fixtures
 
+## Issue #31: localization
+
+`localization.tables` lists all three native resource types for `file` and the
+active language. `localization.get/set` require `file`, `type` (STRINGS,
+DLSTRINGS, ILSTRINGS), and an eight-digit hex `id`. Set edits an existing nonzero
+ID, requires exact `expectedValue`, preserves whitespace and affects every
+field sharing that ID. Primary encoding roundtrip, NUL and byte limits reject
+before editing. Plugin protection/edit/consent predicates apply to table edits.
+
+`localization.language` reads the current language or selects a resource-language
+name with `language`; changes clear/reload resources and reject dirty tables or
+plugins. Missing tables remain missing (native field checks diagnose unresolved
+IDs); a failed resource reload requires restart. This is session state.
+
+`localization.convert` takes `file`, `mode:localize|delocalize`, default
+`dryRun:true`, and optional `reuseDuplicates:false`. Native Skyrim/FO4/FO76/SF
+definitions are supported. Every field/encoding is checked before applying;
+limits are 1000 fields, 100000 traversal nodes, depth 64 and 4 MiB combined text.
+Unresolved IDs, literal STRINGID: text and text equal to its raw ID reject.
+GUI translation-vocabulary substitution is excluded. Header flag setters remain
+low-level flag edits; they do not convert string representation.
+
+Conversion rewrites fields and changes the localized header last. After any apply
+attempt, only persistence/diagnostics are permitted until terminal flush/restart.
+Partial native failures have no rollback. `localization.save` atomically writes
+each present binary table to explicit existing `outputDirectory`, and clears its
+Modified state only after that file succeeds. Outputs must be projected into
+runtime Strings for reload. `overwrite` defaults false. Preflight all tables;
+later output failures retain earlier completed files. This is independent of
+`session.save` for plugin data. `session.get_dirty_state` includes table dirtiness;
+`session.flush` refuses unsaved tables by default. `localization.export_text` uses
+the same directory/overwrite inputs and writes UTF-8 native ID/text dumps without
+clearing table dirtiness. String tables are bounded to 64 MiB; each encoded value
+to 1 MiB. Saving rejects fallback-decoded text that cannot roundtrip through the
+primary encoding, including unchanged rows.
+
+Generate `localization_fixture.py generate --overlay <dedicated-MO2-overlay>`.
+Load Fallout4.esm + AutomationLocalization.esp with English and run `delocalize`
+with `--overlay`, `--exe`, `--pid`, `--artifacts`. Relaunch fresh and run
+`relocalize`; relaunch again and run `verify`. The runner checks exact long,
+whitespace, empty and multilingual text; shared IDs and dirty-language refusal;
+UTF-8 text export; conversion planning; edit restriction; table/plugin saves;
+and independent raw table/record bytes plus fresh-process resolved values.
+
+Before acceptance compile LiteDebug and run the above through MO2. Also test
+actual INFO ILSTRINGS fields, Skyrim/FO76/SF definitions, unsupported games,
+protected plugins, missing IDs/resources, language changes with different text,
+malformed resources, code-page sidecars/fallbacks, capacity/ID exhaustion and
+injected partial conversion/output failures. Delphi/native execution is pending.
+
 Python 3.12 source/fixture checks (no Delphi or game required):
 
 ```text

@@ -28,6 +28,7 @@ uses
   xeAutomationCommandsJobs,
   xeAutomationCommandsLOD,
   xeAutomationCommandsReachability,
+  xeAutomationCommandsLocalization,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsRecords,
@@ -144,6 +145,8 @@ begin
     xeAutomationRegisterPatchCommands;
   if not xeAutomationHasCommand('exports.seq') then
     xeAutomationRegisterExportCommands;
+  if not xeAutomationHasCommand('localization.tables') then
+    xeAutomationRegisterLocalizationCommands;
   // One-shot capabilities probes do not pass through serve-loop startup, so the
   // public scripts.* names are registered here before the registry is listed.
   if not xeAutomationHasCommand('scripts.list') then
@@ -512,7 +515,13 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.35';
+  Result.S['contractVersion'] := '0.36';
+  Result.O['supports'].O['localization'].S['games'] := 'Skyrim/Fallout4/Fallout76/Starfield';
+  Result.O['supports'].O['localization'].S['commands'] := 'localization.tables/get/set/language/convert/save/export_text';
+  Result.O['supports'].O['localization'].B['conversionDefaultsDryRun'] := True;
+  Result.O['supports'].O['localization'].B['conversionRequiresRestart'] := True;
+  Result.O['supports'].O['localization'].S['limits'] := '1000 fields, 100000 visits, 4MiB text; 64MiB tables; 1MiB encoded string';
+  Result.O['supports'].O['localization'].S['excluded'] := 'GUI translation vocabulary workflow; new arbitrary table IDs; fallback-decoded lossy saves';
 
   xeAutomationEnsureCapabilityCommandSurface;
   with Result.O['supports'].O['pipeTransport'] do begin

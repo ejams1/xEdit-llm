@@ -27,6 +27,7 @@ implementation
 
 uses
   SysUtils,
+  xeAutomationLocalizationState,
   xeAutomationErrors;
 
 var
@@ -84,6 +85,9 @@ begin
     // on transport concerns and just translate typed failures into CLI responses.
     raise xeAutomationUnknownCommand(aName);
 
+  // Enforce conversion's restart boundary for nested dispatch as well as wire
+  // requests; batch/script wrappers cannot bypass representation safety.
+  xeAutomationAssertLocalizationCommandAllowed(aName);
   Result := lHandler(aArgs);
 end;
 

@@ -463,10 +463,18 @@
       "scriptSymbols": []
     },
     "localization": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose distinct conversion, string-table editing and language-selection contracts. Header localized flag alone is not conversion. Include string-table encoding, persistence and game support; headless LocalizationGetStringsFromFile is denied. Native menu gate is Skyrim/Fallout 4/Fallout 76/Starfield; conversion targets a nonzero-load-order file. String export is part of the child editor.",
-      "effect": "plugin and external string-table mutation",
+      "status": "partial",
+      "routes": [
+        "localization.tables",
+        "localization.get",
+        "localization.set",
+        "localization.language",
+        "localization.convert",
+        "localization.save",
+        "localization.export_text"
+      ],
+      "notes": "Bounded native conversion, existing shared-ID edits, language cache selection, binary table save and UTF-8 text export. Skyrim/FO4/FO76/SF native predicates; conversion enforces terminal restart. GUI vocabulary translation excluded; runtime not verified.",
+      "effect": "table/plugin memory; separate table save and plugin save + flush/restart; text export immediate external output",
       "scriptSymbols": []
     },
     "modgroups": {
@@ -872,6 +880,10 @@
     "jobs": {
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "validation/analysis/dry-run reads; cleaning/hygiene/ESL apply mutates plugins -> save + flush"
+    },
+    "localization": {
+      "prerequisites": "Loaded supported Skyrim/FO4/FO76/SF resources; explicit file/type/ID, native owner protection, consent for changes; conversion restart gate.",
+      "effect": "table/plugin memory with separate explicit persistence; language session state; text export external output"
     }
   },
   "requiredProfiles": [
@@ -1409,6 +1421,27 @@
     },
     "analysis.reachability": {
       "effect": "default dry-run staged plan; apply rebuilds native derived reachability flags globally; no plugin mutation or refcache writes; historical findings valid only for succeeded jobs"
+    },
+    "localization.tables": {
+      "effect": "read native loaded resource metadata"
+    },
+    "localization.get": {
+      "effect": "read complete selected table value"
+    },
+    "localization.set": {
+      "effect": "edit shared existing ID in table memory -> localization.save"
+    },
+    "localization.language": {
+      "effect": "select session language; clear/reload clean resource cache"
+    },
+    "localization.convert": {
+      "effect": "default dry-run; apply rewrites plugin fields/header and tables in memory -> table save + plugin save + flush/restart"
+    },
+    "localization.save": {
+      "effect": "atomic external binary table writes per file; clears completed table dirtiness; plugin save independent"
+    },
+    "localization.export_text": {
+      "effect": "external UTF-8 ID/text export; does not clear table dirtiness"
     }
   }
 }
