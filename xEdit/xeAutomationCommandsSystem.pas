@@ -569,8 +569,10 @@ begin
     xeAutomationSchemaShapeField(lOptions, 'injectionFile', 'string:optional-expected-native-injection-provider', False);
     xeAutomationSchemaShapeField(lOptions, 'overwrite', 'boolean:default-false', False);
     xeAutomationSchemaShapeField(lOptions, 'addRequiredMasters', 'boolean:default-true', False);
-    ATarget.S['constraintNotes'] := 'Non-TES3, translation off; same full native injection provider; explicit records belong to target.files; preserve original payload by copying before native RemoveInjected';
-    xeAutomationSchemaEffects(ATarget, 'Owned full source roots/native injection provider; complete dependency/ownership preflight; consent for apply', 'preservation copies and injected-link cleanup in memory; inspect partial/manual-review results; explicit save/flush');
+    lTarget.B['additionalProperties'] := False;
+    lOptions.B['additionalProperties'] := False;
+    ATarget.S['constraintNotes'] := 'Non-TES3, translation off; unique resolved source files; explicit roots belong to target.files and share one native injection provider; one loaded-file reference build or selected-record dependency plan per poll; <=256 loaded modules, plan<=512KiB; ALL selection preflight before first mutation; separate master/preserve/remove/report phases; native atoms indivisible; copied-only cancellation requires overwrite:true on retry';
+    xeAutomationSchemaEffects(ATarget, 'Owned source roots/native injection provider; deferred complete global dependency/ownership preflight; consent for apply', 'preservation copies and injected-link cleanup in memory; durable partial copy/cleanup rows and immutable planned/applied events; inspect manual-review outcomes; explicit save/flush');
   end else begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:nonempty', True);
     if SameText(AKind, 'files.hygiene.batch') then begin
@@ -1201,7 +1203,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.67';
+  Result.S['contractVersion'] := '0.68';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1466,6 +1468,14 @@ begin
       I['depthLimit'] := wbAutomationMasterScanDepthLimit;
       I['scanWorkLimit'] := wbAutomationMasterScanWorkLimit;
       S['scope'] := 'native file/group order and group-label dependencies; retained scan before indivisible remap';
+    end;
+    with O['kindLimits'].O['cleaning.cleanup_injected_references'] do begin
+      I['sourceFileLimit'] := 32; I['selectedRecordLimit'] := 128;
+      I['loadedFileLimit'] := 256; I['planByteLimit'] := 524288;
+      I['nativeUnitLimit'] := 1;
+      S['scope'] := 'reference build and global provider/dependency preflight are poll-driven before all mutations; then distinct masters/preserve/remove/report units per selected record';
+      S['cancellation'] := 'can retain master changes or preservation-only copies; explicit overwrite required to retry an existing preservation copy';
+      S['nativeAtoms'] := 'one loaded-file reference build; one record provider/deep dependency scan; one master application, preservation copy or cleanup/ref refresh; audit';
     end;
     B['nativeCallsPreemptible'] := False;
     S['progress'] := 'progress.detail describes the retained current/last file; completed counts fully finished targets only';

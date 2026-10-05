@@ -1419,6 +1419,47 @@ shutdown. Python integrity/assertion checks are not native evidence; Delphi and
 all game-backed checks remain pending.
 
 
+### Injected cleanup units (#14/#25, contract 0.68)
+
+`jobs.start` now does bounded shape, ownership, duplicate and writable-source
+checks for 1..32 unique source files and 1..128 explicit record roots, with closed
+target/options objects. Native reference construction no longer runs before job
+acceptance. The first file cursor builds one loaded module per poll (max256),
+then plans one selected record's native injection provider/deep dependencies per
+poll (global JSON plan<=512KiB). The entire selection must share one provider;
+all provider/overwrite/master checks finish BEFORE the first plugin edit.
+Those deferred policy failures appear in durable job failure state.
+
+After global preflight, each file visits its planned records and yields between
+master application, preservation copy, RemoveInjected+UpdateRefs, and reporting.
+Native units and audits remain indivisible; native-unit limit1 does not promise
+strict latency. Result.preflight/plan and immutable planned findings survive
+early cancellation. Result.files tracks fully completed file scopes; records
+tracks preservationComplete/preserved/cleaned/complete/outcome and manual review.
+Cancel after copying can leave provider dirty with source uncleaned: retry needs
+explicit overwrite:true. After actual cleanup, retry only still-injected roots.
+No rollback is promised. Applied events append after planned events, rather than
+mutating them; a reporting capacity failure retains completed cleanup/count/audit.
+Global planned counters count the selection prefix once, while applied counts
+completed cleanup units. Every affected source/provider needs explicit save.
+
+Source commands are the same as the ESL section below. Native execution is
+skipped at user request. Future acceptance: generate a fresh
+`injected_step_fixture.py generate --overlay <MO2-mod-folder>` and load
+Fallout4.esm, AutomationInjectedStepBase.esm, AutomationInjectedStepSecond.esm,
+AutomationInjectedStepProvider.esp and AutomationInjectedStepOther.esp in order.
+Run `exercise --overlay <folder> --exe <built-FO4Edit.exe> --pid <daemon-pid>
+--artifacts <folder>` with consent, then restart and run `verify` with a fresh
+PID. The100-root/two-source scene checks a bad later provider before any write,
+cancel during reference/global planning and before masters, default dry run,
+copied-only cancel, explicit-overwrite retry, one-cleanup cancel, remaining-root
+retry across files, immutable events/paging, dirty files, unchanged disk until
+save/flush, and native plus independent binary preservation/cleanup readback.
+The original `injected_fixture.py` now drains multiple polls and verifies separate
+planned/applied events. Native compiler/GUI parity, missing-master application,
+deep/overlapping child scopes, required-field/manual-review cases, state changes,
+limits/fault injection and reporting after writes remain unverified.
+
 ### ESL apply composition (#14, contract 0.66)
 
 Contract0.67 synchronizes both ESL mutation job schemas with these validators:
