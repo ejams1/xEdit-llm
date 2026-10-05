@@ -550,7 +550,7 @@ begin
     xeAutomationSchemaShapeField(lSettings, 'lodLevel', 'integer:4|8|16', False);
     xeAutomationSchemaShapeField(lSettings, 'x', 'integer:-32768..32767', False);
     xeAutomationSchemaShapeField(lSettings, 'y', 'integer:-32768..32767', False);
-    ATarget.S['constraintNotes'] := 'TES4/Skyrim/FO3/FNV/FO4; no FO76/SF; tree/split only Skyrim/FO3/FNV; split cannot combine object/tree flags; SSE/VR/EnderalSE objects require LODGen startup. x/y require each other and lodLevel. FO3 native forces textureSize=1024,noTangents=false,noVertexColors=true';
+    ATarget.S['constraintNotes'] := 'TES4/Skyrim/FO3/FNV/FO4; no FO76/SF; tree/split only Skyrim/FO3/FNV; split cannot combine object/tree flags; SSE/VR/EnderalSE objects require LODGen startup. x/y require each other and lodLevel. FO3 native forces textureSize=1024,noTangents=false,noVertexColors=true; entire native world pipeline/tool wait indivisible; then retained inventory<=128 actions/soft20ms, files1024/directories256/JSON256KiB/work16384/path1024; caps fail with durable partial inventory; output retained on cancel';
     xeAutomationSchemaEffects(ATarget, 'Native resource containers, bounded owned complete WRLDs, existing output root; consent for apply; inspect LOD capability limits', 'immediate external per-worldspace LOD outputs; cancellation retains completed output; plugins unchanged');
   end else if SameText(AKind, 'analysis.build_references') then begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..32', False);
@@ -1204,7 +1204,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.69';
+  Result.S['contractVersion'] := '0.70';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1478,6 +1478,23 @@ begin
       S['cancellation'] := 'can retain master changes or preservation-only copies; explicit overwrite required to retry an existing preservation copy';
       S['nativeAtoms'] := 'one loaded-file reference build; one record provider/deep dependency scan; one master application, preservation copy or cleanup/ref refresh; audit';
     end;
+    with O['kindLimits'].O['analysis.build_references'] do begin
+      I['explicitFileLimit'] := 32; I['loadedFileLimit'] := 256;
+      I['depthLimit'] := wbAutomationReferenceScanDepthLimit;
+      I['scanWorkLimit'] := wbAutomationReferenceScanWorkLimit;
+      S['scope'] := 'retained native unsorted file/group traversal and postorder owner links; canceled file index stays unavailable';
+      S['nativeAtoms'] := 'container initialization/access; native record BuildRef; group owner lookup/linkage; final status';
+      S['cachePolicy'] := 'current-index fast path; stale indexes rebuilt without reference-cache streams';
+    end;
+    with O['kindLimits'].O['lod.generate'] do begin
+      I['worldspaceLimit'] := 4; I['nativeUnitLimit'] := 1;
+      I['inventoryFileLimit'] := 1024; I['inventoryDirectoryLimit'] := 256;
+      I['inventoryByteLimit'] := 262144; I['inventoryWorkLimit'] := 16384;
+      I['inventoryPathLimit'] := 1024;
+      S['scope'] := 'native pipeline, retained output inventory, final finding phases; row native/inventory/complete flags distinguish the prefix';
+      S['nativeAtoms'] := 'entire native world pipeline and external tool wait; individual filesystem enumeration calls';
+      S['cancellation'] := 'retains external output and incomplete inventory; choose a fresh output root to retry';
+    end;
     B['nativeCallsPreemptible'] := False;
     S['progress'] := 'progress.detail describes the retained current/last file; completed counts fully finished targets only';
     S['findings'] := 'findingsComplete only on success; canceled/failed jobs retain partial rows/findings; capacity failures keep admitted findings';
@@ -1487,9 +1504,9 @@ begin
     S['target'] := 'worldspaces:1..4 WRLD locators';
     S['options'] := 'operation:generate|splitAtlas; outputRoot:existing absolute directory; objects/trees booleans; settings object';
     S['outputPolicy'] := 'fresh per-world directory; immediate external artifacts; no plugin mutation; independent output verification required';
-    S['cancelBoundary'] := 'between worldspaces; current native unit blocks its poll';
+    S['cancelBoundary'] := 'after indivisible native world pipeline; between retained output enumeration actions; before final finding';
     S['settings'] := 'atlasWidth/atlasHeight:1024,2048,4096,8192; textureSize:256,512,1024; brightness:-30..30; alphaThreshold:0..255; trees3D/noTangents/noVertexColors:boolean; lodLevel:4,8,16; x/y:int16 pair';
-    S['constraints'] := 'FO76/SF reject; SSE/VR object LOD needs LODGen startup; split Skyrim/FO3/FNV only; 100000 native scan elements; no custom extra-options files; isolated scratch and bounded logs/inventory';
+    S['constraints'] := 'FO76/SF reject; SSE/VR object LOD needs LODGen startup; split Skyrim/FO3/FNV only; 100000 native scan elements; no custom extra-options files; isolated scratch/logs; retained inventory files1024/directories256/JSON256KiB/work16384/path1024; caps fail with durable prefix';
   end;
   // Keep the public job-kind order and membership stable so clients receive a
   // deterministic contract instead of dictionary sort order.

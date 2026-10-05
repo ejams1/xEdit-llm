@@ -851,6 +851,23 @@ Clients can discover this command through `supports.sessionFlush: true`.
 
 ## Client parsing rules
 
+At source contract0.70, `lod.generate` exposes separate native-pipeline,
+output-inventory and finalize polls. The entire native world pipeline and any
+external-tool wait remain indivisible. After it returns, retained enumeration
+advances <=128 actions/soft20ms, including open/next/entry actions. Files1024,
+directories256, JSON256KiB, work16384 and path1024 limits fail with a partial
+inventory retained. Reparse points and enumeration errors also fail explicitly.
+Rows expose nativeComplete (phase finished, not proof of native success),
+inventoryComplete, complete and artifacts/generatedFiles (observed prefix).
+Native failures remain in row.nativeFailure while enumeration is running; the
+primary failure is published at finalization, retaining an inventoryError when
+both phases fail. worldspaceCount counts started rows; completedWorldspaces and
+progress.completed count fully completed targets. Cancel can leave native output
+with inventory incomplete, or after inventory before the finding is reported.
+No filesystem snapshot, rollback, deletion or native/tool preemption is promised.
+Terminal/canceled jobs release enumeration handles. Retry needs a fresh output
+root; independent content verification remains required. Plugins are unchanged.
+
 At source contract0.69, `analysis.build_references` retains native file/group
 frames, preserving definition exclusions, original unsorted traversal and
 postorder group ownership hooks. Each poll advances <=128 actions/soft20ms;

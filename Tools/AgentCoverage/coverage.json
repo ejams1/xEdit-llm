@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.69",
+  "contractVersion": "0.70",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -628,7 +628,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -657,7 +657,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -686,7 +686,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -715,7 +715,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -744,7 +744,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -773,7 +773,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -802,7 +802,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -831,7 +831,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -860,7 +860,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -5364,7 +5364,7 @@
       "routes": [
         "lod.generate"
       ],
-      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
+      "notes": "Explicit1..4 WRLD locators, fresh per-world output and isolated typed settings/scratch; default dry run. Native world pipeline/tool wait remains indivisible, then retained inventory<=128 actions/soft20ms, files1024/dirs256/JSON256KiB/work16384/path1024; caps fail with partial rows, cancellation retains output. Native TES4/Skyrim/FO3/FNV/FO4 and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Native failures survive inventory; terrain/all GUI settings excluded; runtime skipped.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -12316,7 +12316,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1917
+        "line": 1934
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12328,7 +12328,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1916
+        "line": 1933
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand descriptors for all current commands and job-kind-specific target/options; registry-derived coverage, wire preconditions/projection and explicit example availability; future unauthored routes remain explicit; no plugin persistence",
@@ -12340,7 +12340,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1915
+        "line": 1932
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12352,7 +12352,7 @@
       "handler": "xeAutomationSystemDiagnostics",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1918
+        "line": 1935
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12364,7 +12364,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1914
+        "line": 1931
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -12376,7 +12376,7 @@
       "handler": "xeAutomationSystemRunDiagnostic",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 1919
+        "line": 1936
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only exclusion catalog or structured nonmutating unsupported diagnostic error",
@@ -12496,10 +12496,10 @@
       "handler": "xeLODRun",
       "source": {
         "file": "xEdit/xeAutomationCommandsLOD.pas",
-        "line": 385
+        "line": 666
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
-      "effect": "default dry-run plan; apply writes immediate external per-world artifacts and scratch; no plugin save; cancellation between worldspaces; independent output verification required",
+      "effect": "default dry-run plan; immediate external artifacts/scratch; native pipeline atom then retained bounded inventory/report; incomplete canceled artifacts retained; no plugin save; fresh root for retry; independent content verification required",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {

@@ -1637,3 +1637,38 @@ must run on fresh fixtures; native cache/cold-reset parity, faults, epoch change
 parallel builds, excluded definitions, delta patches and caps still need runtime
 coverage. Delphi/game execution skipped at user request; Python tests validate
 binary fixture structure and acceptance assertions only.
+
+
+### LOD output inventory (#14/#29, contract 0.70)
+
+All17 registered job kinds now have retained factories. LOD still executes the
+WHOLE native world pipeline (including external-tool wait) as one main-thread
+atom. It then yields before retained filesystem enumeration and final finding.
+Inventory polls advance<=128 actions/soft20ms; file1024/directory256/JSON256KiB/
+work16384/path1024 caps and reparse/enumeration errors fail explicitly with the
+observed prefix. No snapshot/verified-content promise. Cancellation and terminal
+paths close the active search handle, retaining external output on disk. A
+retry requires a fresh root. Row nativeComplete means phase finished, not native
+success; inventoryComplete and complete distinguish the observed prefix from a
+finished scope. Native failures remain in row.nativeFailure while inventory
+continues, and stay primary if enumeration also fails. Started worldspaceCount
+and completedWorldspaces aggregate across worlds without resetting. Generic
+progress.completed counts finished scopes only. Schema and kindLimits advertise
+these boundaries plus reference-index traversal limits from0.69.
+
+Use the source commands in the Reference-index traversal section above.
+Delphi/game execution skipped at user request. Future native acceptance: run
+`lod_step_fixture.py generate --overlay <fresh-Skyrim-MO2-mod-folder>`, load
+Skyrim.esm then AutomationLODScene.esp. Run `exercise --overlay <folder>
+--exe <built-TES5Edit.exe> --pid <daemon-pid> --artifacts <folder>`. This first runs
+original lod_fixture semantic checks (independent LST/BTT/DDS/sidecar decoding),
+then adds400 explicitly labeled INVENTORY TEST WITNESS files after native return.
+Those witnesses test enumeration, not native LOD generation. It checks cancel
+inside inventory, unchanged output/prefix/get snapshots, same-root refusal,
+fresh-root retry with exact witness sizes,1025-file capacity failure, native LST
+failure retained during canceled inventory, two-world counters and unchanged
+plugin bytes/dirty baseline. `verify --overlay <folder>` reruns original independent
+LOD output decoding. Old lod_fixture now drains multiple inventory polls.
+Native global restoration, compiler/tool wait, object output in other games,
+filesystem races/permissions/reparse points, directory/byte/work/path caps and
+handle fault injection remain unverified. No hard latency guarantee is tested.

@@ -137,9 +137,10 @@ def run(client, worlds, root, operation='generate', dry=False):
     options = dict(outputRoot=str(root.resolve()), operation=operation, objects=False, trees=operation == 'generate')
     job = client.call('jobs.start', kind='lod.generate', dryRun=dry, target={'worldspaces': worlds}, options=options)
     assert job['progress']['unit'] == 'worldspace' and job['progress']['completed'] == 0, job
-    for _ in worlds:
+    for _ in range(20000):
         job = client.call('jobs.get', jobId=job['jobId'])
         if job['terminal']: break
+    assert job['terminal'], job
     client.call('jobs.discard', jobId=job['jobId'])
     return job
 
@@ -167,7 +168,10 @@ def exercise(client, overlay):
     options = dict(outputRoot=str((overlay / 'OutputCancel').resolve()), objects=False, trees=True)
     job = client.call('jobs.start', kind='lod.generate', dryRun=False,
                       target={'worldspaces': [worlds[WORLD], worlds[EMPTY]]}, options=options)
-    job = client.call('jobs.get', jobId=job['jobId'])
+    for _ in range(20000):
+        job = client.call('jobs.get', jobId=job['jobId'])
+        if job['progress']['completed'] == 1: break
+        assert not job['terminal'], job
     assert job['progress']['completed'] == 1 and not job['terminal'], job
     canceled = client.call('jobs.cancel', jobId=job['jobId'])
     assert canceled['state'] == 'canceled' and canceled['summary']['partialChanges'], canceled
