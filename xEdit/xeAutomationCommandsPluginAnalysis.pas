@@ -1402,6 +1402,9 @@ begin
       SetLength(FRecords, xeAutomationLightObjectIdCapacity(FFile));
       FStack.Add(TEslScanFrame.Create(FFile));
       summary.I['targets'] := summary.I['targets'] + 1;
+      // Retain the legacy counter shape even before either branch has work.
+      if not summary.Contains('planned') then summary.I['planned'] := 0;
+      if not summary.Contains('applied') then summary.I['applied'] := 0;
       summary.S['persistence'] := 'in-memory-until-session.save-and-terminal-session.flush';
       Inc(FLastWork);
     end;
@@ -1581,6 +1584,8 @@ begin
       FRow.I['remapCount'] := 0; FRow.I['appliedRemaps'] := 0;
       FRow.S['flagOutcome'] := 'not_started';
       summary.I['targets'] := summary.I['targets'] + 1;
+      if not summary.Contains('planned') then summary.I['planned'] := 0;
+      if not summary.Contains('applied') then summary.I['applied'] := 0;
       summary.S['persistence'] := 'in-memory-until-session.save-and-terminal-session.flush';
     end;
     case FPhase of

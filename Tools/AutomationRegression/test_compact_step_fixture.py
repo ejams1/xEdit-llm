@@ -16,7 +16,7 @@ def snapshot(state="running", applied=0):
                {"oldFormId": "02010001", "newFormId": "02000803", "outcome": "applied" if applied == 2 else "planned"}]}
     return {"state": state, "dryRun": not applied, "terminal": state != "running",
             "cursorRetained": state == "running", "findingsComplete": done,
-            "summary": {"applied": applied}, "result": {"files": [row]}, "progress": {
+            "summary": {"planned": 0 if applied else 2, "applied": applied}, "result": {"files": [row]}, "progress": {
                 "completed": int(done), "total": 1, "remaining": int(not done), "detail": {
                     "lastWorkUnits": 1, "workLimit": 128, "totalWorkUnits": 6000, "totalWorkLimit": 1000000,
                     "retainedDepth": 0, "depthLimit": 64, "newRecordCount": 3, "recordCapacity": 3,
