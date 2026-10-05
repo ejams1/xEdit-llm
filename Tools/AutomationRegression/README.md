@@ -1417,3 +1417,37 @@ protected/read-only files, hardcoded range policies, native getter errors/reentr
 invalidation, depth/work/seen refusals, cancellation during reporting and idle
 shutdown. Python integrity/assertion checks are not native evidence; Delphi and
 all game-backed checks remain pending.
+
+
+### Reachability report/additional-root steps (#14, contract 0.64)
+
+`analysis.reachability` now retains each report file's index instead of emitting
+up to1000 records in one poll. Reporting advances <=128 record actions with
+soft20ms checkpoints, using the shared immutable finding-capacity sink. Additional
+roots advance one per poll, preserving the same5000000 native visit budget across
+that entire stage. Each root propagation and native reference-build/reset/root-file
+stage remain indivisible; their responsiveness remains further #14 work. This
+is partial stepping, with no strict latency/preemption claim. Native callback,
+cache suppression and visit-budget globals are restored on each poll/failure.
+
+Report/root stage rows include `processed`, `total`, `complete`, and outcome.
+Cancellation retains partial rows/findings; terminal `cursorRetained:false`
+confirms release. Derived GUI filter flags remain unavailable after cancellation
+or failure. Findings remain historical classifications usable only when the
+containing job succeeds. No plugin writes or save/flush are required.
+
+Generate `reachability_step_fixture.py generate --overlay <fresh-MO2-mod-folder>`.
+Load Fallout4.esm, AutomationReachBase.esm and AutomationReachRoot.esp in a fresh
+consent-enabled daemon. Run `exercise --overlay ... --exe <built-tool> --pid
+<broker-pid> --artifacts <dir>`. The fixture keeps the native cross-file DFOB root
+and two cycles, adds700 isolated lists to require partial reporting, and selects
+three additional roots. It checks one-root cancellation with retained budget,
+mid-report cancellation and exact retained events, repeated native rebuilds,
+explicit-root propagation and removal, exact705 record classifications, paging,
+unchanged dirty state and byte-identical plugin inputs. It records poll timings;
+those include native file stages and do not establish a hard bound. Rerun the
+original `reachability_fixture.py` in its own fresh overlay as well. Compile
+LiteDebug and cover native getter failures/reentrant invalidation, finding/visit
+capacity refusal, global restoration, graph edits and other supported game root
+rules before acceptance. Python fixtures/assertions are not native proof; all
+compiler/game-backed acceptance remains pending.

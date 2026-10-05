@@ -10,7 +10,7 @@ procedure xeAutomationRegisterReachabilityJobs;
 function xeAutomationReachabilityIsCurrent: Boolean;
 
 implementation
-uses SysUtils, Classes, JsonDataObjects, wbInterface, wbImplementation,
+uses SysUtils, Classes, System.Diagnostics, JsonDataObjects, wbInterface, wbImplementation,
   wbLoadOrder, xeMainForm, xeAutomationJobs, xeAutomationErrors,
   xeAutomationDataLookup, xeAutomationObjectModel, xeAutomationRecordQueries,
   xeAutomationRegistry;
@@ -287,9 +287,156 @@ begin
   finally _wbProgressCallback := PreviousProgress; wbDontCacheSave := PreviousCacheSave; end;
 end;
 
+type
+  TReachReadbackStepper = class(TxeAutomationJobStepper)
+  private
+    FTarget: TJsonObject;
+    FFile: IwbFile;
+    FRow: TJsonObject;
+    FDryRun, FComplete: Boolean;
+    FPhase, FFileName: string;
+    FIndex, FTotal, FLastWork, FSteps, FRemainingBudget: Integer;
+    procedure Initialize(const summary, resultData: TJsonObject);
+    procedure ReportOne(const findings: TJsonArray; const summary: TJsonObject);
+  public
+    constructor Create(const dry: Boolean; const target: TJsonObject);
+    destructor Destroy; override;
+    function Advance(const findings: TJsonArray;
+      const summary, resultData, failure: TJsonObject): Boolean; override;
+    procedure WriteProgress(const progress: TJsonObject); override;
+  end;
+
+constructor TReachReadbackStepper.Create(const dry: Boolean; const target: TJsonObject);
+begin
+  inherited Create;
+  FDryRun := dry; FTarget := target.Clone;
+  FPhase := FTarget.A['steps'].O[0].S['phase'];
+  FFileName := FTarget.A['steps'].O[0].S['file'];
+  FRemainingBudget := 5000000;
+end;
+destructor TReachReadbackStepper.Destroy;
+begin FTarget.Free; FFile := nil; inherited; end;
+
+procedure TReachReadbackStepper.Initialize(const summary, resultData: TJsonObject);
+begin
+  ReachabilityComplete := False;
+  if Assigned(frmMain) then frmMain.AutomationSetReachableBuilt(False);
+  summary.S['scope'] := 'entire-loaded-plugin-graph; target.files limits report only';
+  summary.S['roots'] := 'native-game-roots plus optional target.roots';
+  summary.S['persistence'] := 'derived-memory-state only; no plugin save required';
+  summary.S['cancelBoundary'] := 'between report records/additional roots; native references/reset/root-file stages indivisible';
+  if FPhase = 'report' then begin
+    FFile := xeAutomationRequirePluginFile(FFileName);
+    FTotal := FFile.RecordCount;
+  end else FTotal := FTarget.A['roots'].Count;
+  FRow := resultData.A['steps'].AddObject;
+  FRow.Assign(FTarget.A['steps'].O[0]);
+  FRow.S['outcome'] := 'running'; FRow.B['complete'] := False;
+  FRow.I['processed'] := 0; FRow.I['total'] := FTotal;
+end;
+
+procedure TReachReadbackStepper.ReportOne(const findings: TJsonArray; const summary: TJsonObject);
+var recordRef: IwbMainRecord; finding: TJsonObject;
+begin
+  if Supports(FFile.Records[FIndex], IwbMainRecord, recordRef) and (recordRef.Signature <> 'TES4') then begin
+    finding := TJsonObject.Create;
+    try
+      finding.S['validity'] := 'historical classification only if containing job succeeds';
+      finding.S['file'] := FFile.FileName;
+      finding.S['formId'] := recordRef.LoadOrderFormID.ToString(False);
+      finding.S['signature'] := string(recordRef.Signature);
+      finding.S['editorId'] := Copy(recordRef.EditorID, 1, 128);
+      finding.B['reachable'] := recordRef.IsReachable;
+      finding.B['notReachable'] := recordRef.IsNotReachable;
+      finding.B['deleted'] := recordRef.IsDeleted;
+      finding.B['winning'] := recordRef.IsWinningOverride;
+      xeAutomationAppendJobFinding(findings, finding);
+      finding := nil;
+      summary.I['reportedRecords'] := summary.I['reportedRecords'] + 1;
+      if recordRef.IsReachable then summary.I['reachableRecords'] := summary.I['reachableRecords'] + 1;
+      if recordRef.IsNotReachable then summary.I['notReachableRecords'] := summary.I['notReachableRecords'] + 1;
+    finally finding.Free; end;
+  end;
+  Inc(FIndex);
+end;
+
+function TReachReadbackStepper.Advance(const findings: TJsonArray;
+  const summary, resultData, failure: TJsonObject): Boolean;
+var timer: TStopwatch; previousBudget: Integer; previousCacheSave: Boolean;
+    previousProgress: TwbProgressCallback; recordRef: IwbMainRecord;
+begin
+  Inc(FSteps); FLastWork := 0;
+  if FDryRun or ((FPhase <> 'report') and (FPhase <> 'additional-roots')) then begin
+    // Existing native stage scope/flags/cache restoration remains authoritative.
+    FLastWork := 1;
+    xeReachRun('', FDryRun, True, FTarget, nil, findings, summary, resultData, failure);
+    FComplete := failure.Count = 0;
+    Exit(FComplete);
+  end;
+  previousBudget := wbAutomationReachabilityBudget;
+  previousCacheSave := wbDontCacheSave;
+  previousProgress := _wbProgressCallback;
+  wbAutomationReachabilityBudget := FRemainingBudget;
+  wbDontCacheSave := True; _wbProgressCallback := xeReachProgress;
+  timer := TStopwatch.StartNew;
+  try
+    try
+      if not Assigned(FRow) then Initialize(summary, resultData);
+      while (FIndex < FTotal) and (FLastWork < xeAutomationJobStepWorkLimit) and
+            (timer.ElapsedMilliseconds < xeAutomationJobStepBudgetMs) do begin
+        Inc(FLastWork);
+        if FPhase = 'report' then ReportOne(findings, summary)
+        else begin
+          recordRef := xeAutomationRequireMainRecord(xeAutomationParseLocator(FTarget.A['roots'].O[FIndex], True, False)).WinningOverride;
+          wbAutomationReachRoot(recordRef);
+          Inc(FIndex);
+          Break; // One indivisible native graph propagation per poll.
+        end;
+      end;
+      FComplete := FIndex = FTotal;
+      FRow.I['processed'] := FIndex;
+      FRow.B['complete'] := FComplete;
+      if FComplete then FRow.S['outcome'] := 'completed';
+    except
+      on E: Exception do begin
+        if Assigned(FRow) then begin FRow.S['outcome'] := 'failed'; FRow.I['processed'] := FIndex; end;
+        if E is ExeAutomationError then failure.S['code'] := ExeAutomationError(E).Code
+        else failure.S['code'] := 'reachability_failed';
+        failure.S['message'] := Copy(E.Message, 1, 4096);
+        failure.S['phase'] := FPhase;
+        failure.B['derivedFlagsUnavailable'] := True;
+      end;
+    end;
+  finally
+    summary.I['findings'] := findings.Count;
+    FRemainingBudget := wbAutomationReachabilityBudget;
+    _wbProgressCallback := previousProgress; wbDontCacheSave := previousCacheSave;
+    wbAutomationReachabilityBudget := previousBudget;
+  end;
+  Result := FComplete and (failure.Count = 0);
+end;
+
+procedure TReachReadbackStepper.WriteProgress(const progress: TJsonObject);
+begin
+  progress.S['phase'] := FPhase; progress.S['fileName'] := FFileName;
+  progress.I['processed'] := FIndex; progress.I['total'] := FTotal;
+  progress.I['steps'] := FSteps; progress.I['lastWorkUnits'] := FLastWork;
+  progress.I['workLimit'] := xeAutomationJobStepWorkLimit;
+  progress.I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
+  progress.I['remainingNativeVisitBudget'] := FRemainingBudget;
+  progress.B['stageComplete'] := FComplete;
+  progress.B['nativeCallsPreemptible'] := False;
+  progress.S['cooperativePhases'] := 'report/additional-roots only; references/reset/native-roots remain native file atoms';
+end;
+
+function NewReachReadbackStepper(const kind: string; const dry, specified: Boolean;
+  const target, options: TJsonObject): TxeAutomationJobStepper;
+begin Result := TReachReadbackStepper.Create(dry, target); end;
+
 procedure xeAutomationRegisterReachabilityJobs;
 begin
   xeAutomationRegisterJobKindWithValidator('analysis.reachability', xeReachRun, xeReachValidate, 'steps');
+  xeAutomationRegisterJobStepper('analysis.reachability', NewReachReadbackStepper);
   xeAutomationRegisterJobKindWithValidator('analysis.build_references', xeReferenceRun, xeReferenceValidate, 'steps');
   xeAutomationRegisterCommand('analysis.reference_status', xeReferenceStatus);
 end;

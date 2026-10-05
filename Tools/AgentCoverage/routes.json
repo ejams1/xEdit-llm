@@ -1491,7 +1491,7 @@
       "effect": "read-only; full edit/native values; no plugin persistence"
     },
     "analysis.reachability": {
-      "effect": "default dry-run staged plan; apply rebuilds native derived reachability flags globally; no plugin mutation or refcache writes; historical findings valid only for succeeded jobs"
+      "effect": "default dry-run staged plan; retained report/additional-root steps with stage-wide visit budget; native reference/reset/root-file stages and each root propagation indivisible; apply rebuilds native derived reachability flags globally; no plugin mutation or refcache writes; historical findings valid only for succeeded jobs"
     },
     "localization.tables": {
       "effect": "read native loaded resource metadata"
