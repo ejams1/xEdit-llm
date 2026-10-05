@@ -1377,3 +1377,43 @@ unchanged source masters and loaded references. Also rerun the existing
 ITM/UDR preorder retention and cancellation in later stages. Native compiler,
 game/mode/index variants, scan caps, invalidation and partial native-failure
 acceptance remain pending. Poll timings are evidence, without a hard bound claim.
+
+
+### Retained read-only ESL analysis (#14, contract 0.63)
+
+`plugin.esl.analyze` resolves 1..256 unique loaded plugins with empty options.
+It retains the original full-tree pass, repeated visible-group pass, and the
+small-file ObjectID fallback across polls. It preserves native ownership/header
+exclusion and identity dedup, high-ID fallback suppression and NextObjectID
+hint handling. Completed eligibility uses the same rules/finding order as the
+synchronous analysis used by mutation jobs. Those mutation jobs remain future
+#14 work. Omitted dryRun stays true; analysis changes no plugin data.
+
+Each poll admits <=128 actions with soft20ms checkpoints. Depth64, total work
+1000000 and 100000 retained new IDs refuse with `job_capacity`, retaining earlier
+rows/findings. Native container initialization/access, HighObjectID's possible
+sorting, individual FormID lookup and final getters remain indivisible. The
+HighObjectID read still occurs after both tree passes. There is no strict latency
+claim. Partial rows include observed count/min/max/CELL risk and `statsComplete`,
+but omit `eligible`/`requiresCompact` until final reporting. Overall classifications
+require a succeeded job. Progress reports phases, actions/depth/seen limits and
+ObjectID probes. Cancellation retains results while terminal state releases the
+cursor; retainedDepth remains a last-poll snapshot on cancellation.
+
+Generate `esl_step_fixture.py generate --overlay <fresh-MO2-mod-folder>`, then
+load Fallout4.esm, AutomationEslStepBase.esm, AutomationEslStepOverride.esp,
+AutomationEslStepCell.esp, AutomationEslStepHigh.esp,
+AutomationEslStepSparse.esp and AutomationEslStepFresh.esp, in that order.
+Run `exercise --overlay ... --exe <canonical-built-tool> --pid <broker-pid>
+--artifacts <dir>` in a fresh editable consent-enabled daemon. Setup creates one
+unsaved KYWD; analysis must preserve exactly that dirty state and original bytes.
+The runner checks5000 new records/overrides, owned-versus-override counts, CELL
+risk, high-ID fallback suppression, sparse65k fallback yielding, fresh unsaved
+group visibility, cancellation in all scanning phases, findings retained from a
+completed earlier file, exact min/max/count/eligibility and no analysis mutation.
+It saves no plugins. Timings include IPC/native atoms and carry no hard bound.
+Before acceptance, compile LiteDebug and run it, then exercise unsupported games,
+protected/read-only files, hardcoded range policies, native getter errors/reentrant
+invalidation, depth/work/seen refusals, cancellation during reporting and idle
+shutdown. Python integrity/assertion checks are not native evidence; Delphi and
+all game-backed checks remain pending.

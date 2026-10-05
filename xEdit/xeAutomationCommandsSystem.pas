@@ -588,6 +588,10 @@ begin
       ATarget.S['constraintNotes'] := 'Empty/omitted options; <=1000 selected records; non-TES3, translation off; no master hygiene; retained classification before apply, <=128 actions/16 mutation calls and soft 20ms per poll; native calls indivisible; UDR settings rechecked; immutable finding events, partial rows on cancel/failure';
       xeAutomationSchemaEffects(ATarget, 'Bounded full source records and writable targets; consent for apply; retained child-group/NAVM rules', 'isolated ITM or UDR plugin edits in memory; explicit save/flush');
     end else if SameText(AKind, 'plugin.esl.analyze') then begin
+      xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..256', False);
+      lTarget.B['additionalProperties'] := False;
+      lOptions.B['additionalProperties'] := False;
+      ATarget.S['constraintNotes'] := 'Unique resolved files; empty options; read-only, omitted dryRun true; retained full tree/visible groups/ObjectID fallback; <=128 actions and soft20ms per poll, depth64/work1000000/seen100000; fallback<=65535 IDs; incomplete rows omit eligibility until final rules';
       xeAutomationSchemaEffects(ATarget, 'Native ESL/light-slot game predicates; loaded selected files', 'read-only native eligibility analysis; plugins unchanged');
     end else if SameText(AKind, 'plugin.esl.apply') or SameText(AKind, 'plugin.formids.compact_for_esl') then begin
       if SameText(AKind, 'plugin.esl.apply') then
@@ -1189,7 +1193,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.62';
+  Result.S['contractVersion'] := '0.63';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1410,6 +1414,14 @@ begin
       I['masterDepthLimit'] := wbAutomationMasterScanDepthLimit;
       I['masterScanWorkLimit'] := wbAutomationMasterScanWorkLimit;
       S['scope'] := 'retained native structural usage scan between separate indivisible sort/remap calls';
+    end;
+    with O['kindLimits'].O['plugin.esl.analyze'] do begin
+      I['targetFileLimit'] := 256;
+      I['depthLimit'] := xeAutomationJobStepDepthLimit;
+      I['totalWorkLimit'] := xeAutomationEslScanWorkLimit;
+      I['seenRecordLimit'] := xeAutomationEslScanRecordLimit;
+      I['objectIdProbeLimit'] := 65535;
+      S['scope'] := 'read-only retained file tree/visible groups/ObjectID fallback; eligibility only on completed rows';
     end;
     with O['kindLimits'].O['files.hygiene.batch'] do begin
       I['targetFileLimit'] := 256;
