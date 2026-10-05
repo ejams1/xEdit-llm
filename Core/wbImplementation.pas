@@ -74,6 +74,26 @@ var wbAutomationReachabilityBudget: Integer;
 procedure wbAutomationReachRoot(const ARecord: IwbMainRecord);
 function wbAutomationReferenceIndexIsCurrent(const AFile: IwbFile): Boolean;
 
+const
+  wbAutomationMasterScanDepthLimit = 128;
+  wbAutomationMasterScanWorkLimit = 1000000;
+
+type
+  EwbAutomationMasterScanInvalidated = class(Exception);
+  EwbAutomationMasterScanCapacity = class(Exception);
+  // Retains native file/group traversal. A record's own native usage lookup
+  // and final master remapping remain indivisible main-thread calls.
+  TwbAutomationMasterUseScan = class
+  public
+    function Advance: Boolean; virtual; abstract;
+    procedure Apply; virtual; abstract;
+    function WorkUnits: Integer; virtual; abstract;
+    function NativeUnits: Integer; virtual; abstract;
+    function RetainedDepth: Integer; virtual; abstract;
+  end;
+
+function wbAutomationMasterUseScan(const aFile: IwbFile): TwbAutomationMasterUseScan;
+
 function StartsWith(const s, t: string): Boolean;
 
 function wbCopyElementToFile(const aSource: IwbElement; aFile: IwbFile; aAsNew, aDeepCopy: Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement;
@@ -905,6 +925,7 @@ type
 
     procedure SortMasters;
     procedure CleanMasters;
+    procedure CleanMastersWithUsage(aUsedMasters: PwbUsedMasters);
 
     procedure BuildReachable;
 
@@ -1977,6 +1998,7 @@ type
     procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
     function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; override;
     procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
+    procedure FindLabelUsedMasters(aMasters: PwbUsedMasters);
 
     function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
 
@@ -3057,7 +3079,149 @@ begin
   BuildOrLoadRef(False);
 end;
 
+type
+  TwbAutomationMasterFrame = record
+    KeepAlive: IwbContainerElementRef;
+    Native: TwbContainer;
+    NextChild: Integer;
+    Entered: Boolean;
+  end;
+  TwbAutomationMasterUseScanImpl = class(TwbAutomationMasterUseScan)
+  private
+    FFile: IwbFile;
+    FNativeFile: TwbFile;
+    FMasters: TwbFiles;
+    FGeneration: UInt64;
+    FFileGeneration: Integer;
+    FFrames: TList<TwbAutomationMasterFrame>;
+    FUsed: TwbUsedMasters;
+    FWork, FNativeUnits: Integer;
+    FComplete, FApplied: Boolean;
+    procedure CheckValid;
+    procedure Push(const AContainer: TwbContainer);
+  public
+    constructor Create(const AFile: IwbFile);
+    destructor Destroy; override;
+    function Advance: Boolean; override;
+    procedure Apply; override;
+    function WorkUnits: Integer; override;
+    function NativeUnits: Integer; override;
+    function RetainedDepth: Integer; override;
+  end;
+
+constructor TwbAutomationMasterUseScanImpl.Create(const AFile: IwbFile);
+begin
+  inherited Create;
+  FFrames := TList<TwbAutomationMasterFrame>.Create;
+  if not Assigned(AFile) or not (TObject(AFile.ElementID) is TwbFile) then
+    raise Exception.Create('Native master scan requires a loaded native file');
+  FFile := AFile;
+  FNativeFile := TwbFile(AFile.ElementID);
+  FMasters := Copy(FNativeFile.flMasters);
+  FGeneration := wbGlobalModifedGeneration;
+  FFileGeneration := FNativeFile.flGeneration;
+  FillChar(FUsed, SizeOf(FUsed), 0);
+  FComplete := Length(FMasters) = 0;
+  if not FComplete then Push(FNativeFile);
+end;
+
+destructor TwbAutomationMasterUseScanImpl.Destroy;
+begin
+  FFrames.Free;
+  FMasters := nil;
+  FFile := nil;
+  inherited;
+end;
+
+procedure TwbAutomationMasterUseScanImpl.CheckValid;
+begin
+  if FApplied or (FGeneration <> wbGlobalModifedGeneration) or
+     (FFileGeneration <> FNativeFile.flGeneration) or
+     (Length(FMasters) <> Length(FNativeFile.flMasters)) then
+    raise EwbAutomationMasterScanInvalidated.Create('Master scan invalidated by a native mutation');
+  for var i := Low(FMasters) to High(FMasters) do
+    if not FMasters[i].Equals(FNativeFile.flMasters[i]) then
+      raise EwbAutomationMasterScanInvalidated.Create('Master scan invalidated by a changed master table');
+end;
+
+procedure TwbAutomationMasterUseScanImpl.Push(const AContainer: TwbContainer);
+var frame: TwbAutomationMasterFrame;
+begin
+  if FFrames.Count >= wbAutomationMasterScanDepthLimit then
+    raise EwbAutomationMasterScanCapacity.Create('Master scan structural depth exceeds 128');
+  frame := Default(TwbAutomationMasterFrame);
+  frame.KeepAlive := AContainer as IwbContainerElementRef;
+  frame.Native := AContainer;
+  FFrames.Add(frame);
+end;
+
+function TwbAutomationMasterUseScanImpl.Advance: Boolean;
+var frame: TwbAutomationMasterFrame; child: IwbElementInternal; native: TObject;
+begin
+  CheckValid;
+  if FComplete then Exit(True);
+  if FWork >= wbAutomationMasterScanWorkLimit then
+    raise EwbAutomationMasterScanCapacity.Create('Master scan exceeds 1000000 structural work units');
+  Inc(FWork);
+  frame := FFrames.Last;
+  if not frame.Entered then begin
+    // Same initialization and child order as TwbContainer.FindUsedMasters.
+    // Initialization is a native atom; do not claim it is preemptible.
+    frame.Native.DoInit(False);
+    frame.Entered := True;
+    FFrames[FFrames.Count - 1] := frame;
+  end else if frame.NextChild < Length(frame.Native.cntElements) then begin
+    child := frame.Native.cntElements[frame.NextChild];
+    Inc(frame.NextChild);
+    FFrames[FFrames.Count - 1] := frame;
+    if child.CanContainFormIDs then begin
+      native := TObject(child.ElementID);
+      if native is TwbGroupRecord then
+        Push(TwbGroupRecord(native))
+      else begin
+        // Includes TES4 header, native record IDs, payload definition rules and
+        // the native built-reference fast path. ChildGroup is a sibling, not payload.
+        child.FindUsedMasters(@FUsed);
+        Inc(FNativeUnits);
+      end;
+    end;
+  end else begin
+    // Native group-label use happens AFTER its descendants, even for empty groups.
+    if frame.Native is TwbGroupRecord then
+      TwbGroupRecord(frame.Native).FindLabelUsedMasters(@FUsed);
+    FFrames.Delete(FFrames.Count - 1);
+    FComplete := FFrames.Count = 0;
+  end;
+  CheckValid;
+  Result := FComplete;
+end;
+
+procedure TwbAutomationMasterUseScanImpl.Apply;
+begin
+  CheckValid;
+  if not FComplete then
+    raise Exception.Create('Complete master usage scan before applying');
+  // Mark consumed before the indivisible native remap, including failure.
+  FApplied := True;
+  FNativeFile.CleanMastersWithUsage(@FUsed);
+end;
+
+function TwbAutomationMasterUseScanImpl.WorkUnits: Integer;
+begin Result := FWork; end;
+function TwbAutomationMasterUseScanImpl.NativeUnits: Integer;
+begin Result := FNativeUnits; end;
+function TwbAutomationMasterUseScanImpl.RetainedDepth: Integer;
+begin Result := FFrames.Count; end;
+
+function wbAutomationMasterUseScan(const aFile: IwbFile): TwbAutomationMasterUseScan;
+begin Result := TwbAutomationMasterUseScanImpl.Create(aFile); end;
+
 procedure TwbFile.CleanMasters;
+begin
+  CleanMastersWithUsage(nil);
+end;
+
+procedure TwbFile.CleanMastersWithUsage(aUsedMasters: PwbUsedMasters);
 var
   i, j, k     : Integer;
   Old,New     : TwbFileIDs;
@@ -3085,8 +3249,12 @@ begin
         MasterFiles[i].SortOrder := i;
       end;
 
-      FillChar(UsedMasters, SizeOf(UsedMasters), 0);
-      FindUsedMasters(@UsedMasters);
+      if Assigned(aUsedMasters) then
+        UsedMasters := aUsedMasters^
+      else begin
+        FillChar(UsedMasters, SizeOf(UsedMasters), 0);
+        FindUsedMasters(@UsedMasters);
+      end;
       //!!! SF1 support
       Old := nil;
       New := nil;
@@ -17725,7 +17893,11 @@ end;
 procedure TwbGroupRecord.FindUsedMasters(aMasters: PwbUsedMasters);
 begin
   inherited;
+  FindLabelUsedMasters(aMasters);
+end;
 
+procedure TwbGroupRecord.FindLabelUsedMasters(aMasters: PwbUsedMasters);
+begin
   if grStruct.grsGroupType in [1, 6..10] then begin
     if grStruct.grsLabel <> 0 then begin
       var lFormID := TwbFormID.FromCardinal(GetGroupLabel);

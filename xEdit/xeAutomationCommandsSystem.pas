@@ -17,6 +17,7 @@ uses
   TypInfo,
   JsonDataObjects,
   wbInterface,
+  wbImplementation,
   xeAutomationCommandsBatch,
   xeAutomationCommandsComparisons,
   xeAutomationCommandsCleaning,
@@ -574,7 +575,11 @@ begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:nonempty', True);
     if SameText(AKind, 'files.hygiene.batch') then begin
       xeAutomationSchemaField(ATarget, 'options', 'object', True);
-      xeAutomationSchemaShapeField(lOptions, 'operations', 'array<string:sort_masters|clean_masters>:nonempty', True);
+      xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..256', False);
+      lTarget.B['additionalProperties'] := False;
+      lOptions.B['additionalProperties'] := False;
+      xeAutomationSchemaShapeField(lOptions, 'operations', 'array<string:sort_masters|clean_masters>:1..32', True);
+      ATarget.S['constraintNotes'] := 'Unique resolved files; operations deduplicated in sort-then-clean order; omitted dryRun true; <=128 structural scan actions and soft20ms per poll; depth128/work1000000; native record lookup/init/sort/remap indivisible; cancellation retains partial operations; separate boundary before remap';
       xeAutomationSchemaEffects(ATarget, 'Complete loaded writable file scope; consent for apply', 'native master hygiene in memory; explicit save/flush; prior file outcomes retained on failure/cancel');
     end else if SameText(AKind, 'cleaning.remove_itm') or SameText(AKind, 'cleaning.undelete_and_disable_refs') then begin
       xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:loaded-plugin>:1..8', False);
@@ -1184,7 +1189,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.60';
+  Result.S['contractVersion'] := '0.61';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1401,6 +1406,13 @@ begin
     with O['kindLimits'].O['cleaning.sort_and_clean_masters'] do begin
       I['mutationLimit'] := xeAutomationSelectiveMutationStepLimit;
       S['scope'] := 'separate indivisible native sort/clean master calls';
+    end;
+    with O['kindLimits'].O['files.hygiene.batch'] do begin
+      I['targetFileLimit'] := 256;
+      I['mutationLimit'] := 1;
+      I['depthLimit'] := wbAutomationMasterScanDepthLimit;
+      I['scanWorkLimit'] := wbAutomationMasterScanWorkLimit;
+      S['scope'] := 'native file/group order and group-label dependencies; retained scan before indivisible remap';
     end;
     B['nativeCallsPreemptible'] := False;
     S['progress'] := 'progress.detail describes the retained current/last file; completed counts fully finished targets only';

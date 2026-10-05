@@ -1301,3 +1301,47 @@ requires hidden/ignored/partial rows, sorted KWDA alignment/links, all capacity
 limits, dependency/name/encoding/mode failures, comparison save refusal, Data
 file inventory unchanged and before/after override conflict participants.
 Delphi compilation and native execution remain pending.
+
+
+### Retained file-hygiene master scans (#14, contract 0.61)
+
+`files.hygiene.batch` now retains native file/group traversal for master usage,
+including TES4-header/native-record semantics and dependencies used only by group
+labels. It accepts 1..256 unique loaded files and 1..32 operation entries; duplicates
+are collapsed into sort-then-clean order. Omitted `dryRun` is true and records the
+operation plan without predicting unused masters. All targets resolve and apply
+targets pass writable policy before the first poll. Unknown target/options keys reject.
+
+Scanning advances <=128 structural actions with a soft20ms checkpoint per poll,
+with depth128/work1000000 limits. Each record's native usage lookup (including its
+reference-index fast path), container initialization, sorting and final native
+master remapping remain indivisible. A scan is checked against native mutation
+and master-table generations before each step and before remapping. Cancellation
+can occur during the read-only scan and after it finishes before applying. This
+is cooperative stepping, with no hard latency/preemption claim. The single-file
+`files.clean_masters` and other legacy job cleanup stages remain native atoms.
+
+Progress contains `phase`, `operation`, scan/action/native-call counts and limits.
+`result.files[].operations[]` holds durable before/after masters, removals, outcome
+and completion. Cancel/failure retains completed rows/findings and incomplete
+pending/failed rows. `progress.detail.retainedDepth` is the last step's snapshot;
+terminal `cursorRetained:false` confirms actual cursor release. Master changes
+remain in memory until explicit `session.save` and terminal `session.flush`.
+
+Generate `python Tools/AutomationRegression/hygiene_step_fixture.py generate
+--overlay <fresh-MO2-mod-folder>`. In a fresh consent-enabled editable FO4 daemon,
+load Fallout4.esm, AutomationHygieneBase.esm, AutomationHygieneLabel.esm,
+AutomationHygieneUnused.esm, AutomationHygieneStepped.esp,
+AutomationHygieneDirect.esp and AutomationHygieneCanceled.esp, in that order.
+Run `exercise --overlay ... --exe <canonical-built-tool> --pid <broker-pid>
+--artifacts <dir>`, then relaunch with the same load order and run `verify`.
+The runner checks 2200 overrides, an empty child-group label as the only dependency
+on the label master, file-local own-ID remapping, payload references, malformed
+scope preflight, dry-run canonical order, scan/pre-remap cancellation, first-file
+partial cancellation, direct-native cleanup parity, unchanged bytes before save,
+independent binary readback and fresh-process loaded references. It records poll
+timings without asserting a hard bound. Source tests check fixture integrity and
+assertions only. Before acceptance, compile LiteDebug and run this fixture, then
+cover built/unbuilt reference-index paths, TES3/other game master rules, hardcoded
+IDs, depth/work caps, native exceptions/reentrant mutation invalidation, sort
+changes/partial failure and session shutdown. All native acceptance is pending.

@@ -17,6 +17,9 @@ implementation
 uses
   Classes,
   SysUtils,
+  System.Diagnostics,
+  wbImplementation,
+  xeAutomationMutationAudit,
   JsonDataObjects,
   wbInterface,
   xeAutomationDataLookup,
@@ -402,8 +405,8 @@ begin
 
   Result := [];
   lOperations := AOptions.A['operations'];
-  if lOperations.Count = 0 then
-    raise xeAutomationInvalidRequest('Automation files.hygiene.batch options.operations must not be empty');
+  if (lOperations.Count < 1) or (lOperations.Count > 32) then
+    raise xeAutomationInvalidRequest('Automation files.hygiene.batch options.operations selects 1..32 entries');
 
   for i := 0 to Pred(lOperations.Count) do begin
     if lOperations.Types[i] <> jdtString then
@@ -424,25 +427,35 @@ procedure xeAutomationValidateFileHygieneBatchStart(var ADryRun: Boolean; const 
   const ATarget, AOptions: TJsonObject);
 var
   lFiles: TJsonArray;
+  names: TStringList;
+  fileRef: IwbFile;
   i: Integer;
 begin
-  if not Assigned(ATarget) then
-    raise xeAutomationInvalidRequest('Automation files.hygiene.batch target is required');
-  if not ATarget.Contains('files') then
-    raise xeAutomationInvalidRequest('Automation files.hygiene.batch target.files is required');
-  if ATarget.Types['files'] <> jdtArray then
-    raise xeAutomationInvalidRequest('Automation files.hygiene.batch target.files must be an array');
-
-  lFiles := ATarget.A['files'];
-  if lFiles.Count = 0 then
-    raise xeAutomationInvalidRequest('Automation files.hygiene.batch target.files must not be empty');
-  for i := 0 to Pred(lFiles.Count) do
-    if lFiles.Types[i] <> jdtString then
-      raise xeAutomationInvalidRequest('Automation files.hygiene.batch target.files entries must be strings');
-
+  if not Assigned(ATarget) or not ATarget.Contains('files') or
+     (ATarget.Types['files'] <> jdtArray) then
+    raise xeAutomationInvalidRequest('files.hygiene.batch target.files must be a plugin name array');
+  if ATarget.Count <> 1 then
+    raise xeAutomationInvalidRequest('files.hygiene.batch target accepts only files');
   xeAutomationReadBatchOperations(AOptions);
-  if not ADryRunSpecified then
-    ADryRun := True;
+  if AOptions.Count <> 1 then
+    raise xeAutomationInvalidRequest('files.hygiene.batch options accepts only operations');
+  lFiles := ATarget.A['files'];
+  if (lFiles.Count < 1) or (lFiles.Count > 256) then
+    raise xeAutomationInvalidRequest('files.hygiene.batch selects 1..256 files');
+  if not ADryRunSpecified then ADryRun := True;
+  names := TStringList.Create;
+  try
+    names.CaseSensitive := False;
+    for i := 0 to Pred(lFiles.Count) do begin
+      if lFiles.Types[i] <> jdtString then
+        raise xeAutomationInvalidRequest('files.hygiene.batch files entries must be strings');
+      fileRef := xeAutomationRequirePluginFile(Trim(lFiles.S[i]));
+      if names.IndexOf(fileRef.FileName) >= 0 then
+        raise xeAutomationInvalidRequest('Duplicate files.hygiene.batch target');
+      names.Add(fileRef.FileName);
+      if not ADryRun then xeAutomationRequireWritableTargetFile(fileRef);
+    end;
+  finally names.Free; end;
 end;
 
 procedure xeAutomationAddBatchFinding(const AFindings: TJsonArray; const ASeverity, ACode, AMessage, AFileName,
@@ -462,7 +475,7 @@ begin
       lFinding.O['action'].S['reason'] := AReason;
     if ARisk <> '' then
       lFinding.O['action'].S['risk'] := ARisk;
-    AFindings.Add(lFinding);
+    xeAutomationAppendJobFinding(AFindings, lFinding);
     lFinding := nil;
   finally
     lFinding.Free;
@@ -592,6 +605,226 @@ begin
   ASummary.I['findings'] := AFindings.Count;
 end;
 
+type
+  THygienePhase = (hpOperation, hpScan, hpClean, hpComplete);
+  THygieneStepper = class(TxeAutomationJobStepper)
+  private
+    FFile: IwbFile;
+    FFileName: string;
+    FDryRun: Boolean;
+    FOperations: TxeAutomationBatchOperations;
+    FOperation: TxeAutomationBatchOperation;
+    FPhase: THygienePhase;
+    FScan: TwbAutomationMasterUseScan;
+    FRow, FOperationRow: TJsonObject; // Durable result owns these rows.
+    FBefore: TStringList;
+    FSnapshot: TxeAutomationMutationSnapshot;
+    FLastWork, FLastMutations, FSteps, FScanWork, FNativeUnits, FDepth: Integer;
+    procedure Initialize(const summary, resultData: TJsonObject);
+    procedure CompleteOperation(const findings: TJsonArray; const summary: TJsonObject);
+    procedure UpdateAudit(const summary: TJsonObject);
+  public
+    constructor Create(const fileName: string; const dry: Boolean;
+      const operations: TxeAutomationBatchOperations);
+    destructor Destroy; override;
+    function Advance(const findings: TJsonArray;
+      const summary, resultData, failure: TJsonObject): Boolean; override;
+    procedure WriteProgress(const progress: TJsonObject); override;
+  end;
+
+constructor THygieneStepper.Create(const fileName: string; const dry: Boolean;
+  const operations: TxeAutomationBatchOperations);
+begin
+  inherited Create;
+  FFileName := fileName;
+  FDryRun := dry;
+  FOperations := operations;
+  FBefore := TStringList.Create;
+end;
+
+destructor THygieneStepper.Destroy;
+begin
+  FScan.Free;
+  FBefore.Free;
+  FSnapshot.Files := nil;
+  FFile := nil;
+  inherited;
+end;
+
+procedure THygieneStepper.Initialize(const summary, resultData: TJsonObject);
+begin
+  FFile := xeAutomationRequirePluginFile(FFileName);
+  if not FDryRun then xeAutomationRequireWritableTargetFile(FFile);
+  FSnapshot := xeAutomationCaptureMutationSnapshot;
+  summary.I['targets'] := summary.I['targets'] + 1;
+  summary.B['dryRun'] := FDryRun;
+  summary.S['persistence'] := 'in-memory-until-session.save-and-terminal-session.flush';
+  summary.S['cancellation'] := 'between structural scan steps and native sort/remap calls';
+  FRow := resultData.A['files'].AddObject;
+  FRow.S['fileName'] := FFile.FileName;
+  FRow.B['dirtyBefore'] := FFile.Modified;
+  FRow.B['complete'] := False;
+  FRow.A['operations'].Clear;
+  if xaboSortMasters in FOperations then FOperation := xaboSortMasters
+  else FOperation := xaboCleanMasters;
+  UpdateAudit(summary);
+end;
+
+procedure THygieneStepper.UpdateAudit(const summary: TJsonObject);
+begin
+  xeAutomationWriteMutationAudit(FRow.O['mutationState'], FSnapshot);
+  FRow.B['requiresSave'] := FFile.Modified;
+  if FRow.O['mutationState'].B['mutationsObserved'] then summary.B['changed'] := True;
+  summary.B['requiresSave'] := summary.B['requiresSave'] or FFile.Modified;
+  if FFile.Modified then xeAutomationAddUniqueString(summary.A['dirtyFiles'], FFile.FileName);
+end;
+
+procedure THygieneStepper.CompleteOperation(const findings: TJsonArray; const summary: TJsonObject);
+var afterMasters: TStringList; changed: Boolean; outcome, reason: string;
+begin
+  afterMasters := TStringList.Create;
+  try
+    xeAutomationCaptureDirectMasters(FFile, afterMasters);
+    xeAutomationWriteStringList(afterMasters, FOperationRow.A['mastersAfter']);
+    xeAutomationWriteRemovedMasters(FBefore, afterMasters, FOperationRow.A['removedMasters']);
+    changed := not xeAutomationStringListsEqual(FBefore, afterMasters);
+    FOperationRow.B['changed'] := changed;
+    FOperationRow.B['complete'] := True;
+    reason := '';
+    if FDryRun then begin
+      outcome := 'planned'; reason := 'dry_run';
+    end else if changed then outcome := 'applied'
+    else begin outcome := 'skipped'; reason := 'no_change'; end;
+    FOperationRow.S['outcome'] := outcome;
+    summary.I[outcome] := summary.I[outcome] + 1;
+    FRow.I[outcome] := FRow.I[outcome] + 1;
+    // Copy immutable events only after the durable operation row is finalized.
+    xeAutomationAddBatchFinding(findings, 'info', 'master_hygiene_' + outcome,
+      Format('%s %s for %s', [outcome, xeAutomationOperationName(FOperation), FFile.FileName]),
+      FFile.FileName, outcome, reason, 'native calls indivisible; dry run does not predict unused masters');
+    summary.I['findings'] := findings.Count;
+    FOperationRow := nil;
+    if (FOperation = xaboSortMasters) and (xaboCleanMasters in FOperations) then begin
+      FOperation := xaboCleanMasters;
+      FPhase := hpOperation;
+    end else begin
+      FPhase := hpComplete;
+      FRow.B['complete'] := True;
+    end;
+  finally afterMasters.Free; end;
+end;
+
+function THygieneStepper.Advance(const findings: TJsonArray;
+  const summary, resultData, failure: TJsonObject): Boolean;
+var timer: TStopwatch; scanDone: Boolean; code: string;
+begin
+  Inc(FSteps); FLastWork := 0; FLastMutations := 0;
+  try
+    if not Assigned(FRow) then Initialize(summary, resultData);
+    case FPhase of
+      hpOperation: begin
+        FOperationRow := FRow.A['operations'].AddObject;
+        FOperationRow.S['operation'] := xeAutomationOperationName(FOperation);
+        FOperationRow.S['outcome'] := 'pending';
+        FOperationRow.B['complete'] := False;
+        xeAutomationCaptureDirectMasters(FFile, FBefore);
+        xeAutomationWriteStringList(FBefore, FOperationRow.A['mastersBefore']);
+        FLastWork := 1;
+        if FDryRun then CompleteOperation(findings, summary)
+        else if FOperation = xaboSortMasters then begin
+          xeAutomationRequireWritableTargetFile(FFile);
+          FLastMutations := 1;
+          FFile.SortMasters;
+          UpdateAudit(summary);
+          CompleteOperation(findings, summary);
+        end else begin
+          FScan := wbAutomationMasterUseScan(FFile);
+          FPhase := hpScan;
+        end;
+      end;
+      hpScan: begin
+        timer := TStopwatch.StartNew;
+        repeat
+          Inc(FLastWork);
+          try
+            scanDone := FScan.Advance;
+          finally
+            FScanWork := FScan.WorkUnits;
+            FNativeUnits := FScan.NativeUnits;
+            FDepth := FScan.RetainedDepth;
+          end;
+          if scanDone then begin
+            FOperationRow.B['scanComplete'] := True;
+            FPhase := hpClean;
+            Break; // Leave a cancelable boundary BEFORE the native remap.
+          end;
+        until (FLastWork >= xeAutomationJobStepWorkLimit) or
+              (timer.ElapsedMilliseconds >= xeAutomationJobStepBudgetMs);
+      end;
+      hpClean: begin
+        xeAutomationRequireWritableTargetFile(FFile);
+        FLastWork := 1; FLastMutations := 1;
+        FScan.Apply;
+        FreeAndNil(FScan);
+        FDepth := 0;
+        UpdateAudit(summary);
+        CompleteOperation(findings, summary);
+      end;
+    end;
+  except
+    on E: Exception do begin
+      code := xeAutomationErrorInternalError;
+      if E is ExeAutomationError then code := ExeAutomationError(E).Code
+      else if E is EwbAutomationMasterScanInvalidated then code := 'job_invalidated'
+      else if E is EwbAutomationMasterScanCapacity then code := 'job_capacity';
+      failure.S['code'] := code;
+      failure.S['message'] := Copy(E.Message, 1, 4096);
+      failure.S['phase'] := 'master-hygiene';
+      failure.S['operation'] := xeAutomationOperationName(FOperation);
+      if Assigned(FRow) then begin
+        UpdateAudit(summary);
+        failure.B['partial'] := summary.B['changed'];
+        failure.B['partialKnown'] := True;
+        summary.B['partialChanges'] := summary.B['changed'];
+        if Assigned(FOperationRow) then begin
+          if not FOperationRow.B['complete'] then begin
+            FOperationRow.S['outcome'] := 'failed';
+            FOperationRow.S['errorCode'] := code;
+          end else FOperationRow.S['findingErrorCode'] := code;
+        end;
+      end;
+    end;
+  end;
+  Result := (FPhase = hpComplete) and (failure.Count = 0);
+end;
+
+procedure THygieneStepper.WriteProgress(const progress: TJsonObject);
+const phases: array[THygienePhase] of string = ('operation', 'scan-masters', 'apply-clean-masters', 'complete');
+begin
+  progress.S['fileName'] := FFileName;
+  progress.S['phase'] := phases[FPhase];
+  progress.S['operation'] := xeAutomationOperationName(FOperation);
+  progress.I['steps'] := FSteps;
+  progress.I['lastWorkUnits'] := FLastWork;
+  progress.I['workLimit'] := xeAutomationJobStepWorkLimit;
+  progress.I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
+  progress.I['lastMutations'] := FLastMutations;
+  progress.I['mutationLimit'] := 1;
+  progress.I['scanWorkUnits'] := FScanWork;
+  progress.I['scanWorkLimit'] := wbAutomationMasterScanWorkLimit;
+  progress.I['nativeUsageCalls'] := FNativeUnits;
+  progress.I['retainedDepth'] := FDepth;
+  progress.I['depthLimit'] := wbAutomationMasterScanDepthLimit;
+  progress.B['nativeCallsPreemptible'] := False;
+  progress.S['nativeAtoms'] := 'container initialization; one record usage lookup; final master remapping; sorting';
+end;
+
+function NewHygieneStepper(const kind: string; const dry, specified: Boolean;
+  const target, options: TJsonObject): TxeAutomationJobStepper;
+begin
+  Result := THygieneStepper.Create(target.A['files'].S[0], dry, xeAutomationReadBatchOperations(options));
+end;
+
 procedure xeAutomationRegisterFileHygieneCommands;
 begin
   xeAutomationRegisterCommand('files.get_header', xeAutomationFileHygieneGetHeader);
@@ -603,6 +836,7 @@ begin
   // native helpers so batch execution can reuse them without registry roundtrips.
   xeAutomationRegisterJobKindWithValidator('files.hygiene.batch', xeAutomationFileHygieneBatchJob,
     xeAutomationValidateFileHygieneBatchStart);
+  xeAutomationRegisterJobStepper('files.hygiene.batch', NewHygieneStepper);
 end;
 
 end.
