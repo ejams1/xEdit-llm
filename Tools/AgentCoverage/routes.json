@@ -917,7 +917,7 @@
       "effect": "list/read pure; script storage writes immediate; run may mutate plugins -> save + flush"
     },
     "jobs": {
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "validation/analysis/dry-run reads; cleaning/hygiene/ESL apply mutates plugins -> save + flush"
     },
     "localization": {

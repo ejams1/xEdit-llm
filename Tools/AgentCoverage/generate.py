@@ -298,7 +298,7 @@ def render(data, config):
            "Structured mutation requires -IKnowWhatImDoing, edit mode and an editable non-protected target. "
            "Game, signature, parent and schema predicates remain native; a source-union row is not an all-games promise. "
            "Use elements.edit_capabilities/assign_templates before structural edits. "
-           "Jobs require jobs.start, then jobs.get; each poll advances one registered target unit, with cancellation between units. Native work within a unit blocks that poll. "
+           "Jobs require jobs.start, then jobs.get; retained factories advance per-kind work units with progress/cancellation boundaries. Native calls remain indivisible and can block a poll; inspect supports.jobs.kindLimits. "
            "Script routes require Agent/ storage, policy admission and budgets, and do not inherit every structured-command guard.", "",
            "Plugin changes stay in memory until session.save. Check both dirty and pendingShutdownCount; "
            "session.flush is terminal and refuses unsaved changes unless force:true accepts loss. "
@@ -316,8 +316,8 @@ def render(data, config):
            "partial = only part of GUI scope is covered; script-candidate = admitted primitives but unverified recipe; "
            "missing = native operation lacks a supported route; presentation = UI/session preference; "
            "obsolete = legacy warning/no-op; unassessed = needs manual audit. Counts are bindings, not distinct workflows.", "",
-           "## Missing implementation backlog", "",
-           "These are proposed implementation families, not additional GitHub issues created automatically. "
+           "## Workflow acceptance backlog", "",
+           "These tracked workflow families preserve the original acceptance scope. Implemented routes and explicit exclusions appear below; source coverage is distinct from native acceptance. See [the issue PR/test map](Tools/AutomationRegression/ISSUE-STATUS.md). "
            "Each must preserve native game gates, return structured outcomes, expose safe prerequisites, "
            "and have game-backed semantic tests. Plugin writes use the explicit save boundary; "
            "external-output operations need a bounded filesystem contract.", ""]

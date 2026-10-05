@@ -11561,7 +11561,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 142
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11573,7 +11573,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 143
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11585,7 +11585,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 141
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11597,7 +11597,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 140
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -11609,7 +11609,7 @@
         "file": "xEdit/xeAutomationCommandsJobs.pas",
         "line": 139
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12414,7 +12414,7 @@
         "file": "xEdit/xeAutomationCommandsRecords.pas",
         "line": 2243
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "poll-driven reference build and complete global provider/dependency preflight before any mutation; separate native master/preservation/removal units; immutable plan/applied events, partial copy/cleanup rows and audit on cancellation/failure; copied-only retry requires overwrite; native units indivisible; plugin edits -> explicit save/flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12426,7 +12426,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 606
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "dry-run reads; retained full-file master/ITM/UDR phases; separate indivisible master calls, bounded record steps; partial counts/audits/findings on cancel/failure; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12438,7 +12438,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 604
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "dry-run reads; retained full-file preorder ITM/UDR collection and bounded record steps; quick-auto retained native master-use scan before remap; partial counts/audits/findings on cancel/failure; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12462,7 +12462,7 @@
         "file": "xEdit/xeAutomationCommandsCleaning.pas",
         "line": 608
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "dry-run reads; retained native master-use scan with pre-remap yield; indivisible sort/remap calls; partial master outcomes/audit on cancel/failure; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12486,7 +12486,7 @@
         "file": "xEdit/xeAutomationCommandsFileHygiene.pas",
         "line": 837
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "dry-run reads; retained native structural master scan with group-label use; separate sort/remap boundaries, immutable findings and durable per-operation rows on cancel/failure; native atoms indivisible; apply mutates plugins -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12498,7 +12498,7 @@
         "file": "xEdit/xeAutomationCommandsLOD.pas",
         "line": 666
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "default dry-run plan; immediate external artifacts/scratch; native pipeline atom then retained bounded inventory/report; incomplete canceled artifacts retained; no plugin save; fresh root for retry; independent content verification required",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12510,7 +12510,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 1700
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "read-only retained tree/group/ObjectID statistics with bounded actions, depth and work; partial rows omit eligibility until completion; native getters/lookups indivisible; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12522,7 +12522,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 1706
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "retained analysis and optional compaction with separate eligibility/flag boundaries; all current-file relationship preflight before remaps; partial rows/findings/audit and separate completed flag/remap counters; native access/reference builds/whole remaps/header setters indivisible; apply mutates target and external callers -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12534,7 +12534,7 @@
         "file": "xEdit/xeAutomationCommandsPluginAnalysis.pas",
         "line": 1703
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "retained live tree/index collection, merge sort and reservation before ascending remaps; loaded-file reference builds and each whole remap remain indivisible; all current-file referrers/overrides preflight before first write; partial rows/findings/audit on cancel/failure; apply mutates target and external callers -> save + flush",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12546,7 +12546,7 @@
         "file": "xEdit/xeAutomationCommandsValidation.pas",
         "line": 726
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12558,7 +12558,7 @@
         "file": "xEdit/xeAutomationCommandsValidation.pas",
         "line": 722
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12570,7 +12570,7 @@
         "file": "xEdit/xeAutomationCommandsValidation.pas",
         "line": 724
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "read-only retained within-file validation; soft cooperative steps, indivisible native calls; partial rows/findings on cancel/failure; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     },
@@ -12582,7 +12582,7 @@
         "file": "xEdit/xeAutomationCommandsValidation.pas",
         "line": 731
       },
-      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances retained within-file steps for validation and isolated ITM/UDR plan/apply; other kinds use native file/worldspace/stage units on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "prerequisites": "Known loaded-scope job kind; one active job; all registered kinds use retained main-thread factories with per-kind work/progress/cancellation limits. Native calls remain indivisible, including whole LOD pipeline/tool wait. Light jobs need supported games; apply requires consent/native writable targets.",
       "effect": "read-only cooperative native-edge cycle validation; local graph state, no shared tags; partial rows/findings on cancel/failure; no plugin persistence",
       "verification": "registered-in-source; runtime-not-verified"
     }
