@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.33",
+  "contractVersion": "0.34",
   "issue": "https://github.com/ejams1/xEdit-llm/issues/8",
   "scope": "Source union, not preprocessed per game/build. No runtime availability or semantic parity claim.",
   "guiActions": [
@@ -613,9 +613,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -640,9 +642,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -667,9 +671,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -694,9 +700,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -721,9 +729,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -748,9 +758,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -775,9 +787,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -802,9 +816,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -829,9 +845,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -2286,7 +2304,7 @@
           "expression": "True",
           "source": {
             "file": "xEdit/xeMainForm.pas",
-            "line": 21646
+            "line": 21651
           }
         }
       ],
@@ -5187,9 +5205,11 @@
         }
       ],
       "profile": "lod",
-      "status": "missing",
-      "routes": [],
-      "notes": "Wrap the native LOD pipeline with supported games/worldspaces, explicit settings/output roots, progress, cancellation boundaries and fixture-based output verification. Native handler explicitly refuses Fallout 76 and Starfield; worldspaces/resource settings determine remaining applicability. Child dialog also offers Split LOD Atlas, requiring explicit export coverage.",
+      "status": "partial",
+      "routes": [
+        "lod.generate"
+      ],
+      "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": [],
       "verification": "source-reviewed; runtime-not-verified"
@@ -10932,7 +10952,7 @@
       "handler": "xeAutomationJobsCancel",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 138
+        "line": 140
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10944,7 +10964,7 @@
       "handler": "xeAutomationJobsDiscard",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 139
+        "line": 141
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10956,7 +10976,7 @@
       "handler": "xeAutomationJobsFindings",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 137
+        "line": 139
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10968,7 +10988,7 @@
       "handler": "xeAutomationJobsGet",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 136
+        "line": 138
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -10980,7 +11000,7 @@
       "handler": "xeAutomationJobsStart",
       "source": {
         "file": "xEdit/xeAutomationCommandsJobs.pas",
-        "line": 135
+        "line": 137
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "job lifecycle/readback; get runs handler and inherits its mutation effects",
@@ -11340,7 +11360,7 @@
       "handler": "xeAutomationSystemCapabilities",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 988
+        "line": 1004
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11352,7 +11372,7 @@
       "handler": "xeAutomationSystemCommandSchema",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 987
+        "line": 1003
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only on-demand argument schema and discovery metadata; no plugin persistence",
@@ -11364,7 +11384,7 @@
       "handler": "xeAutomationSystemDescribe",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 986
+        "line": 1002
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11376,7 +11396,7 @@
       "handler": "xeAutomationSystemPing",
       "source": {
         "file": "xEdit/xeAutomationCommandsSystem.pas",
-        "line": 985
+        "line": 1001
       },
       "prerequisites": "Stateless probes; capabilities advertise source surface, not loaded-session readiness.",
       "effect": "read-only; no plugin persistence",
@@ -11440,6 +11460,18 @@
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "dry-run reads; apply mutates plugins -> save + flush",
+      "verification": "registered-in-source; runtime-not-verified"
+    },
+    {
+      "name": "lod.generate",
+      "kind": "job",
+      "handler": "xeLODRun",
+      "source": {
+        "file": "xEdit/xeAutomationCommandsLOD.pas",
+        "line": 385
+      },
+      "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
+      "effect": "default dry-run plan; apply writes immediate external per-world artifacts and scratch; no plugin save; cancellation between worldspaces; independent output verification required",
       "verification": "registered-in-source; runtime-not-verified"
     },
     {

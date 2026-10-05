@@ -37,6 +37,8 @@ begin
 
   if SameText(AKind, 'files.hygiene.batch') then
     Exit('files-mutation');
+  if SameText(AKind, 'lod.generate') then
+    Exit('external-file-write');
 
   if SameText(AKind, 'plugin.formids.compact_for_esl') or SameText(AKind, 'plugin.esl.apply') then
     Exit('plugin-analysis-mutation');

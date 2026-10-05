@@ -1451,10 +1451,16 @@ var
   piProcess: TProcessInformation;
   pBuffer: array [0..CReadBuffer] of AnsiChar;
   dBuffer: array [0..CReadBuffer] of Char;
-  pCmdLine: array [0..MAX_PATH] of Char;
+  pCmdLine: TArray<Char>;
   dRead, dRunning, dw: DWord;
   s: string;
 begin
+  // CreateProcess needs mutable UTF-16 storage, not a fixed MAX_PATH command
+  // buffer. Paths plus arguments can exceed MAX_PATH while remaining valid.
+  if Length(aCommandLine) >= 32767 then
+    raise Exception.Create('Process command line exceeds the Windows limit');
+  SetLength(pCmdLine, Length(aCommandLine) + 1);
+  Result := ERROR_CANCELLED;
   saSecurity.nLength := SizeOf(TSecurityAttributes);
   saSecurity.bInheritHandle := True;
   saSecurity.lpSecurityDescriptor := nil;
@@ -1469,8 +1475,8 @@ begin
       suiStartup.dwFlags := STARTF_USESTDHANDLES or STARTF_USESHOWWINDOW;
       suiStartup.wShowWindow := SW_HIDE;
 
-      StrPCopy(pCmdLine, aCommandLine);
-      if CreateProcess(nil, pCmdLine, @saSecurity, @saSecurity, True, NORMAL_PRIORITY_CLASS, nil, nil, suiStartup, piProcess) then begin
+      StrPCopy(PChar(@pCmdLine[0]), aCommandLine);
+      if CreateProcess(nil, PChar(@pCmdLine[0]), @saSecurity, @saSecurity, True, NORMAL_PRIORITY_CLASS, nil, nil, suiStartup, piProcess) then begin
         try
           repeat
             dRunning := WaitForSingleObject(piProcess.hProcess, 100);

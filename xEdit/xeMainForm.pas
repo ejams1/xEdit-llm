@@ -21376,7 +21376,12 @@ begin
 
         _BlockInternalEdit := False;
 
-        if (wbToolMode in [tmLODgen, tmScript]) then begin
+        // LODGen startup selects native record definitions needed by SSE object
+        // generation. In serve mode keep those definitions but let explicit jobs
+        // own generation; the automatic generator timer would open a modal UI
+        // and exit before the daemon pipe could start.
+        if (wbToolMode in [tmLODgen, tmScript]) and
+           not ((wbToolMode = tmLODgen) and (xeAutomationMode = xamServe)) then begin
           if not wbForceTerminate then
             tmrGenerator.Enabled := True;
           Exit;
