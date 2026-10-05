@@ -354,7 +354,9 @@
     },
     "circular-lists": {
       "status": "direct",
-      "routes": ["validation.circular_leveled_lists"],
+      "routes": [
+        "validation.circular_leveled_lists"
+      ],
       "notes": "Native circular checker scans winning LVLI/LVLC/LVLN/LVSP roots, returns structured cycle-name paths and file progress. TES3 is unsupported; game-backed verification remains pending.",
       "effect": "read-only",
       "scriptSymbols": []
@@ -390,58 +392,74 @@
     },
     "special-copy": {
       "status": "partial",
-      "routes": ["records.copy_into"],
+      "routes": [
+        "records.copy_into"
+      ],
       "notes": "Explicit wrapper/spawn_rate modes default to dry-run, preflight leveled schemas/dependencies/target existence and LLCT capacity. Wrapper reports both locators; spawn clones complete entries preserving ownership. Native semantic acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
     "idle-copy": {
       "status": "partial",
-      "routes": ["records.copy_idle_tree"],
+      "routes": [
+        "records.copy_idle_tree"
+      ],
       "notes": "Explicit bounded IDLE winner selection in one model directory, changed prefix, full old/new mapping before internal-link replacement, dependency/target preflight and partial phase results. TES4/FO3/FNV schemas; native persistence acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
     "injected-cleanup": {
       "status": "partial",
-      "routes": ["cleaning.cleanup_injected_references"],
+      "routes": [
+        "cleaning.cleanup_injected_references"
+      ],
       "notes": "Bounded explicit record selection, complete injection-owner/dependency/writable preflight, copy into provider before native RemoveInjected(False), remaining-reference findings and partial record results. Numeric games, shared single provider; native semantic acceptance pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
     "delta-patch": {
       "status": "partial",
-      "routes": ["patches.delta"],
+      "routes": [
+        "patches.delta"
+      ],
       "notes": "Explicit saved baseline, external comparison and new .esu name; bounded header-only dry run, native compare load, deletion markers, selected-baseline cleanup and per-record outcomes. Localized/encoding-sidecar inputs reject; differing master tables conservatively retain records. Native runtime testing pending.",
       "effect": "apply immediately copies comparison to Data .esu; loaded delta edits require session.save and terminal session.flush",
       "scriptSymbols": []
     },
     "merged-patch": {
       "status": "partial",
-      "routes": ["patches.merge"],
+      "routes": [
+        "patches.merge"
+      ],
       "notes": "TES4/FO3/FNV only; explicit bounded record selection uses all loaded overrides, declared-master baselines, duplicate-aware native deltas and FLST set/ordered rules. Empty last-loaded target, default dry run, per-record outcomes and counts. Modern native-warning games reject; runtime testing pending.",
       "effect": "plugin mutation -> save + flush",
       "scriptSymbols": []
     },
     "seq": {
       "status": "direct",
-      "routes": ["exports.seq"],
+      "routes": [
+        "exports.seq"
+      ],
       "notes": "Skyrim-family loaded file; native load-order-zero/SGE predicates and FixedFormIDs in native group order. Explicit existing output directory and matching plugin basename, default dry run and overwrite:false, bounded scan/IDs, atomic external write. Empty eligibility leaves old output intact; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": []
     },
     "lod": {
       "status": "partial",
-      "routes": ["lod.generate"],
+      "routes": [
+        "lod.generate"
+      ],
       "notes": "Explicit 1..4 WRLD locators, fresh per-world output, isolated typed settings/scratch, default dry run, progress/cancel between worlds and bounded artifact/log inventory. Native TES4/Skyrim/FO3/FNV/FO4 pipelines and Split Atlas; FO76/SF reject; SSE/VR objects need LODGen startup. Strict native failures and no-output outcomes; terrain and all GUI settings are not covered; runtime testing pending.",
       "effect": "external disk output",
       "scriptSymbols": []
     },
     "reachable": {
-      "status": "missing",
-      "routes": [],
-      "notes": "Expose native reachability analysis with roots/scope, structured findings and bounded progress; reference indexing alone is not the same operation.",
-      "effect": "analysis/index mutation; no plugin write intended",
+      "status": "direct",
+      "routes": [
+        "analysis.reachability"
+      ],
+      "notes": "Native global reference/reset/root pass with optional additional roots, explicit report file scope, staged progress and bounded visits/readback. TES3 rejects; repeat resets child flags. Cancel/failed derived flags unavailable; runtime not verified.",
+      "effect": "derived memory state only; no plugin save",
       "scriptSymbols": []
     },
     "localization": {
@@ -1388,6 +1406,9 @@
     },
     "elements.get_value": {
       "effect": "read-only; full edit/native values; no plugin persistence"
+    },
+    "analysis.reachability": {
+      "effect": "default dry-run staged plan; apply rebuilds native derived reachability flags globally; no plugin mutation or refcache writes; historical findings valid only for succeeded jobs"
     }
   }
 }

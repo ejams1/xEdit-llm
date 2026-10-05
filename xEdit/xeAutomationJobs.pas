@@ -192,7 +192,7 @@ begin
 
   lRegistration.Handler := AHandler;
   lRegistration.Validator := AValidator;
-  if (AWorkKey <> 'files') and (AWorkKey <> 'worldspaces') then
+  if (AWorkKey <> 'files') and (AWorkKey <> 'worldspaces') and (AWorkKey <> 'steps') then
     raise Exception.Create('Unsupported automation job work key');
   lRegistration.WorkKey := AWorkKey;
   xeAutomationGetJobKinds.Add(lKind, lRegistration);
@@ -266,9 +266,12 @@ begin
     if AJob.WorkKey = 'files' then begin
       S['unit'] := 'target-file';
       if AJob.WorkIndex < AJob.TotalWork then S['nextFile'] := AJob.Target.A['files'].S[AJob.WorkIndex];
-    end else begin
+    end else if AJob.WorkKey = 'worldspaces' then begin
       S['unit'] := 'worldspace';
       if AJob.WorkIndex < AJob.TotalWork then O['nextWorldspace'].Assign(AJob.Target.A['worldspaces'].O[AJob.WorkIndex]);
+    end else begin
+      S['unit'] := 'native-stage';
+      if AJob.WorkIndex < AJob.TotalWork then O['nextStep'].Assign(AJob.Target.A[AJob.WorkKey].O[AJob.WorkIndex]);
     end;
   end;
   if AJob.SummaryData.Count > 0 then
@@ -472,7 +475,8 @@ begin
     else if AJob.FailureData.Count > 0 then begin
       AJob.State := xajsFailed;
       if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
-      else AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex;
+      else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
+      else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
       xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
       if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
         AJob.FailureData.B['partial'] := True;
@@ -494,7 +498,8 @@ begin
       AJob.FailureData.S['message'] := E.Message;
       AJob.FailureData.S['phase'] := 'execution';
       if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
-      else AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex;
+      else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
+      else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
       xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
       if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
         AJob.FailureData.B['partial'] := True;
@@ -511,7 +516,8 @@ begin
       AJob.FailureData.S['message'] := E.Message;
       AJob.FailureData.S['phase'] := 'execution';
       if AJob.WorkKey = 'files' then AJob.FailureData.I['completedFiles'] := AJob.WorkIndex
-      else AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex;
+      else if AJob.WorkKey = 'worldspaces' then AJob.FailureData.I['completedWorldspaces'] := AJob.WorkIndex
+      else AJob.FailureData.I['completedSteps'] := AJob.WorkIndex;
       xeAutomationWriteMutationAudit(AJob.FailureData.O['mutationState'], lSnapshot);
       if AJob.FailureData.O['mutationState'].B['mutationsObserved'] then begin
         AJob.FailureData.B['partial'] := True;

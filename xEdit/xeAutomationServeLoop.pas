@@ -27,6 +27,7 @@ uses
   xeAutomationCommandsFileHygiene,
   xeAutomationCommandsJobs,
   xeAutomationCommandsLOD,
+  xeAutomationCommandsReachability,
   xeAutomationCommandsPluginAnalysis,
   xeAutomationCommandsValidation,
   xeAutomationCommandsSession,
@@ -121,6 +122,7 @@ begin
     // job facade so jobs.start and capabilities observe the same implemented set.
     xeAutomationRegisterCleaningCommands;
     xeAutomationRegisterLODJobs;
+    xeAutomationRegisterReachabilityJobs;
     xeAutomationRegisterRecordsCommands;
     xeAutomationRegisterElementsCommands;
     xeAutomationRegisterBatchCommands;
