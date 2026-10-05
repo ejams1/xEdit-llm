@@ -11468,7 +11468,7 @@
       "handler": "xeLODRun",
       "source": {
         "file": "xEdit/xeAutomationCommandsLOD.pas",
-        "line": 367
+        "line": 385
       },
       "prerequisites": "Known job kind and loaded target files; one active job; jobs.get advances one target file per poll on the main thread; light jobs need supported game; apply requires consent/native writable targets.",
       "effect": "default dry-run plan; apply writes immediate external per-world artifacts and scratch; no plugin save; cancellation between worldspaces; independent output verification required",
