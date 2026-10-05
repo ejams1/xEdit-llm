@@ -15,13 +15,19 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.63** (retained read-only ESL statistics).
+Source contract: **0.64** (retained reachability report/additional-root steps).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
 
+- **0.64: reachability readback stepping** — `analysis.reachability` now retains
+  report position (<=128 actions/soft20ms) and processes one additional root per
+  poll, keeping its stage-wide native visit budget. Cancellation retains partial
+  findings/rows, with classifications unavailable until job success. Native
+  reference build/reset/root-file stages and each root propagation remain
+  indivisible; full #14/native acceptance is pending.
 - **0.63: retained ESL analysis** — `plugin.esl.analyze` resolves 1..256 unique
   files, with empty options, then retains tree/group/fallback statistics across
   polls. Depth64/work1000000/seen100000 caps and <=128 actions/soft20ms apply;

@@ -560,7 +560,7 @@ begin
   end else if SameText(AKind, 'analysis.reachability') then begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:report-scope-plugin>:1..32', True);
     xeAutomationSchemaShapeField(lTarget, 'roots', 'array<object:file,formId>:0..32-additional-roots', False);
-    ATarget.S['constraintNotes'] := 'Non-TES3; whole loaded graph analyzed; files limits report only; target.steps reserved; <=1000 reported records, <=256 loaded files, <=1000000 loaded records';
+    ATarget.S['constraintNotes'] := 'Non-TES3; whole loaded graph analyzed; files limits report only; target.steps reserved; <=1000 reported records, <=256 loaded files, <=1000000 loaded records; retained report<=128 actions/soft20ms; one additional root per poll with shared stage visit budget; native file stages/root propagations indivisible';
     xeAutomationSchemaEffects(ATarget, 'Loaded global graph and resolved optional root records; only succeeded current snapshots are valid', 'derived global reachability flags in memory; plugins unchanged; cancel/failure invalidates classification');
   end else if SameText(AKind, 'cleaning.cleanup_injected_references') then begin
     xeAutomationSchemaShapeField(lTarget, 'files', 'array<string:source-file>:1..32', True);
@@ -1193,7 +1193,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.63';
+  Result.S['contractVersion'] := '0.64';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1389,7 +1389,7 @@ begin
     I['workLimit'] := xeAutomationJobStepWorkLimit;
     I['softBudgetMs'] := xeAutomationJobStepBudgetMs;
     I['depthLimit'] := xeAutomationJobStepDepthLimit;
-    S['depthLimitAppliesTo'] := 'validation errors/ITM/deleted refs only; circular graph uses kindLimits; combined cleaning preserves uncapped native file scope';
+    S['depthLimitAppliesTo'] := 'validation errors/ITM/deleted refs and ESL analysis; circular/master scanners use kindLimits; combined record collection preserves native scope';
     with O['kindLimits'].O['validation.circular_leveled_lists'] do begin
       I['depthLimit'] := xeAutomationCircularDepthLimit;
       I['visitedLimit'] := xeAutomationCircularVisitedLimit;
@@ -1414,6 +1414,13 @@ begin
       I['masterDepthLimit'] := wbAutomationMasterScanDepthLimit;
       I['masterScanWorkLimit'] := wbAutomationMasterScanWorkLimit;
       S['scope'] := 'retained native structural usage scan between separate indivisible sort/remap calls';
+    end;
+    with O['kindLimits'].O['analysis.reachability'] do begin
+      S['cooperativePhases'] := 'report and additional-roots only';
+      I['additionalRootsPerPoll'] := 1;
+      I['nativeVisitBudgetPerStage'] := 5000000;
+      S['nativeAtoms'] := 'reference build, reset and native root-file discovery; each additional root propagation';
+      S['validity'] := 'derived flags and historical findings usable only after containing job succeeds';
     end;
     with O['kindLimits'].O['plugin.esl.analyze'] do begin
       I['targetFileLimit'] := 256;
@@ -1803,7 +1810,7 @@ begin
     S['kind'] := 'analysis.reachability';
     S['target'] := 'files:1..32 report plugins <=1000 records; roots:0..32 additional record locators';
     S['scope'] := 'all loaded plugins; native game roots plus optional roots';
-    S['limits'] := '256 loaded files, 1000000 loaded records, 5000000 reset/reach visits per stage; reference indexing is a native blocking unit; cancel between stages';
+    S['limits'] := '256 loaded files, 1000000 loaded records, 5000000 reset/reach visits per stage; <=128 report records/soft20ms, one additional root per poll; reference/reset/native-root files and each root propagation indivisible; cancel at cooperative boundaries';
     S['validity'] := 'succeeded snapshot only; dry run plans without analysis; incomplete flags unavailable';
     S['persistence'] := 'derived memory flags only; plugins unchanged';
   end;
