@@ -15,12 +15,26 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.69** (retained native reference-index traversal).
+Source contract: **0.70** (retained LOD output inventory).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
+
+- **0.70: LOD inventory stepping** — `lod.generate` yields after the indivisible
+  native world pipeline/tool wait, then retains directory enumeration with
+  <=128 actions/soft20ms. Inventory files1024/directories256/JSON256KiB/work16384/
+  path1024 caps fail explicitly with the observed prefix. Terminal/cancel paths
+  close the active search; external outputs stay on disk and retries need a
+  fresh root. Native failures remain in the durable row during enumeration and
+  become the primary failure on finalization. Rows distinguish nativeComplete,
+  inventoryComplete and complete; worldspaceCount counts started rows and
+  completedWorldspaces counts completed targets. Inventory metadata is observed
+  enumeration, not a filesystem snapshot or verified LOD. Discovery also adds
+  explicit kindLimits for reference traversal introduced in0.69. All17 jobs now
+  register retained factories, with documented larger native atoms. Delphi/game
+  execution skipped at user request; no hard responsiveness promise.
 
 - **0.69: reference-index traversal** — `analysis.build_references` retains the
   native unsorted file/group walk and postorder group-owner hooks. Each poll
