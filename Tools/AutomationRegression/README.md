@@ -1,5 +1,9 @@
 # Automation regression fixtures
 
+See [ISSUE-STATUS.md](ISSUE-STATUS.md) for the audited45-issue PR/test map and the
+source-check/native-acceptance distinction. Delphi/game execution is skipped at
+the user’s request; the runners below remain reproducible instructions for later.
+
 ## Issue #12: retained recursive reference selection (contract 0.60)
 
 `records.references recursive:true` now advances root payload, child-group
