@@ -15,13 +15,21 @@ This subsystem makes promises along these axes; each axis has its own compatibil
 
 ## Contract Version
 
-Source contract: **0.60** (retained recursive relationship selection/sort).
+Source contract: **0.61** (retained file-hygiene master usage scanning).
 The accepted lifecycle baseline documented here remains **0.23**; subsequent
 draft PRs and native acceptance instructions are recorded in
 `Tools/AutomationRegression/README.md` and `AUTOMATION-COVERAGE.md`.
 
 ### Additive history
 
+- **0.61: file hygiene stepping** — `files.hygiene.batch` resolves 1..256 unique
+  files and accepts 1..32 operation entries, deduplicated in native sort/clean
+  order. Each file retains its native structural master-use scan (depth128,
+  work1000000; <=128 actions/soft20ms per poll) and pauses before remapping.
+  Per-operation rows and immutable findings survive cancellation/failure. Record
+  usage lookup, container initialization, sorting and remapping remain native
+  atoms; this does not promise preemption or strict poll latency. Delphi/native
+  acceptance remains pending.
 - **0.60: recursive relationship paging follow-up** — retained child selection
   and in-place sort inside page checkpoints; root payload first, scoped highest
   child version and native FormID order; later parent groups included even with

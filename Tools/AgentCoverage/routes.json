@@ -1464,7 +1464,7 @@
       "effect": "dry-run reads; separate indivisible native sort/clean polls; partial master outcomes/audit on cancel/failure; apply mutates plugins -> save + flush"
     },
     "files.hygiene.batch": {
-      "effect": "dry-run reads; apply mutates plugins -> save + flush"
+      "effect": "dry-run reads; retained native structural master scan with group-label use; separate sort/remap boundaries, immutable findings and durable per-operation rows on cancel/failure; native atoms indivisible; apply mutates plugins -> save + flush"
     },
     "plugin.esl.analyze": {
       "effect": "read-only; no plugin persistence"
