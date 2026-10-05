@@ -1193,7 +1193,7 @@ var
 begin
   Result := TJsonObject.Create;
   // Contract 0.28 adds explicit FormID and scoped reference mappings.
-  Result.S['contractVersion'] := '0.65';
+  Result.S['contractVersion'] := '0.66';
   Result.O['supports'].O['replacement'].S['commands'] := 'records.replace; records.replacement_options; batch.rows mode:replace';
   Result.O['supports'].O['replacement'].S['scope'] := 'explicit matching full owned roots; preserve target FormID, source flags/version, native VCS reset; bounded full payload readback';
   Result.O['supports'].O['replacement'].S['externalCompare'] := 'comparison-file assignment intentionally excluded; comparisons.load/records remain read-only';
@@ -1439,6 +1439,18 @@ begin
       I['mutationLimit'] := 1;
       S['scope'] := 'retained tree/record-index collection, merge sort, reserve/plan, one loaded-file reference build per poll, complete relationship preflight, one whole remap per poll';
       S['nativeAtoms'] := 'container/record access and initialization; native record sorting; each loaded-file reference build; complete record/override/referrer remap; header update and audit';
+    end;
+    with O['kindLimits'].O['plugin.esl.apply'] do begin
+      I['targetFileLimit'] := 256;
+      I['depthLimit'] := xeAutomationJobStepDepthLimit;
+      I['analysisWorkLimit'] := xeAutomationEslScanWorkLimit;
+      I['compactionWorkLimit'] := xeAutomationEslScanWorkLimit;
+      I['analysisSeenRecordLimit'] := xeAutomationEslScanRecordLimit;
+      I['relationshipsPerRemapLimit'] := xeAutomationCompactEdgeLimit;
+      I['mutationLimit'] := 1;
+      S['scope'] := 'retained ESL analysis, shared eligibility gate, optional retained compaction, separate ESL flag poll; progress.cursor is current/last child cursor';
+      S['counters'] := 'planned/applied count flag operations; remapsPlanned/remapsApplied count completed compaction actions';
+      S['nativeAtoms'] := 'analysis access/getters; per-file reference build; whole record/override/referrer remap; header setters and audit';
     end;
     with O['kindLimits'].O['files.hygiene.batch'] do begin
       I['targetFileLimit'] := 256;

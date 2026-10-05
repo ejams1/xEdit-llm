@@ -851,6 +851,20 @@ Clients can discover this command through `supports.sessionFlush: true`.
 
 ## Client parsing rules
 
+At source contract0.66, `plugin.esl.apply` composes retained ESL analysis and
+optional compaction with explicit eligibility and `esl-flag` boundaries. Its
+file row retains `analysis` (partial stats or final eligibility),
+`analysisComplete`, `requiresCompact`, completed remap counts/outcomes and
+`flagOutcome` (`not_started`, `applying`, `planned`, `applied`). The file remains
+`complete:false` when compaction finishes until the flag phase also finishes.
+`progress.detail.cursor` describes the current/last analysis or compaction
+cursor. Analysis and compaction work limits apply separately. Existing summary
+`planned`/`applied` count flags; new `remapsPlanned`/`remapsApplied` count completed
+compaction actions. Dry completed file rows retain the legacy projected
+`changed` flag, while summary.changed means observed native mutation. Cancel
+after compaction can leave remapped records with ESL still unset; explicit
+save/flush is required to persist either edit. Native atoms remain indivisible.
+
 At source contract0.65, `plugin.formids.compact_for_esl` is cooperatively stepped.
 Its current file row exposes `complete`, `planningComplete`, `preflightComplete`,
 `appliedRemaps` and a bounded `remaps` array with `outcome` (`not_started`,
